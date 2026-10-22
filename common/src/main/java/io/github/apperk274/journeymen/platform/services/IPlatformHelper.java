@@ -2,7 +2,9 @@ package io.github.apperk274.journeymen.platform.services;
 
 import com.mojang.authlib.GameProfile;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.nio.file.Path;
 
@@ -17,6 +19,10 @@ public interface IPlatformHelper {
     Path getGameDirectory();
 
     ServerPlayer getFakePlayer(ServerLevel level, GameProfile profile);
+
+    boolean mayBreak(ServerPlayer player, BlockPos pos, BlockState state);
+
+    boolean mayPlace(ServerPlayer player, BlockPos pos, BlockState state);
 
     default String getEnvironmentName() {
         return isDevelopmentEnvironment() ? "development" : "production";

@@ -1,0 +1,160 @@
+package io.github.apperk274.journeymen.build;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.HoeItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ShovelItem;
+import net.minecraft.world.item.component.Tool;
+import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
+
+public final class ToolCheck {
+
+    private static final List<Item> EXAMPLE_TOOLS = List.of(
+            Items.WOODEN_PICKAXE, Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE, Items.NETHERITE_PICKAXE,
+            Items.WOODEN_AXE, Items.STONE_AXE, Items.IRON_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE,
+            Items.WOODEN_SHOVEL, Items.STONE_SHOVEL, Items.IRON_SHOVEL, Items.DIAMOND_SHOVEL, Items.NETHERITE_SHOVEL,
+            Items.WOODEN_HOE, Items.STONE_HOE, Items.IRON_HOE, Items.DIAMOND_HOE, Items.NETHERITE_HOE,
+            Items.SHEARS, Items.WOODEN_SWORD, Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD, Items.NETHERITE_SWORD);
+
+    private ToolCheck() {
+    }
+
+    public static int usableDurability(ItemStack stack, boolean allowBreakingEnchanted) {
+        if (!stack.isDamageableItem()) {
+            return Integer.MAX_VALUE;
+        }
+        int remaining = stack.getMaxDamage() - stack.getDamageValue();
+        if (stack.isEnchanted() && !allowBreakingEnchanted) {
+            remaining--;
+        }
+        return Math.max(0, remaining);
+    }
+
+    public static int damagePerBlock(ItemStack stack, BlockState state, ServerLevel level, BlockPos pos) {
+        Tool tool = stack.get(DataComponents.TOOL);
+        if (tool == null || state.getDestroySpeed(level, pos) == 0.0F) {
+            return 0;
+        }
+        return tool.damagePerBlock();
+    }
+
+    public static List<Component> check(ServerLevel level, List<BlockPos> toClear, Map<BlockRequirements.ToolUse, Integer> toolUses,
+                                        List<ItemStack> tools, boolean allowBreakingEnchanted) {
+        List<Slot> slots = new ArrayList<>();
+        for (ItemStack stack : tools) {
+            if (stack.get(DataComponents.TOOL) != null || stack.getItem() instanceof HoeItem || stack.getItem() instanceof ShovelItem) {
+                slots.add(new Slot(stack, usableDurability(stack, allowBreakingEnchanted)));
+            }
+        }
+
+        Map<BlockState, Integer> needingTool = new LinkedHashMap<>();
+        Map<BlockState, BlockPos> examplePos = new LinkedHashMap<>();
+        for (BlockPos pos : toClear) {
+            BlockState state = level.getBlockState(pos);
+            if (state.requiresCorrectToolForDrops() && state.getDestroySpeed(level, pos) > 0.0F) {
+                needingTool.merge(state, 1, Integer::sum);
+                examplePos.putIfAbsent(state, pos);
+            }
+        }
+
+        List<Map.Entry<BlockState, Integer>> ordered = new ArrayList<>(needingTool.entrySet());
+        ordered.sort(Comparator.comparingInt(entry -> candidates(slots, stack -> stack.isCorrectToolForDrops(entry.getKey())).size()));
+
+        List<Component> problems = new ArrayList<>();
+        for (Map.Entry<BlockState, Integer> entry : ordered) {
+            BlockState state = entry.getKey();
+            BlockPos pos = examplePos.get(state);
+            List<Slot> candidates = candidates(slots, stack -> stack.isCorrectToolForDrops(state));
+            candidates.sort(Comparator.comparingDouble((Slot slot) -> slot.stack.getDestroySpeed(state)).reversed());
+            int missing = allocate(candidates, entry.getValue(), slot -> damagePerBlock(slot.stack, state, level, pos));
+            if (missing > 0) {
+                problems.add(toolProblem(missing, entry.getValue(), state.getBlock().getName(), exampleTool(state), candidates.isEmpty()));
+            }
+        }
+
+        Map<BlockRequirements.ToolUse, Predicate<ItemStack>> useKinds = new EnumMap<>(BlockRequirements.ToolUse.class);
+        useKinds.put(BlockRequirements.ToolUse.HOE, stack -> stack.getItem() instanceof HoeItem);
+        useKinds.put(BlockRequirements.ToolUse.SHOVEL, stack -> stack.getItem() instanceof ShovelItem);
+        for (Map.Entry<BlockRequirements.ToolUse, Integer> entry : toolUses.entrySet()) {
+            List<Slot> candidates = candidates(slots, useKinds.get(entry.getKey()));
+            int missing = allocate(candidates, entry.getValue(), slot -> slot.stack.isDamageableItem() ? 1 : 0);
+            if (missing > 0) {
+                problems.add(Component.literal("Needs " + entry.getKey().description() + " with " + missing + " more use(s) left, for farmland or dirt paths."));
+            }
+        }
+        return problems;
+    }
+
+    private static Component toolProblem(int missing, int total, Component blockName, @Nullable Item example, boolean noTool) {
+        String needs = example == null ? "a suitable tool" : example.getDescription().getString() + " or better";
+        if (noTool) {
+            return Component.literal("No tool that can mine " + total + " ").append(blockName)
+                    .append(Component.literal(" (needs " + needs + ")."));
+        }
+        return Component.literal("Not enough tool durability for " + missing + " of " + total + " ").append(blockName)
+                .append(Component.literal(" (needs " + needs + ")."));
+    }
+
+    private static int allocate(List<Slot> candidates, int blocks, ToIntFunction<Slot> cost) {
+        int remaining = blocks;
+        for (Slot slot : candidates) {
+            if (remaining == 0) {
+                break;
+            }
+            int perBlock = cost.applyAsInt(slot);
+            if (perBlock == 0 || slot.budget == Integer.MAX_VALUE) {
+                return 0;
+            }
+            int possible = Math.min(remaining, slot.budget / perBlock);
+            slot.budget -= possible * perBlock;
+            remaining -= possible;
+        }
+        return remaining;
+    }
+
+    private static List<Slot> candidates(List<Slot> slots, Predicate<ItemStack> predicate) {
+        List<Slot> result = new ArrayList<>();
+        for (Slot slot : slots) {
+            if (predicate.test(slot.stack)) {
+                result.add(slot);
+            }
+        }
+        return result;
+    }
+
+    @Nullable
+    private static Item exampleTool(BlockState state) {
+        for (Item item : EXAMPLE_TOOLS) {
+            if (new ItemStack(item).isCorrectToolForDrops(state)) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private static final class Slot {
+
+        private final ItemStack stack;
+        private int budget;
+
+        private Slot(ItemStack stack, int budget) {
+            this.stack = stack;
+            this.budget = budget;
+        }
+    }
+}

@@ -3,9 +3,12 @@ package io.github.apperk274.journeymen.platform;
 import com.mojang.authlib.GameProfile;
 import io.github.apperk274.journeymen.platform.services.IPlatformHelper;
 import net.fabricmc.fabric.api.entity.FakePlayer;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.nio.file.Path;
 
@@ -34,5 +37,15 @@ public class FabricPlatformHelper implements IPlatformHelper {
     @Override
     public ServerPlayer getFakePlayer(ServerLevel level, GameProfile profile) {
         return FakePlayer.get(level, profile);
+    }
+
+    @Override
+    public boolean mayBreak(ServerPlayer player, BlockPos pos, BlockState state) {
+        return PlayerBlockBreakEvents.BEFORE.invoker().beforeBlockBreak(player.level(), player, pos, state, player.level().getBlockEntity(pos));
+    }
+
+    @Override
+    public boolean mayPlace(ServerPlayer player, BlockPos pos, BlockState state) {
+        return mayBreak(player, pos, player.level().getBlockState(pos));
     }
 }

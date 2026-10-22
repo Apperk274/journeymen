@@ -1,7 +1,9 @@
 package io.github.apperk274.journeymen.schematic;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -23,15 +25,23 @@ final class SpongeSchematicReader {
         int version = tag.getInt("Version");
         CompoundTag paletteTag;
         byte[] data;
+        ListTag blockEntityList;
+        Vec3i pasteOffset;
         switch (version) {
             case 2 -> {
                 paletteTag = tag.getCompound("Palette");
                 data = tag.getByteArray("BlockData");
+                blockEntityList = tag.getList("BlockEntities", Tag.TAG_COMPOUND);
+                CompoundTag metadata = tag.getCompound("Metadata");
+                pasteOffset = new Vec3i(metadata.getInt("WEOffsetX"), metadata.getInt("WEOffsetY"), metadata.getInt("WEOffsetZ"));
             }
             case 3 -> {
                 CompoundTag blocks = tag.getCompound("Blocks");
                 paletteTag = blocks.getCompound("Palette");
                 data = blocks.getByteArray("Data");
+                blockEntityList = blocks.getList("BlockEntities", Tag.TAG_COMPOUND);
+                int[] offset = tag.getIntArray("Offset");
+                pasteOffset = offset.length == 3 ? new Vec3i(offset[0], offset[1], offset[2]) : Vec3i.ZERO;
             }
             default -> throw new SchematicException("Unsupported Sponge schematic version " + version + " (expected 2 or 3)");
         }
@@ -84,6 +94,25 @@ final class SpongeSchematicReader {
             blocks[i] = target;
         }
 
-        return new Schematic(new Vec3i(width, height, length), palette, blocks, unknownBlocks);
+        Map<BlockPos, CompoundTag> blockEntities = new HashMap<>();
+        for (int i = 0; i < blockEntityList.size(); i++) {
+            CompoundTag entry = blockEntityList.getCompound(i);
+            int[] pos = entry.getIntArray("Pos");
+            if (pos.length != 3 || pos[0] < 0 || pos[1] < 0 || pos[2] < 0 || pos[0] >= width || pos[1] >= height || pos[2] >= length) {
+                continue;
+            }
+            CompoundTag blockEntity;
+            if (version == 3) {
+                blockEntity = entry.getCompound("Data").copy();
+            } else {
+                blockEntity = entry.copy();
+                blockEntity.remove("Pos");
+                blockEntity.remove("Id");
+            }
+            blockEntity.putString("id", entry.getString("Id"));
+            blockEntities.put(new BlockPos(pos[0], pos[1], pos[2]), BlockStates.upgradeBlockEntity(blockEntity, dataVersion));
+        }
+
+        return new Schematic(new Vec3i(width, height, length), pasteOffset, palette, blocks, blockEntities, unknownBlocks);
     }
 }

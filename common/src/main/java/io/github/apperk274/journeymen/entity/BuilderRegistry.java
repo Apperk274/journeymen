@@ -10,6 +10,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +32,7 @@ public final class BuilderRegistry extends SavedData {
     private static final Factory<BuilderRegistry> FACTORY = new Factory<>(BuilderRegistry::new, BuilderRegistry::load, null);
 
     private final Map<UUID, Entry> entries = new LinkedHashMap<>();
+    private final Map<UUID, JobArea> jobAreas = new HashMap<>();
 
     public static BuilderRegistry get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
@@ -77,9 +80,29 @@ public final class BuilderRegistry extends SavedData {
     }
 
     public void remove(UUID id) {
-        if (entries.remove(id) != null) {
+        boolean changed = entries.remove(id) != null;
+        changed |= jobAreas.remove(id) != null;
+        if (changed) {
             setDirty();
         }
+    }
+
+    public void setJobArea(UUID id, @Nullable JobArea area) {
+        if (area == null ? jobAreas.remove(id) != null : !area.equals(jobAreas.put(id, area))) {
+            setDirty();
+        }
+    }
+
+    public Optional<Entry> findOverlappingJob(ResourceKey<Level> dimension, BoundingBox box, UUID except) {
+        for (Map.Entry<UUID, JobArea> job : jobAreas.entrySet()) {
+            if (!job.getKey().equals(except) && job.getValue().dimension().equals(dimension) && job.getValue().box().intersects(box)) {
+                Entry entry = entries.get(job.getKey());
+                if (entry != null) {
+                    return Optional.of(entry);
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -96,6 +119,16 @@ public final class BuilderRegistry extends SavedData {
             list.add(entryTag);
         }
         tag.put("Builders", list);
+        ListTag jobs = new ListTag();
+        for (Map.Entry<UUID, JobArea> job : jobAreas.entrySet()) {
+            CompoundTag jobTag = new CompoundTag();
+            jobTag.putUUID("Id", job.getKey());
+            jobTag.putString("Dimension", job.getValue().dimension().location().toString());
+            BoundingBox box = job.getValue().box();
+            jobTag.putIntArray("Box", new int[]{box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ()});
+            jobs.add(jobTag);
+        }
+        tag.put("JobAreas", jobs);
         return tag;
     }
 
@@ -113,6 +146,16 @@ public final class BuilderRegistry extends SavedData {
                     entryTag.getString("Name"), ResourceKey.create(Registries.DIMENSION, dimension), new BlockPos(pos[0], pos[1], pos[2]));
             registry.entries.put(entry.id, entry);
         }
+        ListTag jobs = tag.getList("JobAreas", Tag.TAG_COMPOUND);
+        for (int i = 0; i < jobs.size(); i++) {
+            CompoundTag jobTag = jobs.getCompound(i);
+            ResourceLocation dimension = ResourceLocation.tryParse(jobTag.getString("Dimension"));
+            int[] box = jobTag.getIntArray("Box");
+            if (jobTag.hasUUID("Id") && dimension != null && box.length == 6) {
+                registry.jobAreas.put(jobTag.getUUID("Id"), new JobArea(ResourceKey.create(Registries.DIMENSION, dimension),
+                        new BoundingBox(box[0], box[1], box[2], box[3], box[4], box[5])));
+            }
+        }
         return registry;
     }
 
@@ -122,6 +165,9 @@ public final class BuilderRegistry extends SavedData {
             names.add(entry.name);
         }
         return names;
+    }
+
+    public record JobArea(ResourceKey<Level> dimension, BoundingBox box) {
     }
 
     public record Entry(UUID id, UUID owner, String ownerName, String name, ResourceKey<Level> dimension, BlockPos pos) {

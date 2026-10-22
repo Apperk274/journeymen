@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.schematic;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -54,6 +55,7 @@ final class StructureNbtReader {
         Vec3i size = new Vec3i(width, height, length);
         int[] blocks = new int[volume];
         Arrays.fill(blocks, Schematic.NO_BLOCK);
+        Map<BlockPos, CompoundTag> blockEntities = new HashMap<>();
         ListTag blocksTag = tag.getList("blocks", Tag.TAG_COMPOUND);
         for (int i = 0; i < blocksTag.size(); i++) {
             CompoundTag block = blocksTag.getCompound(i);
@@ -72,8 +74,11 @@ final class StructureNbtReader {
                 throw new SchematicException("Block " + i + " refers to palette id " + state + ", which is not in the palette");
             }
             blocks[Schematic.index(size, x, y, z)] = remap[state];
+            if (block.contains("nbt", Tag.TAG_COMPOUND)) {
+                blockEntities.put(new BlockPos(x, y, z), block.getCompound("nbt").copy());
+            }
         }
 
-        return new Schematic(size, palette, blocks, unknownBlocks);
+        return new Schematic(size, Vec3i.ZERO, palette, blocks, blockEntities, unknownBlocks);
     }
 }

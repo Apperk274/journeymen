@@ -15,6 +15,13 @@ mise exec -- ./gradlew :neoforge:runData
 
 A dev client opens a game window. To verify a change without a person watching, launch it in the background, wait for `Sound engine started` (or a crash) in the output, then stop it and kill the leftover `java.exe`.
 
+To test commands and behaviour without a person, run a dev server (`:neoforge:runServer` or `:fabric:runServer`; the run dir needs `eula.txt`) with RCON enabled in its `server.properties`, and send commands over RCON. Turn RCON off again afterwards. Things to know:
+
+- Gradle doesn't pass console input through to the server, so RCON is the way in.
+- In the dev environment, `/journeymen debug as <player> <permission> <pos> <command>` runs a command as a fake player (for commands that need a player, like `builder summon`) and copies its output to the server log.
+- RCON only returns output produced while the command runs. Output that arrives later (schematic loading, pre-check results) only shows up in the server log via `debug as`.
+- A server with no players stops ticking entities 15 seconds after the last player leaves unless chunks are force-loaded, so `forceload add` the test area first. Force-loads may not survive a restart in the dev setup; add them again after restarting.
+
 ## Architecture rules
 
 - Put as much as possible in `common/`. It sees only vanilla Minecraft (Mojang mappings + Parchment), so no NeoForge or Fabric imports.
@@ -63,6 +70,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - It keeps working while the owner is offline.
 - A config limit caps the job volume (generous by default, e.g. 256×256×256).
 - The areas of two active jobs may not overlap.
+- While a builder has a job, `come` and `follow` are refused (cancel the job first).
 
 ### Pre-check (core requirement)
 
@@ -78,7 +86,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 ### Supply and dump chests
 
-- `/journeymen builder chest <name> add <x y z> supply|dump`, plus `remove` and `list`. A builder can have several chests of each role, used in order. A friendlier way to assign them (e.g. shift-right-click) can come later; the command stays.
+- `/journeymen builder chest <name> add <x y z> supply|dump`, plus `remove` and `list`. A builder can have several chests of each role, used in order. Both halves of a double chest count as one chest. A friendlier way to assign them (e.g. shift-right-click) can come later; the command stays.
 - **Supply chests** are stock: it walks over and takes the materials and tools it needs. They count in the pre-check.
 - **Dump chests** take drops when its inventory is full. It never dumps into a supply chest and never builds from a dump chest. With no dump chest, or all of them full, it pauses and asks.
 
@@ -89,7 +97,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 3. **Reach:** it walks until the block is within horizontal reach (player reach, 4.5 blocks). Height doesn't matter: it reaches any height, so there is no scaffolding or pillaring. If it can't get within horizontal reach (lava pool, void), it works from where it is anyway.
 4. **Breaking:** look at the block, swing, show crack progress (`destroyBlockProgress`). Break time follows player rules for the held tool. It picks the fastest tool it has for each block and uses durability like a player. Drops go straight into its inventory, never on the ground, so nothing can be stolen or burn. When its inventory is full it walks to a dump chest.
 5. **Fluids in the way:** water or lava where the schematic wants a block or air is not handled. It pauses and tells the owner the positions.
-6. **Placing:** bottom-up, with attached, gravity and fragile blocks (torches, doors, redstone, sand, carpets) after their supports. It can place anywhere within reach: no supporting neighbor and no line of sight needed. Each block consumes its item from inventory, with a swing and a sound. The block state is kept (facing, half, axis…) and rotated. Special cases follow the material list (redstone wire → redstone, double slab → 2 slabs, potted plant → pot + plant, …). Doors and beds place both halves from one item.
+6. **Placing:** bottom-up, with attached, gravity and fragile blocks (torches, doors, redstone, sand, carpets) after their supports. It can place anywhere within reach: no supporting neighbor and no line of sight needed. Like a player, it places straight into replaceable blocks (short grass, snow layers, …) without breaking them first. Each block consumes its item from inventory, with a swing and a sound. The block state is kept (facing, half, axis…) and rotated. Special cases follow the material list (redstone wire → redstone, double slab → 2 slabs, potted plant → pot + plant, …). Doors and beds place both halves from one item.
 7. **Growth stages:** crops, saplings and other aging blocks are placed young (age 0), like a player, and grow on their own. Leaves are placed persistent, like player-placed leaves, so they never decay. States that come from neighbors (fence, pane and wall connections, stair shape, redstone wire connections and power, `lit`, `powered`) are not compared in the diff; the game sets them as it would for a player.
 8. **Block updates** happen as for a player, so a half-built contraption may fire.
 9. **Fluids last:** water and lava sources and waterlogging go in after every solid block, with buckets. The empty buckets come back to its inventory.
@@ -124,8 +132,8 @@ Phase 3 is built in steps, each tested on both loaders:
 
 | Step | Done when |
 |---|---|
-| 3a | Config file, builder names and renaming, `<owner>.<name>` targeting for ops, `come` / `follow` / `stay` / `kill` / `status`, item pickup, damage and regeneration, fake player on both loaders |
-| 3b | `check` / `build` / `cancel` with origin, rotation and options, chest assignment, the full pre-check, and jobs that survive reload |
+| 3a ✅ | Config file, builder names and renaming, `<owner>.<name>` targeting for ops, `come` / `follow` / `stay` / `kill` / `status`, item pickup, damage and regeneration, fake player on both loaders |
+| 3b ✅ | `check` / `build` / `cancel` with origin, rotation and options, chest assignment, the full pre-check, and jobs that survive reload |
 | 3c | Clearing: walking into reach, breaking with tools at player speed, drops into inventory, dump chests, pausing for fluids |
 | 3d | Placing: order, states, special cases, growth stages, made blocks, block entity data, fluids last, wrong-state fixing, waiting for entities, tampering and redo |
 | 3e | Boss bar, pause notifications with offline delivery and reminders |

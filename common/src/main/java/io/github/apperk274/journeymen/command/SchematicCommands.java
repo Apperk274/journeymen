@@ -5,6 +5,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import io.github.apperk274.journeymen.Constants;
+import io.github.apperk274.journeymen.build.BlockRequirements;
 import io.github.apperk274.journeymen.schematic.MaterialList;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
@@ -18,7 +19,7 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
 import java.io.IOException;
@@ -100,7 +101,7 @@ public class SchematicCommands {
     private static int materials(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         String name = StringArgumentType.getString(context, "file");
-        loadAsync(source, name, schematic -> sendMaterials(source, name, schematic, MaterialList.of(schematic)));
+        loadAsync(source, name, schematic -> sendMaterials(source, name, schematic, MaterialList.of(schematic, source.registryAccess())));
         return 1;
     }
 
@@ -112,8 +113,12 @@ public class SchematicCommands {
         if (materials.getItems().isEmpty()) {
             source.sendSuccess(() -> Component.literal("Nothing to place."), false);
         }
-        for (Map.Entry<Item, Integer> entry : materials.getItems().entrySet()) {
+        for (Map.Entry<ItemStack, Long> entry : materials.getItems()) {
             source.sendSuccess(() -> itemLine(entry.getKey(), entry.getValue()), false);
+        }
+        for (Map.Entry<BlockRequirements.ToolUse, Integer> entry : materials.getToolUses().entrySet()) {
+            source.sendSuccess(() -> Component.literal(String.format("%6d ", entry.getValue())).withStyle(ChatFormatting.YELLOW)
+                    .append(Component.literal("uses of " + entry.getKey().description()).withStyle(ChatFormatting.WHITE)), false);
         }
         for (Map.Entry<Block, Integer> entry : materials.getUnobtainable().entrySet()) {
             source.sendSuccess(() -> Component.literal("Can't be placed by hand: " + entry.getValue() + " ")
@@ -127,13 +132,16 @@ public class SchematicCommands {
         }
     }
 
-    public static MutableComponent itemLine(Item item, int count) {
+    public static MutableComponent itemLine(ItemStack stack, long count) {
         MutableComponent line = Component.literal(String.format("%6d ", count)).withStyle(ChatFormatting.YELLOW)
-                .append(item.getDescription().copy().withStyle(ChatFormatting.WHITE));
-        int stackSize = item.getDefaultMaxStackSize();
+                .append(stack.getHoverName().copy().withStyle(ChatFormatting.WHITE));
+        if (!stack.getComponentsPatch().isEmpty()) {
+            line.append(Component.literal(" (with data)").withStyle(ChatFormatting.GRAY));
+        }
+        int stackSize = stack.getMaxStackSize();
         if (stackSize > 1 && count > stackSize) {
-            int stacks = count / stackSize;
-            int rest = count % stackSize;
+            long stacks = count / stackSize;
+            long rest = count % stackSize;
             line.append(Component.literal(" (" + stacks + "×" + stackSize + (rest > 0 ? " + " + rest : "") + ")")
                     .withStyle(ChatFormatting.GRAY));
         }

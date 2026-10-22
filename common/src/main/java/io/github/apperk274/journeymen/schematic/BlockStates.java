@@ -55,6 +55,16 @@ final class BlockStates {
                 .getValue();
     }
 
+    static CompoundTag upgradeBlockEntity(CompoundTag blockEntityTag, int dataVersion) {
+        int current = SharedConstants.getCurrentVersion().getDataVersion().getVersion();
+        if (dataVersion >= current) {
+            return blockEntityTag;
+        }
+        return (CompoundTag) DataFixers.getDataFixer()
+                .update(References.BLOCK_ENTITY, new Dynamic<>(NbtOps.INSTANCE, blockEntityTag), dataVersion, current)
+                .getValue();
+    }
+
     @Nullable
     static BlockState read(CompoundTag stateTag, Set<String> unknownBlocks) {
         String name = stateTag.getString("Name");

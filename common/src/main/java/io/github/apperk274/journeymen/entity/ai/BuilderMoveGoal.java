@@ -30,13 +30,14 @@ public class BuilderMoveGoal extends Goal {
     @Override
     public boolean canUse() {
         Vec3 target = target();
-        return target != null && builder.position().distanceTo(target) > startDistance();
+        return builder.getJob() == null && target != null && builder.position().distanceTo(target) > startDistance();
     }
 
     @Override
     public boolean canContinueToUse() {
         Vec3 target = target();
-        return target != null && builder.position().distanceTo(target) > stopDistance() && ticksWithoutProgress < GIVE_UP_TICKS;
+        return builder.getJob() == null && target != null && builder.position().distanceTo(target) > stopDistance()
+                && ticksWithoutProgress < GIVE_UP_TICKS;
     }
 
     @Override

@@ -2,8 +2,17 @@ package io.github.apperk274.journeymen.command;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import io.github.apperk274.journeymen.build.AssignedChest;
+import io.github.apperk274.journeymen.build.BuildJob;
+import io.github.apperk274.journeymen.build.BuildOptions;
+import io.github.apperk274.journeymen.build.BuildPlan;
+import io.github.apperk274.journeymen.build.PlacementTransform;
+import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderNames;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
@@ -11,18 +20,35 @@ import io.github.apperk274.journeymen.entity.ModEntities;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.TemplateRotationArgument;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 
 public class BuilderCommands {
+
+    private static final SuggestionProvider<CommandSourceStack> OPTION_SUGGESTIONS = (context, builder) -> {
+        String remaining = builder.getRemaining();
+        int lastSpace = remaining.lastIndexOf(' ');
+        SuggestionsBuilder offset = builder.createOffset(builder.getStart() + lastSpace + 1);
+        List<String> used = List.of(remaining.toLowerCase(Locale.ROOT).split("\\s+"));
+        return SharedSuggestionProvider.suggest(BuildOptions.ALL.stream().filter(option -> !used.contains(option)), offset);
+    };
+
+    private static final SuggestionProvider<CommandSourceStack> ROLE_SUGGESTIONS = (context, builder) ->
+            SharedSuggestionProvider.suggest(List.of("supply", "dump"), builder);
 
     static LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal("builder")
@@ -42,7 +68,136 @@ public class BuilderCommands {
                 .then(Commands.literal("come").then(BuilderTargets.argument().executes(BuilderCommands::come)))
                 .then(Commands.literal("follow").then(BuilderTargets.argument().executes(context -> setFollowing(context, true))))
                 .then(Commands.literal("stay").then(BuilderTargets.argument().executes(context -> setFollowing(context, false))))
-                .then(Commands.literal("kill").then(BuilderTargets.argument().executes(BuilderCommands::kill)));
+                .then(Commands.literal("kill").then(BuilderTargets.argument().executes(BuilderCommands::kill)))
+                .then(Commands.literal("check").then(jobArguments(false)))
+                .then(Commands.literal("build").then(jobArguments(true)))
+                .then(Commands.literal("cancel").then(BuilderTargets.argument().executes(BuilderCommands::cancel)))
+                .then(Commands.literal("chest").then(BuilderTargets.argument()
+                        .then(Commands.literal("add").then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .then(Commands.argument("role", StringArgumentType.word()).suggests(ROLE_SUGGESTIONS)
+                                        .executes(BuilderCommands::addChest))))
+                        .then(Commands.literal("remove").then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(BuilderCommands::removeChest)))
+                        .then(Commands.literal("list").executes(BuilderCommands::listChests))));
+    }
+
+    private static RequiredArgumentBuilder<CommandSourceStack, String> jobArguments(boolean start) {
+        return BuilderTargets.argument().then(Commands.argument("file", StringArgumentType.string())
+                .suggests(SchematicCommands.SCHEMATIC_FILES)
+                .executes(context -> job(context, start, false, false, false))
+                .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                        .executes(context -> job(context, start, true, false, false))
+                        .then(Commands.argument("rotation", TemplateRotationArgument.templateRotation())
+                                .executes(context -> job(context, start, true, true, false))
+                                .then(Commands.argument("options", StringArgumentType.greedyString())
+                                        .suggests(OPTION_SUGGESTIONS)
+                                        .executes(context -> job(context, start, true, true, true))))));
+    }
+
+    private static int job(CommandContext<CommandSourceStack> context, boolean start, boolean hasPos, boolean hasRotation, boolean hasOptions)
+            throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        if (start && builder.getJob() != null) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " is already working on " + builder.getJob().getFile() + ". Cancel that job first.");
+        }
+        if (builder.level() != source.getLevel()) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " is in another dimension.");
+        }
+        String file = StringArgumentType.getString(context, "file");
+        BlockPos origin = hasPos ? BlockPosArgument.getBlockPos(context, "pos") : BlockPos.containing(source.getPosition());
+        Rotation rotation = hasRotation ? TemplateRotationArgument.getRotation(context, "rotation") : Rotation.NONE;
+        BuildOptions options;
+        try {
+            options = hasOptions ? BuildOptions.parse(StringArgumentType.getString(context, "options")) : BuildOptions.DEFAULT;
+        } catch (IllegalArgumentException e) {
+            throw JourneymenCommand.fail(e.getMessage());
+        }
+        SchematicCommands.loadAsync(source, file, schematic -> {
+            if (!builder.isAlive()) {
+                source.sendFailure(Component.literal(builder.getBuilderName() + " is gone."));
+                return;
+            }
+            PlacementTransform transform = PlacementTransform.of(schematic, origin, rotation, options.corner());
+            PreCheck check = PreCheck.run(builder, schematic, transform, options);
+            BoundingBox area = check.getArea();
+            source.sendSuccess(() -> Component.literal((start ? "Build " : "Check ") + file).withStyle(ChatFormatting.GOLD)
+                    .append(Component.literal(" for " + builder.getBuilderName() + " at " + origin.toShortString() + ", rotation "
+                            + rotation.getSerializedName() + ", options " + options.describe() + "; area "
+                            + area.minX() + " " + area.minY() + " " + area.minZ() + " to " + area.maxX() + " " + area.maxY() + " " + area.maxZ())
+                            .withStyle(ChatFormatting.GRAY)), false);
+            check.lines().forEach(line -> source.sendSuccess(() -> line, false));
+            if (!start) {
+                return;
+            }
+            BuildPlan plan = check.getPlan();
+            if (!check.passed() || plan == null) {
+                source.sendFailure(Component.literal(builder.getBuilderName() + " can't start this job yet."));
+                return;
+            }
+            if (builder.getJob() != null) {
+                source.sendFailure(Component.literal(builder.getBuilderName() + " got another job in the meantime."));
+                return;
+            }
+            builder.startJob(new BuildJob(file, origin, rotation, options, area, BuildJob.Phase.WALKING), schematic, plan);
+            source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " is on the way.").withStyle(ChatFormatting.GREEN), false);
+        });
+        return 1;
+    }
+
+    private static int cancel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        BuildJob job = builder.getJob();
+        if (job == null) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " has no job.");
+        }
+        builder.cancelJob();
+        context.getSource().sendSuccess(() -> Component.literal(builder.getBuilderName() + " stopped working on " + job.getFile() + "."), false);
+        return 1;
+    }
+
+    private static int addChest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        if (builder.level() != source.getLevel()) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " is in another dimension.");
+        }
+        BlockPos pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
+        String roleId = StringArgumentType.getString(context, "role");
+        AssignedChest.Role role = AssignedChest.Role.byId(roleId);
+        if (role == null) {
+            throw JourneymenCommand.fail("Unknown chest role '" + roleId + "'. Use supply or dump.");
+        }
+        String problem = builder.addChest(pos, role);
+        if (problem != null) {
+            throw JourneymenCommand.fail(problem);
+        }
+        source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " uses the chest at " + pos.toShortString() + " as a " + role.id() + " chest."), false);
+        return 1;
+    }
+
+    private static int removeChest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
+        if (!builder.removeChest(pos)) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " has no chest at " + pos.toShortString() + ".");
+        }
+        context.getSource().sendSuccess(() -> Component.literal(builder.getBuilderName() + " no longer uses the chest at " + pos.toShortString() + "."), false);
+        return 1;
+    }
+
+    private static int listChests(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        List<AssignedChest> chests = builder.getChests();
+        if (chests.isEmpty()) {
+            source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " has no chests."), false);
+            return 0;
+        }
+        for (AssignedChest chest : chests) {
+            source.sendSuccess(() -> Component.literal(chest.role().id() + " chest at " + chest.pos().toShortString()), false);
+        }
+        return chests.size();
     }
 
     private static int summon(CommandContext<CommandSourceStack> context, @Nullable String requestedName) throws CommandSyntaxException {
@@ -111,7 +266,22 @@ public class BuilderCommands {
         if (builder != null) {
             source.sendSuccess(() -> Component.literal("  Health " + Math.round(builder.getHealth()) + "/" + Math.round(builder.getMaxHealth())), false);
         }
-        source.sendSuccess(() -> Component.literal("  Job: none"), false);
+        BuildJob job = builder == null ? null : builder.getJob();
+        if (job == null) {
+            source.sendSuccess(() -> Component.literal(builder == null ? "  Job: unknown while not loaded" : "  Job: none"), false);
+            return 1;
+        }
+        source.sendSuccess(() -> Component.literal("  Job: " + job.getFile() + " at " + job.getOrigin().toShortString() + ", rotation "
+                + job.describeRotation() + ", options " + job.getOptions().describe()), false);
+        String phase = job.getPhase() == BuildJob.Phase.PAUSED && job.getPauseReason() != null
+                ? "paused: " + job.getPauseReason()
+                : job.getPhase().description();
+        source.sendSuccess(() -> Component.literal("  Phase: " + phase), false);
+        BuildPlan plan = job.getPlan();
+        if (plan != null && plan.getTotalCount() > 0) {
+            int percent = plan.getDoneCount() * 100 / plan.getTotalCount();
+            source.sendSuccess(() -> Component.literal("  Progress: " + percent + "% (" + plan.getDoneCount() + " of " + plan.getTotalCount() + " blocks right)"), false);
+        }
         return 1;
     }
 
@@ -133,6 +303,9 @@ public class BuilderCommands {
         if (builder.level() != source.getLevel()) {
             throw JourneymenCommand.fail(builder.getBuilderName() + " is in another dimension.");
         }
+        if (builder.getJob() != null) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " is busy with " + builder.getJob().getFile() + ". Cancel the job first.");
+        }
         BlockPos target = BlockPos.containing(source.getPosition());
         builder.comeTo(target);
         source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " is coming to " + target.getX() + " " + target.getY() + " " + target.getZ() + "."), false);
@@ -141,6 +314,9 @@ public class BuilderCommands {
 
     private static int setFollowing(CommandContext<CommandSourceStack> context, boolean following) throws CommandSyntaxException {
         BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        if (following && builder.getJob() != null) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " is busy with " + builder.getJob().getFile() + ". Cancel the job first.");
+        }
         builder.setFollowing(following);
         String message = following ? builder.getBuilderName() + " follows its owner now." : builder.getBuilderName() + " stays here now.";
         context.getSource().sendSuccess(() -> Component.literal(message), false);
@@ -163,6 +339,9 @@ public class BuilderCommands {
     private static String describeActivity(@Nullable BuilderEntity builder) {
         if (builder == null) {
             return "not loaded";
+        }
+        if (builder.getJob() != null) {
+            return "working on " + builder.getJob().getFile() + " (" + builder.getJob().getPhase().description() + ")";
         }
         if (builder.getComeTarget() != null) {
             return "walking to you";
