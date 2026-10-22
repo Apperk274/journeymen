@@ -23,6 +23,18 @@ public final class ItemCounter {
         return counts.getOrDefault(new Key(stack.copyWithCount(1)), 0L);
     }
 
+    public long remove(ItemStack stack, long count) {
+        Key key = new Key(stack.copyWithCount(1));
+        long available = counts.getOrDefault(key, 0L);
+        long removed = Math.min(available, count);
+        if (removed == available) {
+            counts.remove(key);
+        } else {
+            counts.put(key, available - removed);
+        }
+        return removed;
+    }
+
     public boolean isEmpty() {
         return counts.isEmpty();
     }

@@ -14,15 +14,11 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -80,24 +76,10 @@ public final class PreCheck {
             check.warning("Skipping blocks this game doesn't have (missing mod?): " + String.join(", ", schematic.getUnknownBlocks().stream().sorted().toList()));
         }
 
-        ItemCounter needed = new ItemCounter();
-        Map<BlockRequirements.ToolUse, Integer> toolUses = new EnumMap<>(BlockRequirements.ToolUse.class);
-        Map<Block, Integer> unobtainable = new LinkedHashMap<>();
-        for (BuildPlan.Placement placement : plan.getToPlace()) {
-            BlockRequirements.Requirement requirement = BlockRequirements.of(placement.target(), placement.blockEntity(), level.registryAccess());
-            if (!requirement.obtainable()) {
-                unobtainable.merge(placement.target().getBlock(), 1, Integer::sum);
-                continue;
-            }
-            requirement.items().forEach(stack -> needed.add(stack, stack.getCount()));
-            if (requirement.toolUse() != null) {
-                toolUses.merge(requirement.toolUse(), 1, Integer::sum);
-            }
-        }
-        for (BuildPlan.Placement ignored : plan.getToWaterlog()) {
-            needed.add(new ItemStack(Items.WATER_BUCKET), 1);
-        }
-        unobtainable.forEach((block, count) -> check.problem(Component.literal("Can't be placed by hand: " + count + " ").append(block.getName())));
+        BuildPlan.Requirements requirements = plan.requirements(level.registryAccess());
+        ItemCounter needed = requirements.items();
+        Map<BlockRequirements.ToolUse, Integer> toolUses = requirements.toolUses();
+        requirements.unobtainable().forEach((block, count) -> check.problem(Component.literal("Can't be placed by hand: " + count + " ").append(block.getName())));
 
         List<BlockPos> unbreakable = new ArrayList<>();
         for (BlockPos pos : plan.getToClear()) {

@@ -1,22 +1,30 @@
 package io.github.apperk274.journeymen.entity;
 
 import com.mojang.authlib.GameProfile;
+import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildPlan;
+import io.github.apperk274.journeymen.build.ChestVisit;
+import io.github.apperk274.journeymen.build.ClearingTask;
+import io.github.apperk274.journeymen.build.ItemCounter;
 import io.github.apperk274.journeymen.build.PreCheck;
+import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.ai.BuilderMoveGoal;
+import io.github.apperk274.journeymen.platform.Services;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
@@ -27,6 +35,7 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -42,22 +51,30 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Predicate;
 
 public class BuilderEntity extends PathfinderMob {
 
@@ -66,9 +83,10 @@ public class BuilderEntity extends PathfinderMob {
     private static final int REGENERATION_INTERVAL = 80;
     private static final double LONG_WALK_DISTANCE = 40.0;
     private static final int MAX_CHESTS = 16;
-    private static final double SITE_REACH = 3.0;
+    private static final double NEAR_SITE = 16.0;
+    private static final int NEAR_SITE_STUCK_TICKS = 60;
     private static final int STUCK_TICKS = 1200;
-    private static final int PAUSE_RETRY_TICKS = 600;
+    private static final int PAUSE_RETRY_TICKS = 100;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -90,9 +108,20 @@ public class BuilderEntity extends PathfinderMob {
     private double bestSiteDistance = Double.MAX_VALUE;
     private int ticksWithoutProgress;
     private int pausedTicks;
+    @Nullable
+    private ClearingTask clearing;
+    private final Deque<ChestVisit> visits = new ArrayDeque<>();
+    private final Set<BlockPos> triedDumpChests = new HashSet<>();
+    private final List<ItemStack> overflow = new ArrayList<>();
+    private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
+    private final List<BlockPos> unclearable = new ArrayList<>();
+    @Nullable
+    private String lastNotice;
+    private int lastNoticeTick;
 
     public BuilderEntity(EntityType<? extends BuilderEntity> type, Level level) {
         super(type, level);
+        setDropChance(EquipmentSlot.MAINHAND, 0.0F);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -116,8 +145,28 @@ public class BuilderEntity extends PathfinderMob {
         goalSelector.addGoal(0, new FloatGoal(this));
         goalSelector.addGoal(1, new OpenDoorGoal(this, true));
         goalSelector.addGoal(2, new BuilderMoveGoal(this));
-        goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        goalSelector.addGoal(4, new RandomLookAroundGoal(this));
+        goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F) {
+            @Override
+            public boolean canUse() {
+                return job == null && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return job == null && super.canContinueToUse();
+            }
+        });
+        goalSelector.addGoal(4, new RandomLookAroundGoal(this) {
+            @Override
+            public boolean canUse() {
+                return job == null && super.canUse();
+            }
+
+            @Override
+            public boolean canContinueToUse() {
+                return job == null && super.canContinueToUse();
+            }
+        });
     }
 
     @Nullable
@@ -266,9 +315,269 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     public void cancelJob() {
+        stopWork();
         job = null;
-        getNavigation().stop();
+        redoCounts.clear();
+        unclearable.clear();
+        for (ItemStack stack : overflow) {
+            ItemStack remainder = inventory.addItem(stack);
+            if (!remainder.isEmpty()) {
+                spawnAtLocation(remainder);
+            }
+        }
+        overflow.clear();
         updateJobArea();
+    }
+
+    private void stopWork() {
+        if (clearing != null) {
+            clearing.stop();
+            clearing = null;
+        }
+        if (level() instanceof ServerLevel serverLevel) {
+            visits.forEach(visit -> visit.abort(serverLevel));
+        }
+        visits.clear();
+        triedDumpChests.clear();
+        getNavigation().stop();
+        showInHand(ItemStack.EMPTY);
+    }
+
+    @Nullable
+    public ClearingTask getClearing() {
+        return clearing;
+    }
+
+    public ServerPlayer actor() {
+        ServerLevel serverLevel = (ServerLevel) level();
+        ServerPlayer actor = Services.PLATFORM.getFakePlayer(serverLevel, new GameProfile(owner, getOwnerName()));
+        if (actor.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
+            actor.setGameMode(GameType.SURVIVAL);
+        }
+        actor.moveTo(getX(), getY(), getZ(), getYRot(), getXRot());
+        return actor;
+    }
+
+    public void showInHand(ItemStack stack) {
+        ItemStack shown = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+        if (!ItemStack.matches(getMainHandItem(), shown)) {
+            setItemSlot(EquipmentSlot.MAINHAND, shown);
+        }
+    }
+
+    public void captureDrops(BlockPos pos) {
+        for (ItemEntity item : level().getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(1.5))) {
+            if (item.isRemoved() || item.getAge() != 0) {
+                continue;
+            }
+            ItemStack remainder = inventory.addItem(item.getItem().copy());
+            if (!remainder.isEmpty()) {
+                overflow.add(remainder);
+            }
+            item.discard();
+        }
+    }
+
+    public void dumpInto(Container container) {
+        for (int i = 0; i < overflow.size(); i++) {
+            overflow.set(i, HopperBlockEntity.addItem(null, container, overflow.get(i), null));
+        }
+        overflow.removeIf(ItemStack::isEmpty);
+        ItemCounter keep = job != null && job.getPlan() != null ? job.getPlan().requirements(registryAccess()).items() : new ItemCounter();
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (stack.isEmpty() || isTool(stack)) {
+                continue;
+            }
+            int dumpCount = stack.getCount() - (int) keep.remove(stack, stack.getCount());
+            if (dumpCount <= 0) {
+                continue;
+            }
+            ItemStack remainder = HopperBlockEntity.addItem(null, container, stack.split(dumpCount), null);
+            stack.grow(remainder.getCount());
+        }
+        inventory.setChanged();
+    }
+
+    public void fetchFrom(Container container, Predicate<ItemStack> wanted) {
+        for (int slot = 0; slot < container.getContainerSize(); slot++) {
+            ItemStack stack = container.getItem(slot);
+            if (!stack.isEmpty() && wanted.test(stack)) {
+                container.setItem(slot, inventory.addItem(stack.copy()));
+            }
+        }
+        inventory.setChanged();
+    }
+
+    private static boolean isTool(ItemStack stack) {
+        return stack.get(DataComponents.TOOL) != null || stack.isDamageableItem();
+    }
+
+    private boolean hasFreeSlot() {
+        for (ItemStack stack : inventory.getItems()) {
+            if (stack.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void pauseJob(String reason) {
+        if (job == null) {
+            return;
+        }
+        if (clearing != null) {
+            clearing.stop();
+        }
+        if (level() instanceof ServerLevel serverLevel) {
+            visits.forEach(visit -> visit.abort(serverLevel));
+        }
+        visits.clear();
+        getNavigation().stop();
+        job.pause(reason);
+        pausedTicks = 0;
+        int reminderTicks = JourneymenConfig.REMINDER_INTERVAL_SECONDS.get() * 20;
+        if (!reason.equals(lastNotice) || tickCount - lastNoticeTick >= reminderTicks) {
+            notifyOwner(reason);
+            lastNotice = reason;
+            lastNoticeTick = tickCount;
+        }
+    }
+
+    private void tickClearing() {
+        ChestVisit visit = visits.peek();
+        if (visit != null) {
+            switch (visit.tick(this)) {
+                case WORKING -> {
+                }
+                case DONE -> {
+                    visits.poll();
+                    if (visit.getKind() == ChestVisit.Kind.DUMP) {
+                        if (!overflow.isEmpty() || !hasFreeSlot()) {
+                            startDump();
+                        } else {
+                            triedDumpChests.clear();
+                        }
+                    }
+                }
+                case FAILED -> {
+                    visits.poll();
+                    if (visit.getKind() == ChestVisit.Kind.DUMP) {
+                        startDump();
+                    } else {
+                        pauseJob(visit.getFailure() == null ? "I couldn't get to a supply chest." : visit.getFailure());
+                    }
+                }
+            }
+            return;
+        }
+        if (!overflow.isEmpty()) {
+            startDump();
+            return;
+        }
+        if (clearing == null && !prepareClearing()) {
+            return;
+        }
+        switch (clearing.tick()) {
+            case WORKING -> {
+            }
+            case NEEDS_DUMP -> startDump();
+            case NEEDS_TOOL -> startFetch(clearing.getNeededTool(), clearing.getNeededToolDescription());
+            case BLOCKED -> pauseJob(clearing.getBlockedReason());
+            case DONE -> finishClearing();
+        }
+    }
+
+    private boolean prepareClearing() {
+        if (job.getSchematic() == null) {
+            return false;
+        }
+        BuildPlan plan = job.getPlan();
+        if (plan == null) {
+            if (!BuildPlan.isLoaded((ServerLevel) level(), job.getArea())) {
+                pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
+                return false;
+            }
+            plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform());
+            job.setPlan(plan);
+        }
+        clearing = new ClearingTask(this, job, plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition());
+        ClearingTask task = clearing;
+        for (AssignedChest chest : chests) {
+            if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
+                continue;
+            }
+            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
+            if (container != null && containsMatching(container, task::isUsefulTool)) {
+                visits.add(ChestVisit.fetch(chest.pos(), task::isUsefulTool));
+            }
+        }
+        return true;
+    }
+
+    private void finishClearing() {
+        List<BlockPos> skipped = clearing.getSkipped();
+        clearing = null;
+        BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform());
+        job.setPlan(plan);
+        List<BlockPos> leftover = new ArrayList<>();
+        for (BlockPos pos : plan.getToClear()) {
+            if (redoCounts.merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
+                leftover.add(pos);
+            } else if (!unclearable.contains(pos)) {
+                unclearable.add(pos);
+            }
+        }
+        if (!leftover.isEmpty() || !plan.getFluidsInTheWay().isEmpty()) {
+            clearing = new ClearingTask(this, job, leftover, plan.getFluidsInTheWay(), plan.targetsByPosition());
+            return;
+        }
+        showInHand(ItemStack.EMPTY);
+        if (!unclearable.isEmpty() || !skipped.isEmpty()) {
+            BlockPos example = !unclearable.isEmpty() ? unclearable.get(0) : skipped.get(0);
+            notifyOwner("I couldn't clear " + Math.max(unclearable.size(), skipped.size()) + " block(s) of the site, e.g. at "
+                    + example.toShortString() + ".");
+        }
+        notifyOwner("The site of " + job.getFile() + " is clear.");
+        job.setPhase(BuildJob.Phase.PLACING);
+    }
+
+    private void startDump() {
+        for (AssignedChest chest : chests) {
+            if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
+                visits.add(ChestVisit.dump(chest.pos()));
+                return;
+            }
+        }
+        triedDumpChests.clear();
+        boolean hasDumpChest = chests.stream().anyMatch(chest -> chest.role() == AssignedChest.Role.DUMP);
+        pauseJob(hasDumpChest
+                ? "My inventory is full and my dump chests are full too. Please empty them or give me another one."
+                : "My inventory is full. Give me a dump chest with /journeymen builder chest " + getBuilderName() + " add <pos> dump.");
+    }
+
+    private void startFetch(Predicate<ItemStack> wanted, String description) {
+        for (AssignedChest chest : chests) {
+            if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
+                continue;
+            }
+            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
+            if (container != null && containsMatching(container, wanted)) {
+                visits.add(ChestVisit.fetch(chest.pos(), wanted));
+                return;
+            }
+        }
+        pauseJob("I need " + description + ".");
+    }
+
+    private static boolean containsMatching(Container container, Predicate<ItemStack> wanted) {
+        for (int slot = 0; slot < container.getContainerSize(); slot++) {
+            ItemStack stack = container.getItem(slot);
+            if (!stack.isEmpty() && wanted.test(stack)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void updateJobArea() {
@@ -279,6 +588,7 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     public void notifyOwner(String message) {
+        Constants.LOG.info("[{}.{}] {}", getOwnerName(), getBuilderName(), message);
         ServerPlayer ownerPlayer = getOwnerPlayer();
         if (ownerPlayer != null) {
             ownerPlayer.sendSystemMessage(Component.literal("[" + getBuilderName() + "] " + message));
@@ -292,6 +602,7 @@ public class BuilderEntity extends PathfinderMob {
         switch (job.getPhase()) {
             case LOADING -> reloadJob();
             case WALKING -> walkToSite();
+            case CLEARING -> tickClearing();
             case PAUSED -> {
                 if (++pausedTicks >= PAUSE_RETRY_TICKS) {
                     pausedTicks = 0;
@@ -339,7 +650,8 @@ public class BuilderEntity extends PathfinderMob {
     private void walkToSite() {
         BoundingBox area = job.getArea();
         double distance = PreCheck.horizontalDistance(blockPosition(), area);
-        if (distance <= SITE_REACH) {
+        boolean stuckNearby = distance <= NEAR_SITE && ticksWithoutProgress > NEAR_SITE_STUCK_TICKS;
+        if (distance <= ClearingTask.REACH || stuckNearby) {
             getNavigation().stop();
             job.setPhase(BuildJob.Phase.CLEARING);
             return;
@@ -356,7 +668,7 @@ public class BuilderEntity extends PathfinderMob {
         if (tickCount % 20 == 0 || getNavigation().isDone()) {
             double x = Math.max(area.minX(), Math.min(area.maxX(), getX()));
             double z = Math.max(area.minZ(), Math.min(area.maxZ(), getZ()));
-            walkTowards(new Vec3(x + 0.5, area.minY(), z + 0.5));
+            walkTowards(new Vec3(x + 0.5, getY(), z + 0.5));
         }
     }
 
@@ -519,6 +831,8 @@ public class BuilderEntity extends PathfinderMob {
     protected void dropEquipment() {
         super.dropEquipment();
         Containers.dropContents(level(), this, inventory);
+        overflow.forEach(this::spawnAtLocation);
+        overflow.clear();
     }
 
     @Override
@@ -537,6 +851,9 @@ public class BuilderEntity extends PathfinderMob {
         if (job != null) {
             tag.put("Job", job.save());
         }
+        ListTag overflowList = new ListTag();
+        overflow.forEach(stack -> overflowList.add(stack.save(registryAccess())));
+        tag.put("Overflow", overflowList);
         CompoundTag inventoryTag = new CompoundTag();
         ContainerHelper.saveAllItems(inventoryTag, inventory.getItems(), registryAccess());
         tag.put("Inventory", inventoryTag);
@@ -557,6 +874,11 @@ public class BuilderEntity extends PathfinderMob {
             }
         }
         job = tag.contains("Job", Tag.TAG_COMPOUND) ? BuildJob.load(tag.getCompound("Job")) : null;
+        overflow.clear();
+        ListTag overflowList = tag.getList("Overflow", Tag.TAG_COMPOUND);
+        for (int i = 0; i < overflowList.size(); i++) {
+            ItemStack.parse(registryAccess(), overflowList.getCompound(i)).ifPresent(overflow::add);
+        }
         NonNullList<ItemStack> items = NonNullList.withSize(INVENTORY_SIZE, ItemStack.EMPTY);
         ContainerHelper.loadAllItems(tag.getCompound("Inventory"), items, registryAccess());
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {

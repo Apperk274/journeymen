@@ -95,8 +95,8 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 1. **Plan:** diff the schematic against the world into a list of blocks to remove and a list to place.
 2. **Clear** the whole area first, top-down. Then place.
 3. **Reach:** it walks until the block is within horizontal reach (player reach, 4.5 blocks). Height doesn't matter: it reaches any height, so there is no scaffolding or pillaring. If it can't get within horizontal reach (lava pool, void), it works from where it is anyway.
-4. **Breaking:** look at the block, swing, show crack progress (`destroyBlockProgress`). Break time follows player rules for the held tool. It picks the fastest tool it has for each block and uses durability like a player. Drops go straight into its inventory, never on the ground, so nothing can be stolen or burn. When its inventory is full it walks to a dump chest.
-5. **Fluids in the way:** water or lava where the schematic wants a block or air is not handled. It pauses and tells the owner the positions.
+4. **Breaking:** look at the block, swing, show crack progress (`destroyBlockProgress`). Break time follows player rules for the held tool. It picks the fastest tool it has for each block and uses durability like a player. Drops go straight into its inventory, never on the ground, so nothing can be stolen or burn. When its inventory is full it walks to a dump chest. It breaks through the owner's fake player with vanilla's survival breaking, so tool wear, two-block blocks (doors, beds) and container contents behave as for a player; everything that drops is captured, and whatever doesn't fit is held (and saved) until it reaches a dump chest. At a dump chest it keeps its tools and the materials the job still needs. For blocks that need a tool it uses the least versatile tool that works (an iron pickaxe for stone when a diamond one is needed for obsidian), and it only uses a tool on other blocks when that durability isn't reserved. It fetches useful tools from its supply chests when clearing starts, and again when it lacks one.
+5. **Fluids in the way:** water or lava where the schematic wants a block or air is not handled. Fluids come up in the same top-down order as the blocks, and at the first one it pauses and tells the owner the position. It checks again every few seconds and continues by itself once the fluid is gone.
 6. **Placing:** bottom-up, with attached, gravity and fragile blocks (torches, doors, redstone, sand, carpets) after their supports. It can place anywhere within reach: no supporting neighbor and no line of sight needed. Like a player, it places straight into replaceable blocks (short grass, snow layers, …) without breaking them first. Each block consumes its item from inventory, with a swing and a sound. The block state is kept (facing, half, axis…) and rotated. Special cases follow the material list (redstone wire → redstone, double slab → 2 slabs, potted plant → pot + plant, …). Doors and beds place both halves from one item.
 7. **Growth stages:** crops, saplings and other aging blocks are placed young (age 0), like a player, and grow on their own. Leaves are placed persistent, like player-placed leaves, so they never decay. States that come from neighbors (fence, pane and wall connections, stair shape, redstone wire connections and power, `lit`, `powered`) are not compared in the diff; the game sets them as it would for a player.
 8. **Block updates** happen as for a player, so a half-built contraption may fire.
@@ -112,7 +112,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 - `/journeymen builder status <name>`: phase (walking, clearing, building, paused), percent done, and what it is waiting for.
 - A boss bar shows progress to the owner while near the builder.
-- Pause messages go to the owner in chat at any distance. If the owner is offline, they are delivered on login. While paused it reminds every few minutes.
+- Pause messages go to the owner in chat at any distance, and are also written to the server log. If the owner is offline, they are delivered on login. While paused it reminds every few minutes.
 
 ### Config
 
@@ -134,11 +134,16 @@ Phase 3 is built in steps, each tested on both loaders:
 |---|---|
 | 3a ✅ | Config file, builder names and renaming, `<owner>.<name>` targeting for ops, `come` / `follow` / `stay` / `kill` / `status`, item pickup, damage and regeneration, fake player on both loaders |
 | 3b ✅ | `check` / `build` / `cancel` with origin, rotation and options, chest assignment, the full pre-check, and jobs that survive reload |
-| 3c | Clearing: walking into reach, breaking with tools at player speed, drops into inventory, dump chests, pausing for fluids |
+| 3c ✅ | Clearing: walking into reach, breaking with tools at player speed, drops into inventory, dump chests, pausing for fluids |
 | 3d | Placing: order, states, special cases, growth stages, made blocks, block entity data, fluids last, wrong-state fixing, waiting for entities, tampering and redo |
 | 3e | Boss bar, pause notifications with offline delivery and reminders |
 
 Scaffolding and pillaring were dropped: the builder reaches any height (see Reach).
+
+Not tested yet (no way to test them so far):
+
+- Other players hurting a builder when PvP is off (the builder should take no damage).
+- Spawn protection and claim/protection mods (FTB Chunks, Open Parties and Claims, …) blocking the pre-check and the builder's breaking and placing.
 
 Backlog (no phase yet): mirroring schematics in the build command, counting Unbreaking in the pre-check durability estimate instead of ignoring it, placing entities from schematics (item frames, paintings, armor stands), more jobs per builder (a queue), several builders on one job.
 
