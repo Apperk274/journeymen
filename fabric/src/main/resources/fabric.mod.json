@@ -12,6 +12,9 @@
     "entrypoints": {
         "main": [
             "io.github.apperk274.journeymen.JourneymenFabric"
+        ],
+        "client": [
+            "io.github.apperk274.journeymen.JourneymenFabricClient"
         ]
     },
     "mixins": [

@@ -59,7 +59,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 | Phase | Done when |
 |---|---|
 | 0 ✅ | Empty mod builds and launches on NeoForge and Fabric |
-| 1 | Summon a Steve-skinned builder by command, open its inventory, and it survives reload |
+| 1 ✅ | Summon a Steve-skinned builder by command, open its inventory, and it survives reload |
 | 2 | Load `.schem` / `.nbt` and print a material list for a schematic |
 | 3 | Builder builds: walks, breaks with tools, places from inventory, waits when out of materials |
 | 4 | Scaffolding for tall builds, craftable spawn egg, better feedback |

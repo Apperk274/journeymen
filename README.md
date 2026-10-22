@@ -2,7 +2,7 @@
 
 A Minecraft 1.21.1 mod for NeoForge and Fabric. Summon a journeyman, hand them a schematic, materials and tools, and they build it block by block, the way a player would.
 
-Status: project skeleton only (phase 0). See `CLAUDE.md` for the design and roadmap.
+Status: phase 1. A builder can be summoned with `/journeymen builder summon` and holds items, but does not build yet. See `CLAUDE.md` for the design and roadmap.
 
 ## Requirements
 
