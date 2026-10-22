@@ -26,12 +26,14 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
@@ -120,6 +122,9 @@ public class BuilderEntity extends PathfinderMob {
     private final Deque<ChestVisit> visits = new ArrayDeque<>();
     private final Set<BlockPos> triedDumpChests = new HashSet<>();
     private boolean emptyingOut;
+    @Nullable
+    private ServerBossEvent progressBar;
+    private static final double PROGRESS_BAR_RANGE = 64.0;
     private boolean clearedSomething;
     private final List<ItemStack> overflow = new ArrayList<>();
     private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
@@ -954,9 +959,79 @@ public class BuilderEntity extends PathfinderMob {
 
     public void notifyOwner(String message) {
         Constants.LOG.info("[{}.{}] {}", getOwnerName(), getBuilderName(), message);
+        deliverToOwner(Component.literal("[" + getBuilderName() + "] " + message));
+    }
+
+    private void deliverToOwner(Component message) {
         ServerPlayer ownerPlayer = getOwnerPlayer();
+        MinecraftServer server = level().getServer();
         if (ownerPlayer != null) {
-            ownerPlayer.sendSystemMessage(Component.literal("[" + getBuilderName() + "] " + message));
+            ownerPlayer.sendSystemMessage(message);
+        } else if (owner != null && server != null) {
+            BuilderRegistry.get(server).addNotice(owner, message.getString());
+        }
+    }
+
+    public record Progress(String text, float fraction) {
+    }
+
+    public Progress progress() {
+        if (job == null) {
+            return new Progress("idle", 0.0F);
+        }
+        float fraction = 0.0F;
+        String counts = "";
+        if (placing != null) {
+            int done = placing.getPlaced();
+            int all = done + placing.getRemaining();
+            fraction = all == 0 ? 1.0F : (float) done / all;
+            counts = " " + done + "/" + all;
+        } else if (clearing != null) {
+            int done = clearing.getCleared();
+            int all = done + clearing.getRemaining();
+            fraction = all == 0 ? 1.0F : (float) done / all;
+            counts = " " + done + "/" + all;
+        }
+        String phase = switch (job.getPhase()) {
+            case LOADING -> "loading";
+            case WALKING -> "walking to the site";
+            case CLEARING -> "clearing" + counts;
+            case PLACING -> "placing" + counts;
+            case PAUSED -> "paused";
+        };
+        if (waitTicks > 0 && job.getPhase() == BuildJob.Phase.PLACING) {
+            phase = "waiting for someone to move";
+        }
+        return new Progress(phase, fraction);
+    }
+
+    private void updateProgressBar() {
+        ServerPlayer ownerPlayer = getOwnerPlayer();
+        boolean show = job != null && isAlive() && ownerPlayer != null && ownerPlayer.level() == level()
+                && ownerPlayer.distanceToSqr(this) <= PROGRESS_BAR_RANGE * PROGRESS_BAR_RANGE;
+        if (!show) {
+            removeProgressBar();
+            return;
+        }
+        Progress progress = progress();
+        Component title = Component.literal(getBuilderName() + " · " + job.getFile() + " · " + progress.text());
+        BossEvent.BossBarColor color = job.getPhase() == BuildJob.Phase.PAUSED ? BossEvent.BossBarColor.YELLOW : BossEvent.BossBarColor.GREEN;
+        if (progressBar == null) {
+            progressBar = new ServerBossEvent(title, color, BossEvent.BossBarOverlay.PROGRESS);
+        }
+        progressBar.setName(title);
+        progressBar.setColor(color);
+        progressBar.setProgress(Math.max(0.0F, Math.min(1.0F, progress.fraction())));
+        if (!progressBar.getPlayers().contains(ownerPlayer)) {
+            progressBar.removeAllPlayers();
+            progressBar.addPlayer(ownerPlayer);
+        }
+    }
+
+    private void removeProgressBar() {
+        if (progressBar != null) {
+            progressBar.removeAllPlayers();
+            progressBar = null;
         }
     }
 
@@ -1125,6 +1200,9 @@ public class BuilderEntity extends PathfinderMob {
             syncRegistry();
         }
         tickJob();
+        if (tickCount % 10 == 0) {
+            updateProgressBar();
+        }
     }
 
     private void pickUpNearbyItems() {
@@ -1167,6 +1245,7 @@ public class BuilderEntity extends PathfinderMob {
 
     @Override
     public void remove(RemovalReason reason) {
+        removeProgressBar();
         MinecraftServer server = level().getServer();
         if (server != null && reason.shouldDestroy()) {
             BuilderRegistry.get(server).remove(getUUID());
@@ -1178,9 +1257,11 @@ public class BuilderEntity extends PathfinderMob {
     public void die(DamageSource source) {
         boolean wasDead = dead;
         super.die(source);
-        ServerPlayer ownerPlayer = getOwnerPlayer();
-        if (!wasDead && dead && ownerPlayer != null) {
-            ownerPlayer.sendSystemMessage(getCombatTracker().getDeathMessage());
+        if (!wasDead && dead && !level().isClientSide) {
+            Component message = getCombatTracker().getDeathMessage();
+            Constants.LOG.info("[{}.{}] {}", getOwnerName(), getBuilderName(), message.getString());
+            deliverToOwner(message);
+            removeProgressBar();
         }
     }
 

@@ -22,6 +22,7 @@ public class JourneymenCommand {
             new String[]{"builder summon [name]", "Summon a builder that works for you"},
             new String[]{"builder list", "List your builders"},
             new String[]{"builder status <builder>", "Show where a builder is and what it's doing"},
+            new String[]{"builder notices", "Show what your builders said while you were away"},
             new String[]{"builder rename <builder> <name>", "Rename a builder"},
             new String[]{"builder come <builder>", "Call a builder to where you stand"},
             new String[]{"builder follow <builder>", "Make a builder follow you"},

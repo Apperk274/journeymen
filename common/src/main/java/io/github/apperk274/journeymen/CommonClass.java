@@ -1,12 +1,28 @@
 package io.github.apperk274.journeymen;
 
 import io.github.apperk274.journeymen.config.JourneymenConfig;
+import io.github.apperk274.journeymen.entity.BuilderRegistry;
 import io.github.apperk274.journeymen.platform.Services;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+
+import java.util.List;
 
 public class CommonClass {
 
     public static void init() {
         Constants.LOG.info("{} initializing on {} ({})", Constants.MOD_NAME, Services.PLATFORM.getPlatformName(), Services.PLATFORM.getEnvironmentName());
         JourneymenConfig.load();
+    }
+
+    public static void onPlayerJoin(ServerPlayer player) {
+        BuilderRegistry registry = BuilderRegistry.get(player.server);
+        registry.updateOwnerName(player.getUUID(), player.getGameProfile().getName());
+        List<String> notices = registry.takeNotices(player.getUUID());
+        if (!notices.isEmpty()) {
+            player.sendSystemMessage(Component.literal("While you were away, your builders said:").withStyle(ChatFormatting.GOLD));
+            notices.forEach(notice -> player.sendSystemMessage(Component.literal("  " + notice)));
+        }
     }
 }

@@ -5,6 +5,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -33,6 +34,8 @@ public final class BuilderRegistry extends SavedData {
 
     private final Map<UUID, Entry> entries = new LinkedHashMap<>();
     private final Map<UUID, JobArea> jobAreas = new HashMap<>();
+    private final Map<UUID, List<String>> notices = new HashMap<>();
+    private static final int MAX_NOTICES = 20;
 
     public static BuilderRegistry get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
@@ -93,6 +96,35 @@ public final class BuilderRegistry extends SavedData {
         }
     }
 
+    public void addNotice(UUID owner, String notice) {
+        List<String> list = notices.computeIfAbsent(owner, key -> new ArrayList<>());
+        list.remove(notice);
+        list.add(notice);
+        while (list.size() > MAX_NOTICES) {
+            list.remove(0);
+        }
+        setDirty();
+    }
+
+    public List<String> takeNotices(UUID owner) {
+        List<String> list = notices.remove(owner);
+        if (list == null) {
+            return List.of();
+        }
+        setDirty();
+        return list;
+    }
+
+    public void updateOwnerName(UUID owner, String ownerName) {
+        for (Map.Entry<UUID, Entry> mapEntry : entries.entrySet()) {
+            Entry entry = mapEntry.getValue();
+            if (entry.owner.equals(owner) && !entry.ownerName.equals(ownerName)) {
+                mapEntry.setValue(new Entry(entry.id, entry.owner, ownerName, entry.name, entry.dimension, entry.pos));
+                setDirty();
+            }
+        }
+    }
+
     public Optional<Entry> findOverlappingJob(ResourceKey<Level> dimension, BoundingBox box, UUID except) {
         for (Map.Entry<UUID, JobArea> job : jobAreas.entrySet()) {
             if (!job.getKey().equals(except) && job.getValue().dimension().equals(dimension) && job.getValue().box().intersects(box)) {
@@ -129,6 +161,16 @@ public final class BuilderRegistry extends SavedData {
             jobs.add(jobTag);
         }
         tag.put("JobAreas", jobs);
+        ListTag noticeList = new ListTag();
+        for (Map.Entry<UUID, List<String>> owner : notices.entrySet()) {
+            CompoundTag ownerTag = new CompoundTag();
+            ownerTag.putUUID("Owner", owner.getKey());
+            ListTag messages = new ListTag();
+            owner.getValue().forEach(message -> messages.add(StringTag.valueOf(message)));
+            ownerTag.put("Messages", messages);
+            noticeList.add(ownerTag);
+        }
+        tag.put("Notices", noticeList);
         return tag;
     }
 
@@ -155,6 +197,19 @@ public final class BuilderRegistry extends SavedData {
                 registry.jobAreas.put(jobTag.getUUID("Id"), new JobArea(ResourceKey.create(Registries.DIMENSION, dimension),
                         new BoundingBox(box[0], box[1], box[2], box[3], box[4], box[5])));
             }
+        }
+        ListTag noticeList = tag.getList("Notices", Tag.TAG_COMPOUND);
+        for (int i = 0; i < noticeList.size(); i++) {
+            CompoundTag ownerTag = noticeList.getCompound(i);
+            if (!ownerTag.hasUUID("Owner")) {
+                continue;
+            }
+            ListTag messages = ownerTag.getList("Messages", Tag.TAG_STRING);
+            List<String> messageList = new ArrayList<>();
+            for (int j = 0; j < messages.size(); j++) {
+                messageList.add(messages.getString(j));
+            }
+            registry.notices.put(ownerTag.getUUID("Owner"), messageList);
         }
         return registry;
     }

@@ -71,6 +71,7 @@ public class BuilderCommands {
                                 .requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
                                 .executes(context -> list(context, true))))
                 .then(Commands.literal("status").then(BuilderTargets.argument().executes(BuilderCommands::status)))
+                .then(Commands.literal("notices").executes(BuilderCommands::notices))
                 .then(Commands.literal("rename").then(BuilderTargets.argument()
                         .then(Commands.argument("name", StringArgumentType.string()).executes(BuilderCommands::rename))))
                 .then(Commands.literal("come").then(BuilderTargets.argument().executes(BuilderCommands::come)))
@@ -352,6 +353,18 @@ public class BuilderCommands {
                             .withStyle(ChatFormatting.GRAY)), false);
         }
         return sorted.size();
+    }
+
+    private static int notices(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = source.getPlayerOrException();
+        List<String> notices = BuilderRegistry.get(source.getServer()).takeNotices(player.getUUID());
+        if (notices.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("Your builders have nothing new to tell you."), false);
+            return 0;
+        }
+        notices.forEach(notice -> source.sendSuccess(() -> Component.literal(notice), false));
+        return notices.size();
     }
 
     private static int status(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

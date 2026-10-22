@@ -112,8 +112,8 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 ### Feedback
 
 - `/journeymen builder status <name>`: phase (walking, clearing, building, paused), percent done, and what it is waiting for.
-- A boss bar shows progress to the owner while near the builder.
-- Pause messages go to the owner in chat at any distance, and are also written to the server log. If the owner is offline, they are delivered on login. While paused it reminds every few minutes.
+- A boss bar shows progress to the owner while within 64 blocks of the builder, e.g. `Bob · house2.nbt · placing 45/92`. It is green while working and yellow while paused.
+- Pause messages go to the owner in chat at any distance, and are also written to the server log. If the owner is offline, they are saved with the world and delivered on login (repeats collapsed, at most 20 kept); `/journeymen builder notices` shows them too. While paused it reminds every few minutes.
 
 ### Config
 
@@ -126,7 +126,7 @@ A small config file read by `common/`, same format on both loaders, no library d
 | 0 ✅ | Empty mod builds and launches on NeoForge and Fabric |
 | 1 ✅ | Summon a Steve-skinned builder by command, open its inventory, and it survives reload |
 | 2 ✅ | Load `.schem` / `.nbt` and print a material list for a schematic |
-| 3 | Builder builds a schematic as described in Build jobs, Pre-check, Supply and dump chests, How a build plays out and Feedback |
+| 3 ✅ | Builder builds a schematic as described in Build jobs, Pre-check, Supply and dump chests, How a build plays out and Feedback |
 | 4 | Craftable spawn egg, right-click dialogue for common actions, custom inventory screen |
 
 Phase 3 is built in steps, each tested on both loaders:
@@ -137,7 +137,7 @@ Phase 3 is built in steps, each tested on both loaders:
 | 3b ✅ | `check` / `build` / `cancel` with origin, rotation and options, chest assignment, the full pre-check, and jobs that survive reload |
 | 3c ✅ | Clearing: walking into reach, breaking with tools at player speed, drops into inventory, dump chests, pausing for fluids |
 | 3d ✅ | Placing: order, states, special cases, growth stages, made blocks, block entity data, fluids last, wrong-state fixing, waiting for entities, tampering and redo |
-| 3e | Boss bar, pause notifications with offline delivery and reminders |
+| 3e ✅ | Boss bar, pause notifications with offline delivery and reminders |
 
 Scaffolding and pillaring were dropped: the builder reaches any height (see Reach).
 
