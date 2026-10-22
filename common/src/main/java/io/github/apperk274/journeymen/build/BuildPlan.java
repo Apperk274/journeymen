@@ -77,6 +77,10 @@ public final class BuildPlan {
     }
 
     private void classify(BlockPos pos, BlockState target, BlockState actual, @Nullable CompoundTag blockEntity) {
+        if (target.getBlock() instanceof LiquidBlock && !target.getFluidState().isSource()) {
+            doneCount++;
+            return;
+        }
         if (target.isAir()) {
             if (actual.isAir()) {
                 doneCount++;

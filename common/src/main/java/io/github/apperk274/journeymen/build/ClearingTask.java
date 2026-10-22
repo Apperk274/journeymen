@@ -28,10 +28,7 @@ import java.util.function.Predicate;
 
 public final class ClearingTask {
 
-    public static final double REACH = 4.5;
     private static final int BREAK_DELAY = 5;
-    private static final int WALK_GIVE_UP_TICKS = 60;
-    private static final int REPATH_INTERVAL = 10;
 
     public enum Status {
         WORKING,
@@ -57,10 +54,7 @@ public final class ClearingTask {
     private float progress;
     private int lastStage = -1;
     private float cooldown;
-    private double bestDistance = Double.MAX_VALUE;
-    private int ticksWithoutProgress;
-    private int repathTimer;
-    private boolean workFromHere;
+    private final Reach reach = new Reach();
 
     @Nullable
     private String blockedReason;
@@ -116,8 +110,7 @@ public final class ClearingTask {
             finishTarget();
             return Status.WORKING;
         }
-        if (!inReach(target)) {
-            walkTowards(target);
+        if (!reach.approach(builder, target)) {
             return Status.WORKING;
         }
         builder.getNavigation().stop();
@@ -195,7 +188,7 @@ public final class ClearingTask {
             BlockPos nearest = null;
             double nearestDistance = Double.MAX_VALUE;
             for (BlockPos pos : layer) {
-                double distance = horizontalDistanceSqr(pos);
+                double distance = Reach.horizontalDistanceSqr(builder, pos);
                 if (distance < nearestDistance) {
                     nearest = pos;
                     nearestDistance = distance;
@@ -215,9 +208,7 @@ public final class ClearingTask {
         }
         target = null;
         resetProgress();
-        bestDistance = Double.MAX_VALUE;
-        ticksWithoutProgress = 0;
-        workFromHere = false;
+        reach.reset();
     }
 
     private void resetProgress() {
@@ -231,31 +222,6 @@ public final class ClearingTask {
     public void stop() {
         resetProgress();
         builder.showInHand(ItemStack.EMPTY);
-    }
-
-    private boolean inReach(BlockPos pos) {
-        return workFromHere || horizontalDistanceSqr(pos) <= REACH * REACH;
-    }
-
-    private double horizontalDistanceSqr(BlockPos pos) {
-        double dx = pos.getX() + 0.5 - builder.getX();
-        double dz = pos.getZ() + 0.5 - builder.getZ();
-        return dx * dx + dz * dz;
-    }
-
-    private void walkTowards(BlockPos pos) {
-        double distance = Math.sqrt(horizontalDistanceSqr(pos));
-        if (distance < bestDistance - 0.25) {
-            bestDistance = distance;
-            ticksWithoutProgress = 0;
-        } else if (++ticksWithoutProgress > WALK_GIVE_UP_TICKS) {
-            workFromHere = true;
-            return;
-        }
-        if (--repathTimer <= 0 || builder.getNavigation().isDone()) {
-            repathTimer = REPATH_INTERVAL;
-            builder.walkTowards(new Vec3(pos.getX() + 0.5, Math.min(pos.getY(), builder.getY()), pos.getZ() + 0.5));
-        }
     }
 
     private static boolean hasFreeSlot(Container inventory) {

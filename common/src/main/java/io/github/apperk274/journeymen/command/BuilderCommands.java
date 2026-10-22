@@ -12,6 +12,7 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ClearingTask;
+import io.github.apperk274.journeymen.build.PlacingTask;
 import io.github.apperk274.journeymen.build.PlacementTransform;
 import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
@@ -279,8 +280,11 @@ public class BuilderCommands {
                 : job.getPhase().description();
         source.sendSuccess(() -> Component.literal("  Phase: " + phase), false);
         ClearingTask clearing = builder.getClearing();
+        PlacingTask placing = builder.getPlacing();
         BuildPlan plan = job.getPlan();
-        if (clearing != null) {
+        if (placing != null) {
+            source.sendSuccess(() -> Component.literal("  Placing: " + placing.getPlaced() + " placed, " + placing.getRemaining() + " left"), false);
+        } else if (clearing != null) {
             source.sendSuccess(() -> Component.literal("  Clearing: " + clearing.getCleared() + " cleared, " + clearing.getRemaining() + " left"), false);
         } else if (plan != null && plan.getTotalCount() > 0) {
             int percent = plan.getDoneCount() * 100 / plan.getTotalCount();

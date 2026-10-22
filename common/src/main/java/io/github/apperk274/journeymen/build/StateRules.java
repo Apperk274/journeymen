@@ -49,6 +49,7 @@ public final class StateRules {
             BlockStateProperties.TILT,
             BlockStateProperties.CRAFTING,
             BlockStateProperties.PERSISTENT,
+            BlockStateProperties.MOISTURE,
             BlockStateProperties.WATERLOGGED);
 
     private static final List<Property<?>> RESET_WHEN_PLACED = List.of(

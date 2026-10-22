@@ -36,6 +36,8 @@ public final class ChestVisit {
     private final Kind kind;
     private final BlockPos chest;
     private final Predicate<ItemStack> wanted;
+    @Nullable
+    private final ItemCounter amounts;
     private boolean open;
     private int timer;
     private int walkTicks;
@@ -43,18 +45,23 @@ public final class ChestVisit {
     @Nullable
     private String failure;
 
-    private ChestVisit(Kind kind, BlockPos chest, Predicate<ItemStack> wanted) {
+    private ChestVisit(Kind kind, BlockPos chest, Predicate<ItemStack> wanted, @Nullable ItemCounter amounts) {
         this.kind = kind;
         this.chest = chest;
         this.wanted = wanted;
+        this.amounts = amounts;
     }
 
     public static ChestVisit dump(BlockPos chest) {
-        return new ChestVisit(Kind.DUMP, chest, stack -> true);
+        return new ChestVisit(Kind.DUMP, chest, stack -> true, null);
     }
 
     public static ChestVisit fetch(BlockPos chest, Predicate<ItemStack> wanted) {
-        return new ChestVisit(Kind.FETCH, chest, wanted);
+        return new ChestVisit(Kind.FETCH, chest, wanted, null);
+    }
+
+    public static ChestVisit fetchAmounts(BlockPos chest, ItemCounter amounts) {
+        return new ChestVisit(Kind.FETCH, chest, stack -> amounts.count(stack) > 0, amounts);
     }
 
     public Kind getKind() {
@@ -105,6 +112,8 @@ public final class ChestVisit {
         }
         if (kind == Kind.DUMP) {
             builder.dumpInto(container);
+        } else if (amounts != null) {
+            builder.fetchAmounts(container, amounts);
         } else {
             builder.fetchFrom(container, wanted);
         }
