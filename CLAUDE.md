@@ -36,8 +36,8 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 - A custom `PathfinderMob` (not a villager) with its own AI goals.
 - Rendered with the vanilla player model and default Steve skin (`textures/entity/player/wide/steve.png`) for now.
-- Has an owner (the player who summoned it). Only the owner commands it. Operators (permission level 2+) can command any builder, addressing it as `<owner>:<name>`.
-- Has a name. Summon gives it a random first name that is unique among the owner's builders, or the one given in `summon [name]`. A name tag or `/journeymen builder rename <old> <new>` renames it. Commands address builders by name, and the name shows above its head.
+- Has an owner (the player who summoned it). Only the owner commands it. Operators (permission level 2+) can command any builder, addressing it as `<owner>.<name>` (e.g. `Steve.Gerald`).
+- Has a name. Summon gives it a random first name that is unique among the owner's builders, or the one given in `summon [name]`. A name tag or `/journeymen builder rename <old> <new>` renames it. Commands address builders by name, and the name shows above its head. Names use only letters, digits, `_` and `-` (at most 24), so they never need quotes in commands, and player names never contain the `.` separator.
 - Has a 27-slot inventory. Right-click opens it, and the player moves items in and out. Vanilla's 9×3 chest menu for now; a custom screen with tool slots can come later.
 - Inventory, owner, name, assigned chests and current build job persist through world save/load.
 - Summoned with `/journeymen builder summon`. A craftable spawn egg comes later.
@@ -124,7 +124,7 @@ Phase 3 is built in steps, each tested on both loaders:
 
 | Step | Done when |
 |---|---|
-| 3a | Config file, builder names and renaming, `<owner>:<name>` targeting for ops, `come` / `follow` / `stay` / `kill` / `status`, item pickup, damage and regeneration, fake player on both loaders |
+| 3a | Config file, builder names and renaming, `<owner>.<name>` targeting for ops, `come` / `follow` / `stay` / `kill` / `status`, item pickup, damage and regeneration, fake player on both loaders |
 | 3b | `check` / `build` / `cancel` with origin, rotation and options, chest assignment, the full pre-check, and jobs that survive reload |
 | 3c | Clearing: walking into reach, breaking with tools at player speed, drops into inventory, dump chests, pausing for fluids |
 | 3d | Placing: order, states, special cases, growth stages, made blocks, block entity data, fluids last, wrong-state fixing, waiting for entities, tampering and redo |
