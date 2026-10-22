@@ -112,6 +112,7 @@ public class BuilderEntity extends PathfinderMob {
     private ClearingTask clearing;
     private final Deque<ChestVisit> visits = new ArrayDeque<>();
     private final Set<BlockPos> triedDumpChests = new HashSet<>();
+    private boolean emptyingOut;
     private final List<ItemStack> overflow = new ArrayList<>();
     private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
     private final List<BlockPos> unclearable = new ArrayList<>();
@@ -363,6 +364,7 @@ public class BuilderEntity extends PathfinderMob {
         }
         visits.clear();
         triedDumpChests.clear();
+        emptyingOut = false;
         getNavigation().stop();
         showInHand(ItemStack.EMPTY);
     }
@@ -407,7 +409,7 @@ public class BuilderEntity extends PathfinderMob {
             overflow.set(i, HopperBlockEntity.addItem(null, container, overflow.get(i), null));
         }
         overflow.removeIf(ItemStack::isEmpty);
-        ItemCounter keep = job != null && job.getPlan() != null ? job.getPlan().requirements(registryAccess()).items() : new ItemCounter();
+        ItemCounter keep = itemsToKeep();
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
             if (stack.isEmpty() || isTool(stack)) {
@@ -421,6 +423,23 @@ public class BuilderEntity extends PathfinderMob {
             stack.grow(remainder.getCount());
         }
         inventory.setChanged();
+    }
+
+    private ItemCounter itemsToKeep() {
+        return job != null && job.getPlan() != null ? job.getPlan().requirements(registryAccess()).items() : new ItemCounter();
+    }
+
+    private boolean hasDumpableItems() {
+        if (!overflow.isEmpty()) {
+            return true;
+        }
+        ItemCounter keep = itemsToKeep();
+        for (ItemStack stack : inventory.getItems()) {
+            if (!stack.isEmpty() && !isTool(stack) && keep.remove(stack, stack.getCount()) < stack.getCount()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void fetchFrom(Container container, Predicate<ItemStack> wanted) {
@@ -476,7 +495,9 @@ public class BuilderEntity extends PathfinderMob {
                 }
                 case DONE -> {
                     visits.poll();
-                    if (visit.getKind() == ChestVisit.Kind.DUMP) {
+                    if (visit.getKind() == ChestVisit.Kind.DUMP && emptyingOut) {
+                        queueEmptyingOut();
+                    } else if (visit.getKind() == ChestVisit.Kind.DUMP) {
                         if (!overflow.isEmpty() || !hasFreeSlot()) {
                             startDump();
                         } else {
@@ -486,13 +507,19 @@ public class BuilderEntity extends PathfinderMob {
                 }
                 case FAILED -> {
                     visits.poll();
-                    if (visit.getKind() == ChestVisit.Kind.DUMP) {
+                    if (visit.getKind() == ChestVisit.Kind.DUMP && emptyingOut) {
+                        queueEmptyingOut();
+                    } else if (visit.getKind() == ChestVisit.Kind.DUMP) {
                         startDump();
                     } else {
                         pauseJob(visit.getFailure() == null ? "I couldn't get to a supply chest." : visit.getFailure());
                     }
                 }
             }
+            return;
+        }
+        if (emptyingOut) {
+            queueEmptyingOut();
             return;
         }
         if (!overflow.isEmpty()) {
@@ -563,6 +590,25 @@ public class BuilderEntity extends PathfinderMob {
                     + example.toShortString() + ".");
         }
         notifyOwner("The site of " + job.getFile() + " is clear.");
+        emptyingOut = true;
+        triedDumpChests.clear();
+        queueEmptyingOut();
+    }
+
+    private void queueEmptyingOut() {
+        if (hasDumpableItems()) {
+            for (AssignedChest chest : chests) {
+                if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
+                    visits.add(ChestVisit.dump(chest.pos()));
+                    return;
+                }
+            }
+            if (!triedDumpChests.isEmpty()) {
+                notifyOwner("My dump chests are full, so I'm keeping the rest of what I cleared.");
+            }
+        }
+        emptyingOut = false;
+        triedDumpChests.clear();
         job.setPhase(BuildJob.Phase.PLACING);
     }
 
@@ -770,6 +816,7 @@ public class BuilderEntity extends PathfinderMob {
 
     @Override
     public void aiStep() {
+        updateSwingTime();
         super.aiStep();
         if (level().isClientSide || !isAlive()) {
             return;
