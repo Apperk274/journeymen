@@ -88,7 +88,8 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 - `/journeymen builder chest <name> add <x y z> supply|dump`, plus `remove` and `list`. A builder can have several chests of each role, used in order. Both halves of a double chest count as one chest. A friendlier way to assign them (e.g. shift-right-click) can come later; the command stays.
 - **Supply chests** are stock: it walks over and takes the materials and tools it needs. They count in the pre-check.
-- **Dump chests** take drops when its inventory is full, and whatever it doesn't need once the site is clear. It never dumps into a supply chest and never builds from a dump chest. With no dump chest, or all of them full, it pauses and asks.
+- **Dump chests** take drops when its inventory is full, and whatever it doesn't need once the site is clear.
+- `/journeymen builder supply <builder> [<file> [pos] [rotation] [options]]` (ops only, creates items) puts the full material list of a job into the builder's supply chests, plus the cheapest plain tools that cover the job's required tool uses (e.g. enough wooden pickaxes for the stone, a diamond pickaxe for obsidian, a hoe for farmland). Without a file it uses the builder's current job. What doesn't fit in the supply chests goes to the player's inventory. It is all or nothing: it works out where every item goes first, and if anything doesn't fit it gives nothing and says how much didn't fit. It never dumps into a supply chest and never builds from a dump chest. With no dump chest, or all of them full, it pauses and asks.
 
 ### How a build plays out (core requirement)
 

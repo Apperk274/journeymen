@@ -30,6 +30,7 @@ public class JourneymenCommand {
             new String[]{"builder check <builder> <file> [pos] [rotation] [options]", "Run the pre-check for a job without starting it"},
             new String[]{"builder build <builder> <file> [pos] [rotation] [options]", "Give a builder a job"},
             new String[]{"builder cancel <builder>", "Stop a builder's job; the half-built structure stays"},
+            new String[]{"builder supply <builder> [<file> [pos] [rotation] [options]]", "Put everything a job needs in the supply chests (ops)"},
             new String[]{"builder chest <builder> add <pos> supply|dump", "Give a builder a supply or dump chest"},
             new String[]{"builder chest <builder> remove <pos>", "Take a chest away from a builder"},
             new String[]{"builder chest <builder> list", "List a builder's chests"},

@@ -138,7 +138,7 @@ public final class ToolCheck {
     }
 
     @Nullable
-    private static Item exampleTool(BlockState state) {
+    public static Item exampleTool(BlockState state) {
         for (Item item : EXAMPLE_TOOLS) {
             if (new ItemStack(item).isCorrectToolForDrops(state)) {
                 return item;

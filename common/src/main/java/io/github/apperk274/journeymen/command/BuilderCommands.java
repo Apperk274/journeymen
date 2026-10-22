@@ -12,6 +12,7 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ClearingTask;
+import io.github.apperk274.journeymen.build.MaterialSupply;
 import io.github.apperk274.journeymen.build.PlacingTask;
 import io.github.apperk274.journeymen.build.PlacementTransform;
 import io.github.apperk274.journeymen.build.PreCheck;
@@ -19,6 +20,7 @@ import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderNames;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
 import io.github.apperk274.journeymen.entity.ModEntities;
+import io.github.apperk274.journeymen.schematic.Schematic;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -29,6 +31,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
@@ -71,8 +77,11 @@ public class BuilderCommands {
                 .then(Commands.literal("follow").then(BuilderTargets.argument().executes(context -> setFollowing(context, true))))
                 .then(Commands.literal("stay").then(BuilderTargets.argument().executes(context -> setFollowing(context, false))))
                 .then(Commands.literal("kill").then(BuilderTargets.argument().executes(BuilderCommands::kill)))
-                .then(Commands.literal("check").then(jobArguments(false)))
-                .then(Commands.literal("build").then(jobArguments(true)))
+                .then(Commands.literal("check").then(jobArguments(JobMode.CHECK)))
+                .then(Commands.literal("build").then(jobArguments(JobMode.BUILD)))
+                .then(Commands.literal("supply")
+                        .requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(jobArguments(JobMode.SUPPLY).executes(BuilderCommands::supplyCurrentJob)))
                 .then(Commands.literal("cancel").then(BuilderTargets.argument().executes(BuilderCommands::cancel)))
                 .then(Commands.literal("chest").then(BuilderTargets.argument()
                         .then(Commands.literal("add").then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -83,21 +92,28 @@ public class BuilderCommands {
                         .then(Commands.literal("list").executes(BuilderCommands::listChests))));
     }
 
-    private static RequiredArgumentBuilder<CommandSourceStack, String> jobArguments(boolean start) {
-        return BuilderTargets.argument().then(Commands.argument("file", StringArgumentType.string())
-                .suggests(SchematicCommands.SCHEMATIC_FILES)
-                .executes(context -> job(context, start, false, false, false))
-                .then(Commands.argument("pos", BlockPosArgument.blockPos())
-                        .executes(context -> job(context, start, true, false, false))
-                        .then(Commands.argument("rotation", TemplateRotationArgument.templateRotation())
-                                .executes(context -> job(context, start, true, true, false))
-                                .then(Commands.argument("options", StringArgumentType.greedyString())
-                                        .suggests(OPTION_SUGGESTIONS)
-                                        .executes(context -> job(context, start, true, true, true))))));
+    private enum JobMode {
+        CHECK,
+        BUILD,
+        SUPPLY
     }
 
-    private static int job(CommandContext<CommandSourceStack> context, boolean start, boolean hasPos, boolean hasRotation, boolean hasOptions)
+    private static RequiredArgumentBuilder<CommandSourceStack, String> jobArguments(JobMode mode) {
+        return BuilderTargets.argument().then(Commands.argument("file", StringArgumentType.string())
+                .suggests(SchematicCommands.SCHEMATIC_FILES)
+                .executes(context -> job(context, mode, false, false, false))
+                .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                        .executes(context -> job(context, mode, true, false, false))
+                        .then(Commands.argument("rotation", TemplateRotationArgument.templateRotation())
+                                .executes(context -> job(context, mode, true, true, false))
+                                .then(Commands.argument("options", StringArgumentType.greedyString())
+                                        .suggests(OPTION_SUGGESTIONS)
+                                        .executes(context -> job(context, mode, true, true, true))))));
+    }
+
+    private static int job(CommandContext<CommandSourceStack> context, JobMode mode, boolean hasPos, boolean hasRotation, boolean hasOptions)
             throws CommandSyntaxException {
+        boolean start = mode == JobMode.BUILD;
         CommandSourceStack source = context.getSource();
         BuilderEntity builder = BuilderTargets.resolveLoaded(context);
         if (start && builder.getJob() != null) {
@@ -118,6 +134,10 @@ public class BuilderCommands {
         SchematicCommands.loadAsync(source, file, schematic -> {
             if (!builder.isAlive()) {
                 source.sendFailure(Component.literal(builder.getBuilderName() + " is gone."));
+                return;
+            }
+            if (mode == JobMode.SUPPLY) {
+                supply(source, builder, file, origin, rotation, options, schematic);
                 return;
             }
             PlacementTransform transform = PlacementTransform.of(schematic, origin, rotation, options.corner());
@@ -145,6 +165,83 @@ public class BuilderCommands {
             source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " is on the way.").withStyle(ChatFormatting.GREEN), false);
         });
         return 1;
+    }
+
+    private static int supplyCurrentJob(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        BuildJob job = builder.getJob();
+        if (job == null) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " has no job. Name a schematic: /journeymen builder supply "
+                    + builder.getBuilderName() + " <file> [pos] [rotation] [options]");
+        }
+        SchematicCommands.loadAsync(source, job.getFile(), schematic -> {
+            if (builder.isAlive()) {
+                supply(source, builder, job.getFile(), job.getOrigin(), job.getRotation(), job.getOptions(), schematic);
+            }
+        });
+        return 1;
+    }
+
+    private static void supply(CommandSourceStack source, BuilderEntity builder, String file, BlockPos origin, Rotation rotation,
+                               BuildOptions options, Schematic schematic) {
+        ServerLevel level = (ServerLevel) builder.level();
+        PlacementTransform transform = PlacementTransform.of(schematic, origin, rotation, options.corner());
+        if (!BuildPlan.isLoaded(level, transform.area(schematic.getSize()))) {
+            source.sendFailure(Component.literal("Part of the site isn't loaded. Go closer to it and try again. Nothing was given."));
+            return;
+        }
+        MaterialSupply.Needs needs = MaterialSupply.needs(level, BuildPlan.create(level, schematic, transform));
+        List<MaterialSupply.Target> chests = new ArrayList<>();
+        for (AssignedChest chest : builder.getChests()) {
+            if (chest.role() == AssignedChest.Role.SUPPLY && level.isLoaded(chest.pos())) {
+                Container container = HopperBlockEntity.getContainerAt(level, chest.pos());
+                if (container != null) {
+                    chests.add(MaterialSupply.snapshot(container));
+                }
+            }
+        }
+        ServerPlayer player = source.getPlayer();
+        MaterialSupply.Target playerTarget = player == null ? null : MaterialSupply.snapshot(player.getInventory());
+        long toChests = 0;
+        long toPlayer = 0;
+        long notFitting = 0;
+        for (ItemStack stack : needs.stacks()) {
+            ItemStack remaining = stack;
+            for (MaterialSupply.Target chest : chests) {
+                remaining = MaterialSupply.insert(chest, remaining, false);
+                if (remaining.isEmpty()) {
+                    break;
+                }
+            }
+            toChests += stack.getCount() - remaining.getCount();
+            if (!remaining.isEmpty() && playerTarget != null) {
+                int before = remaining.getCount();
+                remaining = MaterialSupply.insert(playerTarget, remaining, true);
+                toPlayer += before - remaining.getCount();
+            }
+            notFitting += remaining.getCount();
+        }
+        if (notFitting > 0) {
+            String where = chests.isEmpty() ? builder.getBuilderName() + " has no loaded supply chests" : "they don't fit in " + builder.getBuilderName() + "'s supply chests";
+            source.sendFailure(Component.literal("Not enough room: " + notFitting + " of " + (toChests + toPlayer + notFitting) + " items don't fit ("
+                    + where + (playerTarget == null ? ", and there is no player inventory to fall back on" : " or your inventory") + "). Nothing was given."));
+            return;
+        }
+        chests.forEach(MaterialSupply::apply);
+        if (playerTarget != null) {
+            MaterialSupply.apply(playerTarget);
+        }
+        long total = toChests + toPlayer;
+        long finalToChests = toChests;
+        long finalToPlayer = toPlayer;
+        source.sendSuccess(() -> Component.literal("Supplied " + total + (total == 1 ? " item" : " items") + " for " + file + ": " + finalToChests + " into "
+                + builder.getBuilderName() + "'s supply chests" + (finalToPlayer > 0 ? ", " + finalToPlayer + " into your inventory" : "") + ".")
+                .withStyle(ChatFormatting.GREEN), true);
+        needs.unobtainable().forEach((block, count) -> source.sendSuccess(() -> Component.literal("Can't be supplied (no survival item): " + count + " ")
+                .append(block.getName()).withStyle(ChatFormatting.GOLD), false));
+        needs.noKnownTool().forEach((block, count) -> source.sendSuccess(() -> Component.literal("No known tool for " + count + " ")
+                .append(block.getName()).withStyle(ChatFormatting.GOLD), false));
     }
 
     private static int cancel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
