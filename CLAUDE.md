@@ -29,6 +29,8 @@ The player summons a **builder** (a journeyman). The builder takes a schematic a
 
 "Journeymen" was chosen so more trades (farmer, miner, …) can be added later as other journeyman types. Builder is the first.
 
+All commands live under `/journeymen`, with each trade as a subcommand (`/journeymen builder …`). `/journeymen help` lists them. There is no `/jm` alias, because JourneyMap already owns `/jm`.
+
 ### Builder entity
 
 - A custom `PathfinderMob` (not a villager) with its own AI goals.
@@ -36,13 +38,13 @@ The player summons a **builder** (a journeyman). The builder takes a schematic a
 - Has an owner (the player who summoned it). Only the owner commands it.
 - Has an inventory. Right-click opens it, and the player moves items in and out. Starting with vanilla's 9×3 chest menu is fine; a custom screen with tool slots can come later.
 - Inventory, owner and current build job persist through world save/load.
-- Summoned with a command first (`/builder summon`). A craftable spawn egg comes later.
+- Summoned with a command first (`/journeymen builder summon`). A craftable spawn egg comes later.
 
 ### Schematics
 
 - Formats for the first version: **Sponge `.schem`** (WorldEdit, v2 and v3) and **vanilla structure `.nbt`**. `.litematic` comes later.
 - Files are read from a `schematics/` folder in the game directory (server side).
-- `/builder build <file> <x y z> [rotation]` assigns a job to the builder. In-world placement preview and area-based commands are later features.
+- `/journeymen builder build <file> <x y z> [rotation]` assigns a job to the builder. In-world placement preview and area-based commands are later features.
 
 ### Realistic building (core requirement)
 
