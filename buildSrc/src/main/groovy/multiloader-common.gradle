@@ -54,13 +54,13 @@ repositories {
 }
 
 sourcesJar {
-    from(rootProject.file('LICENSE')) {
+    from(rootProject.files('LICENSE', 'COPYING')) {
         rename { "${it}_${mod_name}" }
     }
 }
 
 jar {
-    from(rootProject.file('LICENSE')) {
+    from(rootProject.files('LICENSE', 'COPYING')) {
         rename { "${it}_${mod_name}" }
     }
 

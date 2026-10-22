@@ -47,3 +47,7 @@ Based on [MultiLoader-Template](https://github.com/jaredlll08/MultiLoader-Templa
 Open the folder in VS Code and install the recommended extensions (Java Extension Pack, Gradle for Java). `.vscode/settings.json` points VS Code at the mise-installed JDK. It's machine-specific and not committed, so on another machine set `java.import.gradle.java.home` to your own JDK 21 path.
 
 IntelliJ IDEA with the Minecraft Development plugin also works and generates run configurations automatically.
+
+## License
+
+Journeymen is licensed under the GNU Lesser General Public License v3.0 only (`LGPL-3.0-only`). See `LICENSE`, and `COPYING` for the GNU GPL v3.0 it builds on.
