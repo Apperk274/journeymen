@@ -20,7 +20,7 @@ A dev client opens a game window. To verify a change without a person watching, 
 - Put as much as possible in `common/`. It sees only vanilla Minecraft (Mojang mappings + Parchment), so no NeoForge or Fabric imports.
 - Loader-specific code goes in `neoforge/` or `fabric/`: registration, entity renderer registration, commands registration, networking, menu types, config. Expose it to common through an interface in `common/.../platform/services` with a `META-INF/services` entry in each loader.
 - Every feature has to work on both loaders. Test each change on both clients.
-- `neoforge_version` in `gradle.properties` is also the minimum NeoForge version the mod declares. It must not be newer than the NeoForge version in the owner's modpack. Fabric loader is pinned low (0.16.9) on purpose, for the same reason.
+- `neoforge_version` in `gradle.properties` is also the minimum NeoForge version the mod declares. It must not be newer than the NeoForge version in the owner's modpack (21.1.248). Likewise `fabric_version` (Fabric API, 0.116.7) is the declared minimum in `fabric.mod.json`, and Fabric loader is pinned low (0.16.9). Don't bump these without a reason.
 - A new `gradle.properties` key that resources need must be added to `expandProps` in `buildSrc/src/main/groovy/multiloader-common.gradle`.
 
 ## What the mod is
