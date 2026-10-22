@@ -13,3 +13,6 @@
 *.pyd binary
 *.cfg text eol=lf
 *.jks binary
+*.nbt binary
+*.schem binary
+*.litematic binary

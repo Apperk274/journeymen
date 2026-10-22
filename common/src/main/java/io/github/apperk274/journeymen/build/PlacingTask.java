@@ -135,6 +135,8 @@ public final class PlacingTask {
     private Entry current;
     @Nullable
     private TreeMap<Integer, List<Entry>> currentGroup;
+    @Nullable
+    private Entry plantNext;
     private float cooldown;
     @Nullable
     private List<ItemStack> neededItems;
@@ -331,6 +333,9 @@ public final class PlacingTask {
                     Block.UPDATE_ALL);
             level.playSound(null, pos, toolUse == BlockRequirements.ToolUse.HOE ? SoundEvents.HOE_TILL : SoundEvents.SHOVEL_FLATTEN,
                     SoundSource.BLOCKS, 1.0F, 1.0F);
+            if (toolUse == BlockRequirements.ToolUse.HOE) {
+                plantNext = findEntry(dependents, pos.above());
+            }
         }
         builder.swing(InteractionHand.MAIN_HAND);
         placed++;
@@ -505,7 +510,29 @@ public final class PlacingTask {
     }
 
     @Nullable
+    private Entry findEntry(TreeMap<Integer, List<Entry>> layers, BlockPos pos) {
+        List<Entry> layer = layers.get(pos.getY());
+        if (layer != null) {
+            for (Entry entry : layer) {
+                if (entry.kind() == Kind.PLACE && entry.pos().equals(pos)) {
+                    return entry;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Nullable
     private Entry pickNext() {
+        if (plantNext != null) {
+            Entry entry = plantNext;
+            plantNext = null;
+            List<Entry> layer = dependents.get(entry.pos().getY());
+            if (layer != null && layer.contains(entry)) {
+                currentGroup = dependents;
+                return entry;
+            }
+        }
         if (!supports.isEmpty()) {
             currentGroup = supports;
             return nearest(supports.firstEntry().getValue(), entry -> true);
