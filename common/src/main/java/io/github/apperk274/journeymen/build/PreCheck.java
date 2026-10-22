@@ -32,6 +32,8 @@ public final class PreCheck {
     private final BoundingBox area;
     @Nullable
     private BuildPlan plan;
+    @Nullable
+    private String stockNote;
 
     private PreCheck(BoundingBox area) {
         this.area = area;
@@ -114,6 +116,10 @@ public final class PreCheck {
                     + positions(denied) + ".");
         }
 
+        int supplyChests = builder.countSupplyChests();
+        check.stockNote = "Counted " + builder.getBuilderName() + "'s inventory" + (supplyChests == 0
+                ? " (it has no supply chests)."
+                : " and " + supplyChests + " supply chest" + (supplyChests == 1 ? "" : "s") + ".");
         List<ItemStack> stock = builder.collectStock(check.problems);
         ItemCounter available = new ItemCounter();
         for (ItemStack stack : stock) {
@@ -125,6 +131,10 @@ public final class PreCheck {
                 MutableComponent line = Component.literal("Missing " + missing + " ").append(entry.getKey().getHoverName());
                 if (!entry.getKey().getComponentsPatch().isEmpty()) {
                     line.append(Component.literal(" (with specific data, e.g. patterns or contents)"));
+                }
+                long inDump = builder.countInDumpChests(entry.getKey());
+                if (inDump > 0) {
+                    line.append(Component.literal(". " + inDump + " are in a dump chest, which doesn't count as stock"));
                 }
                 check.problems.add(line);
             }
@@ -152,6 +162,9 @@ public final class PreCheck {
             lines.add(Component.literal(plan.getToClear().size() + " to clear, " + plan.getToPlace().size() + " to place, "
                     + (plan.getToFix().size() + plan.getToWaterlog().size()) + " to adjust, " + plan.getDoneCount() + " already done.")
                     .withStyle(ChatFormatting.GRAY));
+        }
+        if (stockNote != null) {
+            lines.add(Component.literal(stockNote).withStyle(ChatFormatting.GRAY));
         }
         for (Component problem : problems) {
             lines.add(Component.literal("✗ ").append(problem).withStyle(ChatFormatting.RED));

@@ -297,6 +297,30 @@ public class BuilderEntity extends PathfinderMob {
         return stock;
     }
 
+    public long countInDumpChests(ItemStack template) {
+        long count = 0;
+        for (AssignedChest chest : chests) {
+            if (chest.role() != AssignedChest.Role.DUMP || !level().isLoaded(chest.pos())) {
+                continue;
+            }
+            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
+            if (container == null) {
+                continue;
+            }
+            for (int slot = 0; slot < container.getContainerSize(); slot++) {
+                ItemStack stack = container.getItem(slot);
+                if (ItemStack.isSameItemSameComponents(stack, template)) {
+                    count += stack.getCount();
+                }
+            }
+        }
+        return count;
+    }
+
+    public int countSupplyChests() {
+        return (int) chests.stream().filter(chest -> chest.role() == AssignedChest.Role.SUPPLY).count();
+    }
+
     @Nullable
     public BuildJob getJob() {
         return job;
