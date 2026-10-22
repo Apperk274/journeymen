@@ -84,6 +84,7 @@ processResources {
             'minecraft_version'            : minecraft_version,
             'minecraft_version_range'      : minecraft_version_range,
             'fabric_version'               : fabric_version,
+            'fabric_api_min_version'       : fabric_version.takeWhile { it != '+' },
             'fabric_loader_version'        : fabric_loader_version,
             'mod_name'                     : mod_name,
             'mod_author'                   : mod_author,
