@@ -19,6 +19,7 @@ To test commands and behaviour without a person, run a dev server (`:neoforge:ru
 
 - Gradle doesn't pass console input through to the server, so RCON is the way in.
 - In the dev environment, `/journeymen debug as <player> <permission> <pos> <command>` runs a command as a fake player (for commands that need a player, like `builder summon`) and copies its output to the server log.
+- Screen buttons can be tested the same way: `debug action <builder entity> <action> <pos> <text>` (run through `debug as`) sends a builder screen action as that player (`follow`, `rename`, `link_supply`, `check`, `start`, …; `|` in the text becomes a line break, `-` means empty) and logs the builder's state, and `debug use <pos>` is a right-click on a block for chest link mode.
 - RCON only returns output produced while the command runs. Output that arrives later (schematic loading, pre-check results) only shows up in the server log via `debug as`.
 - A server with no players stops ticking entities 15 seconds after the last player leaves unless chunks are force-loaded, so `forceload add` the test area first. Force-loads may not survive a restart in the dev setup; add them again after restarting.
 
@@ -138,22 +139,22 @@ Everything below also stays possible with a command (see Architecture rules).
 Right-clicking your builder (owner or op) opens one screen with tabs:
 
 - **Inventory:** its 27 slots and 4 armor slots, plus your inventory. Shift-clicking armor in your inventory puts it in the matching armor slot, like your own inventory does.
-- **Job:** current job, phase and progress, what it's waiting for; a schematic picker (server `schematics/` folder) with the material list; Place (starts placement mode), Check and Cancel.
-- **Chests:** assigned supply and dump chests with remove buttons. Link mode: click "Add supply" or "Add dump", then right-click chests in the world (each click toggles a chest, linked chests are outlined); sneak or Esc ends it.
+- **Job:** with a job: the file, phase, progress and what it's waiting for, and Cancel job (click twice). Without one: a schematic picker (server `schematics/` folder) with the material list, the `corner` and `allow-breaking-enchanted` options, and Place (starts placement mode).
+- **Chests:** assigned supply and dump chests with remove buttons. Link mode: click "Link supply chests" or "Link dump chests", then right-click chests in the world (each click toggles a chest; linked chests are outlined, supply green and dump orange). Sneak + right-click ends it, and it ends by itself after a minute without a click.
 - **Orders:** follow / stay, rename, notices, dismiss (kill, with a confirmation).
 
 ### Placement mode
 
-Picking a schematic and clicking Place closes the screen and shows a ghost preview (translucent blocks and the bounding box) at your crosshair. Sneak + scroll rotates, right-click confirms, sneak + right-click cancels. Confirming opens a confirmation screen with the pre-check result and a Start button that only works when the check passes. No item is involved.
+Picking a schematic and clicking Place closes the screen and shows a ghost preview (translucent blocks and the bounding box) at your crosshair. Sneak + scroll rotates, right-click confirms, sneak + right-click cancels. Confirming opens a confirmation screen with the pre-check result and Start (only when the check passes), Move (back to placement) and Cancel. No item is involved. Schematics with more than 6000 blocks show only their bounding box.
 
 ### Phase 4 steps
 
 | Step | Done when |
 |---|---|
 | 4a ✅ | Networking on both loaders, Recruiter's Stall (item, recipe, multi-block, recruiter), hiring screen and `recruiter hire` / `stall place` commands, hire price config |
-| 4b | Builder screen with tabs; Inventory tab with armor slots, shift-click armor, armor rendering and wear |
-| 4c | Orders and Chests tabs, chest link mode with outlines |
-| 4d | Job tab, placement mode with ghost preview, confirmation screen |
+| 4b ✅ | Builder screen with tabs; Inventory tab with armor slots, shift-click armor, armor rendering and wear |
+| 4c ✅ | Orders and Chests tabs, chest link mode with outlines |
+| 4d ✅ | Job tab, placement mode with ghost preview, confirmation screen |
 
 ## Example schematics
 
@@ -185,6 +186,7 @@ Not tested yet (no way to test them so far):
 
 - Other players hurting a builder when PvP is off (the builder should take no damage).
 - Spawn protection and claim/protection mods (FTB Chunks, Open Parties and Claims, …) blocking the pre-check and the builder's breaking and placing.
+- The phase 4b–4d client side by a person in game: the builder screen's tabs and slots, armor rendering, link mode outlines, the placement preview, rotating with sneak + scroll and the confirmation screen. Their server side is tested headlessly with `debug action` and `debug use`.
 
 Backlog (no phase yet): mirroring schematics in the build command, counting Unbreaking in the pre-check durability estimate instead of ignoring it, placing entities from schematics (item frames, paintings, armor stands), more jobs per builder (a queue), several builders on one job.
 

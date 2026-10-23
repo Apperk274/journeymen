@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen;
 
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
+import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -19,6 +20,7 @@ public class CommonClass {
     public static void onPlayerJoin(ServerPlayer player) {
         BuilderRegistry registry = BuilderRegistry.get(player.server);
         registry.updateOwnerName(player.getUUID(), player.getGameProfile().getName());
+        LinkModeService.forget(player);
         List<String> notices = registry.takeNotices(player.getUUID());
         if (!notices.isEmpty()) {
             player.sendSystemMessage(Component.literal("While you were away, your builders said:").withStyle(ChatFormatting.GOLD));

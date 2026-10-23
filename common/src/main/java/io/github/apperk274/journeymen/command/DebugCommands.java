@@ -5,15 +5,23 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import io.github.apperk274.journeymen.Constants;
+import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.menu.BuilderScreenService;
+import io.github.apperk274.journeymen.menu.LinkModeService;
+import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.commands.arguments.coordinates.Vec3Argument;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 public class DebugCommands {
@@ -26,7 +34,36 @@ public class DebugCommands {
                                 .then(Commands.argument("permission", IntegerArgumentType.integer(0, 4))
                                         .then(Commands.argument("pos", Vec3Argument.vec3())
                                                 .then(Commands.argument("command", StringArgumentType.greedyString())
-                                                        .executes(DebugCommands::runAs))))));
+                                                        .executes(DebugCommands::runAs))))))
+                .then(Commands.literal("action")
+                        .then(Commands.argument("builder", EntityArgument.entity())
+                                .then(Commands.argument("action", StringArgumentType.word())
+                                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                                        .executes(DebugCommands::action))))))
+                .then(Commands.literal("use")
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .executes(DebugCommands::use)));
+    }
+
+    private static int action(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        Entity entity = EntityArgument.getEntity(context, "builder");
+        String text = StringArgumentType.getString(context, "text");
+        BuilderScreenService.handle(new ScreenPayloads.BuilderAction(entity.getId(), StringArgumentType.getString(context, "action"),
+                text.equals("-") ? "" : text.replace('|', '\n'), BlockPosArgument.getBlockPos(context, "pos")), player);
+        if (entity instanceof BuilderEntity builder) {
+            Constants.LOG.info("[debug action] {} alive={} following={} job={} chests={}", builder.getBuilderName(), builder.isAlive(),
+                    builder.isFollowing(), builder.getJob() == null ? "-" : builder.getJob().getFile(), builder.getChests());
+        }
+        return 1;
+    }
+
+    private static int use(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        boolean handled = LinkModeService.onUseBlock(player, BlockPosArgument.getBlockPos(context, "pos"));
+        Constants.LOG.info("[debug use] handled={}", handled);
+        return 1;
     }
 
     private static int runAs(CommandContext<CommandSourceStack> context) {

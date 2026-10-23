@@ -14,6 +14,8 @@ import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.build.Reach;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.ai.BuilderMoveGoal;
+import io.github.apperk274.journeymen.menu.BuilderScreenService;
+import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.entity.ai.BuilderNodeEvaluator;
 import io.github.apperk274.journeymen.entity.ai.OpenPassageGoal;
 import io.github.apperk274.journeymen.platform.Services;
@@ -39,7 +41,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -57,7 +58,6 @@ import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -140,6 +140,9 @@ public class BuilderEntity extends PathfinderMob {
     public BuilderEntity(EntityType<? extends BuilderEntity> type, Level level) {
         super(type, level);
         setDropChance(EquipmentSlot.MAINHAND, 0.0F);
+        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+            setDropChance(slot, 2.0F);
+        }
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -276,6 +279,17 @@ public class BuilderEntity extends PathfinderMob {
             }
         }
         chests.add(new AssignedChest(pos.immutable(), role));
+        return null;
+    }
+
+    @Nullable
+    public AssignedChest chestAt(BlockPos pos) {
+        BlockPos otherHalf = otherChestHalf(pos);
+        for (AssignedChest chest : chests) {
+            if (chest.pos().equals(pos) || chest.pos().equals(otherHalf)) {
+                return chest;
+            }
+        }
         return null;
     }
 
@@ -1029,25 +1043,31 @@ public class BuilderEntity extends PathfinderMob {
         }
     }
 
-    public record Progress(String text, float fraction) {
+    public record Progress(String text, float fraction, int done, int total) {
     }
 
     public Progress progress() {
         if (job == null) {
-            return new Progress("idle", 0.0F);
+            return new Progress(isFollowing() ? "following you" : "idle", 0.0F, 0, 0);
         }
         float fraction = 0.0F;
         String counts = "";
+        int doneCount = 0;
+        int allCount = 0;
         if (placing != null) {
             int done = placing.getPlaced();
             int all = done + placing.getRemaining();
             fraction = all == 0 ? 1.0F : (float) done / all;
             counts = " " + done + "/" + all;
+            doneCount = done;
+            allCount = all;
         } else if (clearing != null) {
             int done = clearing.getCleared();
             int all = done + clearing.getRemaining();
             fraction = all == 0 ? 1.0F : (float) done / all;
             counts = " " + done + "/" + all;
+            doneCount = done;
+            allCount = all;
         }
         String phase = switch (job.getPhase()) {
             case LOADING -> "loading";
@@ -1059,7 +1079,7 @@ public class BuilderEntity extends PathfinderMob {
         if (waitTicks > 0 && job.getPhase() == BuildJob.Phase.PLACING) {
             phase = "waiting for someone to move";
         }
-        return new Progress(phase, fraction);
+        return new Progress(phase, fraction, doneCount, allCount);
     }
 
     private void updateProgressBar() {
@@ -1225,12 +1245,20 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     @Override
+    public void hurtArmor(DamageSource source, float amount) {
+        doHurtEquipment(source, amount, EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD);
+    }
+
+    @Override
+    public void hurtHelmet(DamageSource source, float amount) {
+        doHurtEquipment(source, amount, EquipmentSlot.HEAD);
+    }
+
+    @Override
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (!level().isClientSide) {
-            if (canBeCommandedBy(player)) {
-                player.openMenu(new SimpleMenuProvider(
-                        (id, playerInventory, p) -> ChestMenu.threeRows(id, playerInventory, inventory),
-                        getDisplayName()));
+            if (canBeCommandedBy(player) && player instanceof ServerPlayer serverPlayer) {
+                BuilderScreenService.open(serverPlayer, this);
             } else {
                 player.displayClientMessage(Component.literal(getBuilderName() + " works for someone else."), true);
             }
@@ -1265,6 +1293,13 @@ public class BuilderEntity extends PathfinderMob {
         tickJob();
         if (tickCount % 10 == 0) {
             updateProgressBar();
+            BuilderScreenService.tick(this);
+        }
+        if (tickCount % 20 == 0) {
+            ServerPlayer ownerPlayer = getOwnerPlayer();
+            if (ownerPlayer != null) {
+                LinkModeService.tick(ownerPlayer);
+            }
         }
     }
 

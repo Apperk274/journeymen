@@ -2,7 +2,7 @@
 
 A Minecraft 1.21.1 mod for NeoForge and Fabric. Summon a journeyman, hand them a schematic, materials and tools, and they build it block by block, the way a player would.
 
-Status: phase 3 done. A builder can be summoned, given supply and dump chests, and given a schematic with `/journeymen builder build`; it clears the site and builds it by hand, shows its progress in a boss bar and keeps its owner informed. See `CLAUDE.md` for the design and roadmap.
+Status: phase 4 (survival UI) implemented, waiting for in-game testing. Builders are hired from a craftable Recruiter's Stall, managed from a tabbed screen (inventory and armor, job, chests, orders), and given a schematic by placing a ghost preview in the world; it clears the site and builds it by hand, shows its progress in a boss bar and keeps its owner informed. Everything can also be done with `/journeymen` commands. See `CLAUDE.md` for the design and roadmap.
 
 ## Requirements
 

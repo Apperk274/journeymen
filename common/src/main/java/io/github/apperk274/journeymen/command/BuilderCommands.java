@@ -12,6 +12,7 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ClearingTask;
+import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.build.MaterialSupply;
 import io.github.apperk274.journeymen.build.PlacingTask;
 import io.github.apperk274.journeymen.build.PlacementTransform;
@@ -132,38 +133,24 @@ public class BuilderCommands {
         } catch (IllegalArgumentException e) {
             throw JourneymenCommand.fail(e.getMessage());
         }
-        SchematicCommands.loadAsync(source, file, schematic -> {
-            if (!builder.isAlive()) {
-                source.sendFailure(Component.literal(builder.getBuilderName() + " is gone."));
-                return;
+        if (mode == JobMode.SUPPLY) {
+            SchematicCommands.loadAsync(source, file, schematic -> {
+                if (builder.isAlive()) {
+                    supply(source, builder, file, origin, rotation, options, schematic);
+                }
+            });
+            return 1;
+        }
+        JobService.run(source.getServer(), builder, file, origin, rotation, options, start, result -> {
+            if (result.header() != null) {
+                source.sendSuccess(result::header, false);
+                result.lines().forEach(line -> source.sendSuccess(() -> line, false));
             }
-            if (mode == JobMode.SUPPLY) {
-                supply(source, builder, file, origin, rotation, options, schematic);
-                return;
+            if (result.error() != null) {
+                source.sendFailure(Component.literal(result.error()));
+            } else if (result.started()) {
+                source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " is on the way.").withStyle(ChatFormatting.GREEN), false);
             }
-            PlacementTransform transform = PlacementTransform.of(schematic, origin, rotation, options.corner());
-            PreCheck check = PreCheck.run(builder, schematic, transform, options);
-            BoundingBox area = check.getArea();
-            source.sendSuccess(() -> Component.literal((start ? "Build " : "Check ") + file).withStyle(ChatFormatting.GOLD)
-                    .append(Component.literal(" for " + builder.getBuilderName() + " at " + origin.toShortString() + ", rotation "
-                            + rotation.getSerializedName() + ", options " + options.describe() + "; area "
-                            + area.minX() + " " + area.minY() + " " + area.minZ() + " to " + area.maxX() + " " + area.maxY() + " " + area.maxZ())
-                            .withStyle(ChatFormatting.GRAY)), false);
-            check.lines().forEach(line -> source.sendSuccess(() -> line, false));
-            if (!start) {
-                return;
-            }
-            BuildPlan plan = check.getPlan();
-            if (!check.passed() || plan == null) {
-                source.sendFailure(Component.literal(builder.getBuilderName() + " can't start this job yet."));
-                return;
-            }
-            if (builder.getJob() != null) {
-                source.sendFailure(Component.literal(builder.getBuilderName() + " got another job in the meantime."));
-                return;
-            }
-            builder.startJob(new BuildJob(file, origin, rotation, options, area, BuildJob.Phase.WALKING), schematic, plan);
-            source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " is on the way.").withStyle(ChatFormatting.GREEN), false);
         });
         return 1;
     }

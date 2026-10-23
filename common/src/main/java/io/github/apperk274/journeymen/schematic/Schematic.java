@@ -57,6 +57,10 @@ public final class Schematic {
         return getBlock(pos.getX(), pos.getY(), pos.getZ());
     }
 
+    public int paletteIndex(int x, int y, int z) {
+        return blocks[index(size, x, y, z)];
+    }
+
     @Nullable
     public BlockState getBlock(int x, int y, int z) {
         int index = blocks[index(size, x, y, z)];
