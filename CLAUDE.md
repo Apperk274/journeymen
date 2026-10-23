@@ -45,9 +45,9 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - Rendered with the vanilla player model and default Steve skin (`textures/entity/player/wide/steve.png`) for now.
 - Has an owner (the player who summoned it). Only the owner commands it. Operators (permission level 2+) can command any builder, addressing it as `<owner>.<name>` (e.g. `Steve.Gerald`).
 - Has a name. Summon gives it a random first name that is unique among the owner's builders, or the one given in `summon [name]`. A name tag or `/journeymen builder rename <old> <new>` renames it. Commands address builders by name, and the name shows above its head. Names use only letters, digits, `_` and `-` (at most 24), so they never need quotes in commands, and player names never contain the `.` separator.
-- Has a 27-slot inventory. Right-click opens it, and the player moves items in and out. Vanilla's 9×3 chest menu for now; a custom screen with tool slots can come later.
+- Has a 27-slot inventory and armor slots. It wears its armor (rendered), which protects it and wears out like a player's, and drops on death. Right-click opens the builder screen (see Phase 4).
 - Inventory, owner, name, assigned chests and current build job persist through world save/load.
-- Summoned with `/journeymen builder summon`. A craftable spawn egg comes later.
+- Summoned with `/journeymen builder summon` (ops), or hired from a recruiter in survival (see Recruiter's Stall).
 - Can be hurt like a mob (falls, lava, mobs, other players under PvP rules), including by its owner, and regenerates slowly. On death it drops its inventory. `/journeymen builder kill <name>` removes it and drops its inventory.
 - Picks up items lying around itself (player pickup range), whether working or idle. It doesn't go out of its way for items.
 - When idle it stays where it is. `builder come <name>` walks it to you, and `builder follow <name>` / `builder stay <name>` toggle following.
@@ -120,6 +120,41 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI for now. Keys include the speed multiplier, chunk loading (off), the redo limit (3), the max job volume, the max walking distance to a site, and the reminder interval.
 
+## Phase 4: survival UI
+
+Everything below also stays possible with a command (see Architecture rules).
+
+### Recruiter's Stall
+
+- A craftable item (shaped recipe: wool across the top, planks + emerald + planks, sticks at the bottom corners; a normal data recipe so modpacks can replace it). Placed like a bed: one right-click builds a 3 wide, 2 deep, 3 tall multi-block stall facing the player, if that space is free. Vanilla textures only: plank counter across the front, spruce posts, striped wool awning on top.
+- Breaking any part removes the whole stall and drops one stall item. Explosions drop one item too.
+- Placing it spawns a **Recruiter** (villager look) who stands behind the counter. When the stall is gone, the recruiter disappears. The recruiter can be killed; break the stall and place it again to get a new one.
+- Anyone can hire from any stall. Right-clicking the recruiter opens the hiring screen: the price, a random builder name you can edit, and a Hire button. The new builder appears in front of the counter and belongs to the player who paid.
+- Price (config): item `hire_cost_item` (default `minecraft:emerald`, so packs like TFC can change it), `hire_cost_base` (10) plus `hire_cost_step` (5) for every builder the player already has, capped by `max_builders_per_player` (5, 0 = no cap). Ops summoning by command bypass the cap.
+- Commands: `/journeymen recruiter hire [name]` hires from the nearest recruiter (within 8 blocks) at the same price; `/journeymen stall place <pos> [facing]` (ops) places a stall without the item.
+
+### Builder screen
+
+Right-clicking your builder (owner or op) opens one screen with tabs:
+
+- **Inventory:** its 27 slots and 4 armor slots, plus your inventory. Shift-clicking armor in your inventory puts it in the matching armor slot, like your own inventory does.
+- **Job:** current job, phase and progress, what it's waiting for; a schematic picker (server `schematics/` folder) with the material list; Place (starts placement mode), Check and Cancel.
+- **Chests:** assigned supply and dump chests with remove buttons. Link mode: click "Add supply" or "Add dump", then right-click chests in the world (each click toggles a chest, linked chests are outlined); sneak or Esc ends it.
+- **Orders:** follow / stay, rename, notices, dismiss (kill, with a confirmation).
+
+### Placement mode
+
+Picking a schematic and clicking Place closes the screen and shows a ghost preview (translucent blocks and the bounding box) at your crosshair. Sneak + scroll rotates, right-click confirms, sneak + right-click cancels. Confirming opens a confirmation screen with the pre-check result and a Start button that only works when the check passes. No item is involved.
+
+### Phase 4 steps
+
+| Step | Done when |
+|---|---|
+| 4a | Networking on both loaders, Recruiter's Stall (item, recipe, multi-block, recruiter), hiring screen and `recruiter hire` / `stall place` commands, hire price config |
+| 4b | Builder screen with tabs; Inventory tab with armor slots, shift-click armor, armor rendering and wear |
+| 4c | Orders and Chests tabs, chest link mode with outlines |
+| 4d | Job tab, placement mode with ghost preview, confirmation screen |
+
 ## Example schematics
 
 `examples/schematics/` holds example schematics, generated by `examples/make_schematics.py` (Python, no dependencies). Regenerate them after changing the script and copy them into the dev run folders' `schematics/` (`neoforge/run`, `fabric/runs/client`, `fabric/runs/server`). They double as end-to-end test cases: supply a builder with `builder supply`, build, then `builder check` should report 0 to place.
@@ -132,7 +167,7 @@ A small config file read by `common/`, same format on both loaders, no library d
 | 1 ✅ | Summon a Steve-skinned builder by command, open its inventory, and it survives reload |
 | 2 ✅ | Load `.schem` / `.nbt` and print a material list for a schematic |
 | 3 ✅ | Builder builds a schematic as described in Build jobs, Pre-check, Supply and dump chests, How a build plays out and Feedback |
-| 4 | Craftable spawn egg, right-click dialogue for common actions, custom inventory screen |
+| 4 | Survival UI: Recruiter's Stall and hiring, builder screen, placement mode (see Phase 4) |
 
 Phase 3 is built in steps, each tested on both loaders:
 
