@@ -1,0 +1,70 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/white_wool",
+    "wool": "minecraft:block/white_wool"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        12,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#wool"
+        },
+        "up": {
+          "texture": "#wool",
+          "cullface": "up"
+        },
+        "north": {
+          "texture": "#wool",
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "cullface": "north"
+        },
+        "south": {
+          "texture": "#wool",
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "cullface": "south"
+        },
+        "west": {
+          "texture": "#wool",
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "cullface": "west"
+        },
+        "east": {
+          "texture": "#wool",
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "cullface": "east"
+        }
+      }
+    }
+  ]
+}

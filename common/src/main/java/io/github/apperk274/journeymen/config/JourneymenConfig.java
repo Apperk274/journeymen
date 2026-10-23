@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen.config;
 
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.platform.Services;
+import net.minecraft.resources.ResourceLocation;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -39,6 +40,19 @@ public final class JourneymenConfig {
     public static final Entry<Integer> WAIT_REPORT_SECONDS = add(new Entry<>("wait_report_seconds",
             "How long a builder waits for someone standing in its way before it tells its owner, in seconds.",
             10, Integer::parseInt, value -> value >= 0));
+
+    public static final Entry<String> HIRE_COST_ITEM = add(new Entry<>("hire_cost_item",
+            "The item paid to a recruiter to hire a builder (an item id such as minecraft:emerald).",
+            "minecraft:emerald", value -> value, value -> ResourceLocation.tryParse(value) != null));
+    public static final Entry<Integer> HIRE_COST_BASE = add(new Entry<>("hire_cost_base",
+            "How many of that item the first builder costs.",
+            10, Integer::parseInt, value -> value >= 0));
+    public static final Entry<Integer> HIRE_COST_STEP = add(new Entry<>("hire_cost_step",
+            "How many more each further builder costs, for every builder the player already has.",
+            5, Integer::parseInt, value -> value >= 0));
+    public static final Entry<Integer> MAX_BUILDERS_PER_PLAYER = add(new Entry<>("max_builders_per_player",
+            "How many builders one player can hire from recruiters (0 = no limit). Ops summoning by command are not limited.",
+            5, Integer::parseInt, value -> value >= 0));
 
     private JourneymenConfig() {
     }

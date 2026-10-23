@@ -1,3 +1,5 @@
 {
-    "entity.journeymen.builder": "Builder"
+  "entity.journeymen.builder": "Builder",
+  "block.journeymen.recruiters_stall": "Recruiter's Stall",
+  "entity.journeymen.recruiter": "Recruiter"
 }

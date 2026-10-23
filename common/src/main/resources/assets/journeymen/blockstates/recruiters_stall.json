@@ -1,0 +1,229 @@
+{
+  "variants": {
+    "facing=north,part=counter_left": {
+      "model": "journeymen:block/stall_counter"
+    },
+    "facing=north,part=counter_middle": {
+      "model": "journeymen:block/stall_counter"
+    },
+    "facing=north,part=counter_right": {
+      "model": "journeymen:block/stall_counter"
+    },
+    "facing=north,part=front_post_left": {
+      "model": "journeymen:block/stall_post"
+    },
+    "facing=north,part=front_post_right": {
+      "model": "journeymen:block/stall_post"
+    },
+    "facing=north,part=back_post_left_low": {
+      "model": "journeymen:block/stall_post"
+    },
+    "facing=north,part=back_post_left_high": {
+      "model": "journeymen:block/stall_post"
+    },
+    "facing=north,part=back_post_right_low": {
+      "model": "journeymen:block/stall_post"
+    },
+    "facing=north,part=back_post_right_high": {
+      "model": "journeymen:block/stall_post"
+    },
+    "facing=north,part=awning_front_left": {
+      "model": "journeymen:block/stall_awning_red"
+    },
+    "facing=north,part=awning_front_middle": {
+      "model": "journeymen:block/stall_awning_white"
+    },
+    "facing=north,part=awning_front_right": {
+      "model": "journeymen:block/stall_awning_red"
+    },
+    "facing=north,part=awning_back_left": {
+      "model": "journeymen:block/stall_awning_red"
+    },
+    "facing=north,part=awning_back_middle": {
+      "model": "journeymen:block/stall_awning_white"
+    },
+    "facing=north,part=awning_back_right": {
+      "model": "journeymen:block/stall_awning_red"
+    },
+    "facing=east,part=counter_left": {
+      "model": "journeymen:block/stall_counter",
+      "y": 90
+    },
+    "facing=east,part=counter_middle": {
+      "model": "journeymen:block/stall_counter",
+      "y": 90
+    },
+    "facing=east,part=counter_right": {
+      "model": "journeymen:block/stall_counter",
+      "y": 90
+    },
+    "facing=east,part=front_post_left": {
+      "model": "journeymen:block/stall_post",
+      "y": 90
+    },
+    "facing=east,part=front_post_right": {
+      "model": "journeymen:block/stall_post",
+      "y": 90
+    },
+    "facing=east,part=back_post_left_low": {
+      "model": "journeymen:block/stall_post",
+      "y": 90
+    },
+    "facing=east,part=back_post_left_high": {
+      "model": "journeymen:block/stall_post",
+      "y": 90
+    },
+    "facing=east,part=back_post_right_low": {
+      "model": "journeymen:block/stall_post",
+      "y": 90
+    },
+    "facing=east,part=back_post_right_high": {
+      "model": "journeymen:block/stall_post",
+      "y": 90
+    },
+    "facing=east,part=awning_front_left": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 90
+    },
+    "facing=east,part=awning_front_middle": {
+      "model": "journeymen:block/stall_awning_white",
+      "y": 90
+    },
+    "facing=east,part=awning_front_right": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 90
+    },
+    "facing=east,part=awning_back_left": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 90
+    },
+    "facing=east,part=awning_back_middle": {
+      "model": "journeymen:block/stall_awning_white",
+      "y": 90
+    },
+    "facing=east,part=awning_back_right": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 90
+    },
+    "facing=south,part=counter_left": {
+      "model": "journeymen:block/stall_counter",
+      "y": 180
+    },
+    "facing=south,part=counter_middle": {
+      "model": "journeymen:block/stall_counter",
+      "y": 180
+    },
+    "facing=south,part=counter_right": {
+      "model": "journeymen:block/stall_counter",
+      "y": 180
+    },
+    "facing=south,part=front_post_left": {
+      "model": "journeymen:block/stall_post",
+      "y": 180
+    },
+    "facing=south,part=front_post_right": {
+      "model": "journeymen:block/stall_post",
+      "y": 180
+    },
+    "facing=south,part=back_post_left_low": {
+      "model": "journeymen:block/stall_post",
+      "y": 180
+    },
+    "facing=south,part=back_post_left_high": {
+      "model": "journeymen:block/stall_post",
+      "y": 180
+    },
+    "facing=south,part=back_post_right_low": {
+      "model": "journeymen:block/stall_post",
+      "y": 180
+    },
+    "facing=south,part=back_post_right_high": {
+      "model": "journeymen:block/stall_post",
+      "y": 180
+    },
+    "facing=south,part=awning_front_left": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 180
+    },
+    "facing=south,part=awning_front_middle": {
+      "model": "journeymen:block/stall_awning_white",
+      "y": 180
+    },
+    "facing=south,part=awning_front_right": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 180
+    },
+    "facing=south,part=awning_back_left": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 180
+    },
+    "facing=south,part=awning_back_middle": {
+      "model": "journeymen:block/stall_awning_white",
+      "y": 180
+    },
+    "facing=south,part=awning_back_right": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 180
+    },
+    "facing=west,part=counter_left": {
+      "model": "journeymen:block/stall_counter",
+      "y": 270
+    },
+    "facing=west,part=counter_middle": {
+      "model": "journeymen:block/stall_counter",
+      "y": 270
+    },
+    "facing=west,part=counter_right": {
+      "model": "journeymen:block/stall_counter",
+      "y": 270
+    },
+    "facing=west,part=front_post_left": {
+      "model": "journeymen:block/stall_post",
+      "y": 270
+    },
+    "facing=west,part=front_post_right": {
+      "model": "journeymen:block/stall_post",
+      "y": 270
+    },
+    "facing=west,part=back_post_left_low": {
+      "model": "journeymen:block/stall_post",
+      "y": 270
+    },
+    "facing=west,part=back_post_left_high": {
+      "model": "journeymen:block/stall_post",
+      "y": 270
+    },
+    "facing=west,part=back_post_right_low": {
+      "model": "journeymen:block/stall_post",
+      "y": 270
+    },
+    "facing=west,part=back_post_right_high": {
+      "model": "journeymen:block/stall_post",
+      "y": 270
+    },
+    "facing=west,part=awning_front_left": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 270
+    },
+    "facing=west,part=awning_front_middle": {
+      "model": "journeymen:block/stall_awning_white",
+      "y": 270
+    },
+    "facing=west,part=awning_front_right": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 270
+    },
+    "facing=west,part=awning_back_left": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 270
+    },
+    "facing=west,part=awning_back_middle": {
+      "model": "journeymen:block/stall_awning_white",
+      "y": 270
+    },
+    "facing=west,part=awning_back_right": {
+      "model": "journeymen:block/stall_awning_red",
+      "y": 270
+    }
+  }
+}

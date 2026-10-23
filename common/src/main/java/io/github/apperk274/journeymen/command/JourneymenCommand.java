@@ -35,6 +35,8 @@ public class JourneymenCommand {
             new String[]{"builder chest <builder> add <pos> supply|dump", "Give a builder a supply or dump chest"},
             new String[]{"builder chest <builder> remove <pos>", "Take a chest away from a builder"},
             new String[]{"builder chest <builder> list", "List a builder's chests"},
+            new String[]{"recruiter hire [name]", "Hire a builder from the nearest recruiter"},
+            new String[]{"stall place <pos> [facing]", "Place a Recruiter's Stall without the item (ops)"},
             new String[]{"schematic list", "List the files in the schematics folder"},
             new String[]{"schematic materials <file>", "Show the materials a schematic needs"},
             new String[]{"config reload", "Reload the config file"});
@@ -44,6 +46,8 @@ public class JourneymenCommand {
                 .executes(JourneymenCommand::help)
                 .then(Commands.literal("help").executes(JourneymenCommand::help))
                 .then(BuilderCommands.build())
+                .then(RecruiterCommands.recruiter())
+                .then(RecruiterCommands.stall())
                 .then(SchematicCommands.build())
                 .then(Commands.literal("config")
                         .requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))

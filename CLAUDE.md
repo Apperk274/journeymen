@@ -150,7 +150,7 @@ Picking a schematic and clicking Place closes the screen and shows a ghost previ
 
 | Step | Done when |
 |---|---|
-| 4a | Networking on both loaders, Recruiter's Stall (item, recipe, multi-block, recruiter), hiring screen and `recruiter hire` / `stall place` commands, hire price config |
+| 4a ✅ | Networking on both loaders, Recruiter's Stall (item, recipe, multi-block, recruiter), hiring screen and `recruiter hire` / `stall place` commands, hire price config |
 | 4b | Builder screen with tabs; Inventory tab with armor slots, shift-click armor, armor rendering and wear |
 | 4c | Orders and Chests tabs, chest link mode with outlines |
 | 4d | Job tab, placement mode with ghost preview, confirmation screen |

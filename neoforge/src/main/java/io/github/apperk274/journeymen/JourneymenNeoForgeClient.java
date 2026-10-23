@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen;
 
 import io.github.apperk274.journeymen.client.BuilderRenderer;
+import io.github.apperk274.journeymen.client.RecruiterRenderer;
 import io.github.apperk274.journeymen.entity.ModEntities;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -11,6 +12,9 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 public class JourneymenNeoForgeClient {
 
     public JourneymenNeoForgeClient(IEventBus eventBus) {
-        eventBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> event.registerEntityRenderer(ModEntities.BUILDER, BuilderRenderer::new));
+        eventBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> {
+            event.registerEntityRenderer(ModEntities.BUILDER, BuilderRenderer::new);
+            event.registerEntityRenderer(ModEntities.RECRUITER, RecruiterRenderer::new);
+        });
     }
 }
