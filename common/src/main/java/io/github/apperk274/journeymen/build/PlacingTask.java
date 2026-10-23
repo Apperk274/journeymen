@@ -80,7 +80,9 @@ import net.minecraft.world.level.block.piston.PistonHeadBlock;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Predicate;
 
@@ -268,11 +270,8 @@ public final class PlacingTask {
         }
         int toolSlot = -1;
         if (requirement.toolUse() != null) {
-            Predicate<ItemStack> matches = requirement.toolUse() == BlockRequirements.ToolUse.HOE
-                    ? stack -> stack.getItem() instanceof HoeItem
-                    : stack -> stack.getItem() instanceof ShovelItem;
-            Predicate<ItemStack> usable = stack -> matches.test(stack)
-                    && ToolCheck.usableDurability(stack, builder.getJob() != null && builder.getJob().getOptions().allowBreakingEnchanted()) >= 1;
+            Predicate<ItemStack> usable = toolFor(requirement.toolUse(),
+                    builder.getJob() != null && builder.getJob().getOptions().allowBreakingEnchanted());
             toolSlot = builder.findSlot(usable);
             if (toolSlot < 0) {
                 neededTool = usable;
@@ -594,6 +593,28 @@ public final class PlacingTask {
             }
         }
         return needs;
+    }
+
+    public static Predicate<ItemStack> toolFor(BlockRequirements.ToolUse use, boolean allowBreakingEnchanted) {
+        Predicate<ItemStack> matches = use == BlockRequirements.ToolUse.HOE
+                ? stack -> stack.getItem() instanceof HoeItem
+                : stack -> stack.getItem() instanceof ShovelItem;
+        return stack -> matches.test(stack) && ToolCheck.usableDurability(stack, allowBreakingEnchanted) >= 1;
+    }
+
+    public Set<BlockRequirements.ToolUse> remainingToolUses() {
+        Set<BlockRequirements.ToolUse> uses = EnumSet.noneOf(BlockRequirements.ToolUse.class);
+        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, dependents)) {
+            for (List<Entry> layer : layers.values()) {
+                for (Entry entry : layer) {
+                    Block block = entry.placement().target().getBlock();
+                    if (entry.kind() == Kind.PLACE && (block == Blocks.FARMLAND || block == Blocks.DIRT_PATH)) {
+                        uses.add(block == Blocks.FARMLAND ? BlockRequirements.ToolUse.HOE : BlockRequirements.ToolUse.SHOVEL);
+                    }
+                }
+            }
+        }
+        return uses;
     }
 
     public ItemCounter remainingNeeds() {

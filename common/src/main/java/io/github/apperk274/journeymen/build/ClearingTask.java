@@ -273,10 +273,22 @@ public final class ClearingTask {
     }
 
     public boolean isUsefulTool(ItemStack stack) {
+        return isUsefulTool(stack, statesToClear);
+    }
+
+    public static Predicate<ItemStack> usefulTools(ServerLevel level, List<BlockPos> toClear) {
+        Set<BlockState> states = new HashSet<>();
+        for (BlockPos pos : toClear) {
+            states.add(level.getBlockState(pos));
+        }
+        return stack -> isUsefulTool(stack, states);
+    }
+
+    private static boolean isUsefulTool(ItemStack stack, Set<BlockState> states) {
         if (stack.get(DataComponents.TOOL) == null) {
             return false;
         }
-        for (BlockState state : statesToClear) {
+        for (BlockState state : states) {
             if (stack.isCorrectToolForDrops(state) || stack.getDestroySpeed(state) > 1.0F) {
                 return true;
             }

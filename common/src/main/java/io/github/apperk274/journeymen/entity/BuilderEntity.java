@@ -3,6 +3,7 @@ package io.github.apperk274.journeymen.entity;
 import com.mojang.authlib.GameProfile;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.AssignedChest;
+import io.github.apperk274.journeymen.build.BlockRequirements;
 import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ChestVisit;
@@ -13,6 +14,8 @@ import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.build.Reach;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.ai.BuilderMoveGoal;
+import io.github.apperk274.journeymen.entity.ai.BuilderNodeEvaluator;
+import io.github.apperk274.journeymen.entity.ai.OpenPassageGoal;
 import io.github.apperk274.journeymen.platform.Services;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
@@ -46,10 +49,10 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.OpenDoorGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.level.pathfinder.PathFinder;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -126,6 +129,7 @@ public class BuilderEntity extends PathfinderMob {
     private ServerBossEvent progressBar;
     private static final double PROGRESS_BAR_RANGE = 64.0;
     private boolean clearedSomething;
+    private boolean toolsFetched;
     private final List<ItemStack> overflow = new ArrayList<>();
     private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
     private final List<BlockPos> unclearable = new ArrayList<>();
@@ -147,7 +151,14 @@ public class BuilderEntity extends PathfinderMob {
 
     @Override
     protected PathNavigation createNavigation(Level level) {
-        GroundPathNavigation navigation = new GroundPathNavigation(this, level);
+        GroundPathNavigation navigation = new GroundPathNavigation(this, level) {
+            @Override
+            protected PathFinder createPathFinder(int maxVisitedNodes) {
+                nodeEvaluator = new BuilderNodeEvaluator();
+                nodeEvaluator.setCanPassDoors(true);
+                return new PathFinder(nodeEvaluator, maxVisitedNodes);
+            }
+        };
         navigation.setCanOpenDoors(true);
         navigation.setCanPassDoors(true);
         navigation.setCanFloat(true);
@@ -157,7 +168,7 @@ public class BuilderEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
-        goalSelector.addGoal(1, new OpenDoorGoal(this, true));
+        goalSelector.addGoal(1, new OpenPassageGoal(this));
         goalSelector.addGoal(2, new BuilderMoveGoal(this));
         goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F) {
             @Override
@@ -350,6 +361,38 @@ public class BuilderEntity extends PathfinderMob {
         ticksWithoutProgress = 0;
         getNavigation().stop();
         updateJobArea();
+        toolsFetched = false;
+        clearedSomething = false;
+        Constants.LOG.debug("{} starts {}", getBuilderName(), newJob.getFile());
+        prepareForSite(plan);
+    }
+
+    private void prepareForSite(BuildPlan plan) {
+        if (!plan.getToClear().isEmpty()) {
+            queueToolFetch(ClearingTask.usefulTools((ServerLevel) level(), plan.getToClear()));
+        } else if (plan.getFluidsInTheWay().isEmpty()) {
+            placing = new PlacingTask(this, plan, this::withinRedoLimit);
+            fetchMaterials(null);
+        }
+    }
+
+    private void queueToolFetch(Predicate<ItemStack> useful) {
+        toolsFetched = true;
+        for (AssignedChest chest : chests) {
+            if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
+                continue;
+            }
+            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
+            if (container != null && containsMatching(container, useful)) {
+                queueVisit(ChestVisit.fetch(chest.pos(), useful));
+            }
+        }
+    }
+
+    private void queueVisit(ChestVisit visit) {
+        Constants.LOG.debug("{} goes to the chest at {} to {}", getBuilderName(), visit.getChest().toShortString(),
+                visit.getKind() == ChestVisit.Kind.DUMP ? "dump items" : "fetch items");
+        visits.add(visit);
     }
 
     public void cancelJob() {
@@ -673,15 +716,8 @@ public class BuilderEntity extends PathfinderMob {
             job.setPlan(plan);
         }
         clearing = new ClearingTask(this, job, plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition());
-        ClearingTask task = clearing;
-        for (AssignedChest chest : chests) {
-            if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
-                continue;
-            }
-            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
-            if (container != null && containsMatching(container, task::isUsefulTool)) {
-                visits.add(ChestVisit.fetch(chest.pos(), task::isUsefulTool));
-            }
+        if (!toolsFetched) {
+            queueToolFetch(clearing::isUsefulTool);
         }
         return true;
     }
@@ -710,10 +746,13 @@ public class BuilderEntity extends PathfinderMob {
             notifyOwner("I couldn't clear " + Math.max(unclearable.size(), skipped.size()) + " block(s) of the site, e.g. at "
                     + example.toShortString() + ".");
         }
-        if (clearedSomething) {
-            notifyOwner("The site of " + job.getFile() + " is clear.");
-            clearedSomething = false;
+        boolean collected = clearedSomething;
+        clearedSomething = false;
+        if (!collected) {
+            job.setPhase(BuildJob.Phase.PLACING);
+            return;
         }
+        notifyOwner("The site of " + job.getFile() + " is clear.");
         emptyingOut = true;
         triedDumpChests.clear();
         queueEmptyingOut();
@@ -723,7 +762,7 @@ public class BuilderEntity extends PathfinderMob {
         if (hasDumpableItems()) {
             for (AssignedChest chest : chests) {
                 if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
-                    visits.add(ChestVisit.dump(chest.pos()));
+                    queueVisit(ChestVisit.dump(chest.pos()));
                     return;
                 }
             }
@@ -829,6 +868,24 @@ public class BuilderEntity extends PathfinderMob {
                 }
             }
         }
+        for (BlockRequirements.ToolUse use : placing.remainingToolUses()) {
+            Predicate<ItemStack> usable = PlacingTask.toolFor(use, job.getOptions().allowBreakingEnchanted());
+            if (findSlot(usable) < 0) {
+                for (AssignedChest chest : chests) {
+                    if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
+                        continue;
+                    }
+                    Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
+                    if (container != null && containsMatching(container, usable)) {
+                        queueVisit(ChestVisit.fetch(chest.pos(), usable));
+                        break;
+                    }
+                }
+            }
+        }
+        if (wanted.isEmpty()) {
+            return;
+        }
         boolean queued = false;
         for (AssignedChest chest : chests) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
@@ -836,7 +893,7 @@ public class BuilderEntity extends PathfinderMob {
             }
             Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
             if (container != null && containsMatching(container, stack -> wanted.count(stack) > 0)) {
-                visits.add(ChestVisit.fetchAmounts(chest.pos(), wanted));
+                queueVisit(ChestVisit.fetchAmounts(chest.pos(), wanted));
                 queued = true;
             }
         }
@@ -915,7 +972,7 @@ public class BuilderEntity extends PathfinderMob {
     private void startDump() {
         for (AssignedChest chest : chests) {
             if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
-                visits.add(ChestVisit.dump(chest.pos()));
+                queueVisit(ChestVisit.dump(chest.pos()));
                 return;
             }
         }
@@ -933,7 +990,7 @@ public class BuilderEntity extends PathfinderMob {
             }
             Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
             if (container != null && containsMatching(container, wanted)) {
-                visits.add(ChestVisit.fetch(chest.pos(), wanted));
+                queueVisit(ChestVisit.fetch(chest.pos(), wanted));
                 return;
             }
         }
@@ -1041,7 +1098,11 @@ public class BuilderEntity extends PathfinderMob {
         }
         switch (job.getPhase()) {
             case LOADING -> reloadJob();
-            case WALKING -> walkToSite();
+            case WALKING -> {
+                if (!handleVisits()) {
+                    walkToSite();
+                }
+            }
             case CLEARING -> tickClearing();
             case PLACING -> tickPlacing();
             case PAUSED -> {
@@ -1094,7 +1155,9 @@ public class BuilderEntity extends PathfinderMob {
         boolean stuckNearby = distance <= NEAR_SITE && ticksWithoutProgress > NEAR_SITE_STUCK_TICKS;
         if (distance <= Reach.HORIZONTAL || stuckNearby) {
             getNavigation().stop();
-            job.setPhase(BuildJob.Phase.CLEARING);
+            BuildPlan plan = job.getPlan();
+            boolean nothingToClear = plan != null && plan.getToClear().isEmpty() && plan.getFluidsInTheWay().isEmpty();
+            job.setPhase(nothingToClear ? BuildJob.Phase.PLACING : BuildJob.Phase.CLEARING);
             return;
         }
         if (distance < bestSiteDistance - 0.5) {

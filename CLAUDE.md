@@ -51,6 +51,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - Can be hurt like a mob (falls, lava, mobs, other players under PvP rules), including by its owner, and regenerates slowly. On death it drops its inventory. `/journeymen builder kill <name>` removes it and drops its inventory.
 - Picks up items lying around itself (player pickup range), whether working or idle. It doesn't go out of its way for items.
 - When idle it stays where it is. `builder come <name>` walks it to you, and `builder follow <name>` / `builder stay <name>` toggle following.
+- It walks through wooden doors and fence gates like a player: it opens them on its way and closes them behind it if they were closed, leaving open ones open (like villagers). Iron doors stay shut.
 
 ### Schematics
 
@@ -65,7 +66,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - **Area:** the rotated schematic bounding box. Schematic air is cleared. Structure void and positions without data are left alone.
 - **Options:** `corner` (see Origin) and `allow-breaking-enchanted` (see Tools).
 - **One job per builder.** `build` is refused while it has a job. `builder cancel <name>` stops it and leaves the half-built structure as it is. Leftover items stay in its inventory and chests. Issuing the same job again continues from what is in the world, because the plan is a diff.
-- **Getting there:** it walks to the site. `build` is refused if the site is farther than a configured distance or no path is found.
+- **Getting there:** before walking to the site it fetches what the first stage needs from its supply chests (tools if there is anything to clear, otherwise the materials for the first blocks plus any hoe or shovel for farmland and paths), then walks to the site. `build` is refused if the site is farther than a configured distance or no path is found.
 - **Chunks:** like any mob, it stops when its chunks unload and continues when they load again. A config option (off by default) lets a builder with an active job keep its chunks loaded.
 - It keeps working while the owner is offline.
 - A config limit caps the job volume (generous by default, e.g. 256×256×256).
