@@ -586,16 +586,17 @@ public final class PlacingTask {
         return nearest;
     }
 
-    public ItemCounter upcomingNeeds(int slots) {
+    public ItemCounter upcomingNeeds(int slots, ItemCounter carried) {
         ItemCounter needs = new ItemCounter();
         int usedSlots = 0;
         for (TreeMap<Integer, List<Entry>> layers : List.of(supports, dependents, fluids)) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
                     for (ItemStack stack : itemsFor(entry)) {
-                        if (needs.count(stack) % stack.getMaxStackSize() == 0) {
-                            usedSlots++;
-                        }
+                        long before = needs.count(stack);
+                        int carriedSlots = ItemCounter.slotsFor(stack, carried.count(stack));
+                        usedSlots += Math.max(0, ItemCounter.slotsFor(stack, before + stack.getCount()) - carriedSlots)
+                                - Math.max(0, ItemCounter.slotsFor(stack, before) - carriedSlots);
                         if (usedSlots > slots) {
                             return needs;
                         }

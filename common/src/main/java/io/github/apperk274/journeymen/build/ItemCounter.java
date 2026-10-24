@@ -52,14 +52,33 @@ public final class ItemCounter {
     public int slots() {
         int slots = 0;
         for (Map.Entry<ItemMatch.Key, Long> entry : counts.entrySet()) {
-            int max = Math.max(1, examples.get(entry.getKey()).getMaxStackSize());
-            slots += (int) ((entry.getValue() + max - 1) / max);
+            slots += slotsFor(examples.get(entry.getKey()), entry.getValue());
         }
         return slots;
     }
 
+    public int slotsBeyond(ItemCounter carried) {
+        int slots = 0;
+        for (Map.Entry<ItemMatch.Key, Long> entry : counts.entrySet()) {
+            ItemStack example = examples.get(entry.getKey());
+            slots += Math.max(0, slotsFor(example, entry.getValue()) - slotsFor(example, carried.count(example)));
+        }
+        return slots;
+    }
+
+    public static int slotsFor(ItemStack stack, long count) {
+        int max = Math.max(1, stack.getMaxStackSize());
+        return (int) ((count + max - 1) / max);
+    }
+
     public boolean isEmpty() {
         return counts.isEmpty();
+    }
+
+    public List<Map.Entry<ItemStack, Long>> entries() {
+        return counts.entrySet().stream()
+                .map(entry -> Map.entry(examples.get(entry.getKey()), entry.getValue()))
+                .toList();
     }
 
     public List<Map.Entry<ItemStack, Long>> sorted() {

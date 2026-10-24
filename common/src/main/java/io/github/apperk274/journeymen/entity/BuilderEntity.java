@@ -533,17 +533,21 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     public void fetchAmounts(ItemStore store, ItemCounter amounts) {
-        for (int slot = 0; slot < store.size(); slot++) {
-            ItemStack stack = store.get(slot);
-            long wanted = stack.isEmpty() ? 0 : amounts.count(stack);
-            int count = (int) Math.min(Math.min(wanted, stack.getCount()), roomFor(stack));
-            if (count <= 0) {
-                continue;
+        for (Map.Entry<ItemStack, Long> entry : amounts.entries()) {
+            for (int slot = 0; slot < store.size() && amounts.count(entry.getKey()) > 0; slot++) {
+                ItemStack stack = store.get(slot);
+                if (!ItemMatch.same(stack, entry.getKey())) {
+                    continue;
+                }
+                int count = (int) Math.min(Math.min(amounts.count(stack), stack.getCount()), roomFor(stack));
+                if (count <= 0) {
+                    continue;
+                }
+                ItemStack taken = store.take(slot, count);
+                ItemStack remainder = inventory.addItem(taken.copy());
+                amounts.remove(taken, taken.getCount() - remainder.getCount());
+                putBack(store, slot, remainder);
             }
-            ItemStack taken = store.take(slot, count);
-            ItemStack remainder = inventory.addItem(taken.copy());
-            amounts.remove(taken, taken.getCount() - remainder.getCount());
-            putBack(store, slot, remainder);
         }
         inventory.setChanged();
     }
@@ -897,9 +901,8 @@ public class BuilderEntity extends PathfinderMob {
         }
         int freeSlots = (int) inventory.getItems().stream().filter(ItemStack::isEmpty).count();
         int toolSlots = (int) inventory.getItems().stream().filter(stack -> !stack.isEmpty() && isTool(stack)).count();
-        ItemCounter soon = withImmediate(placing.upcomingNeeds(INVENTORY_SIZE - toolSlots), immediate);
-        ItemCounter forFullInventory = missingFrom(soon, inInventory);
-        boolean unloading = forFullInventory.slots() > freeSlots && queueUnload(soon);
+        ItemCounter soon = withImmediate(placing.upcomingNeeds(INVENTORY_SIZE - toolSlots, new ItemCounter()), immediate);
+        boolean unloading = soon.slotsBeyond(inInventory) > freeSlots && queueUnload(soon);
         if (!unloading && freeSlots == 0) {
             if (hasDumpableItems()) {
                 startDump();
@@ -908,7 +911,7 @@ public class BuilderEntity extends PathfinderMob {
             }
             return;
         }
-        ItemCounter wanted = unloading ? forFullInventory : missingFrom(withImmediate(placing.upcomingNeeds(freeSlots), immediate), inInventory);
+        ItemCounter wanted = missingFrom(unloading ? soon : withImmediate(placing.upcomingNeeds(freeSlots, inInventory), immediate), inInventory);
         for (BlockRequirements.ToolUse use : placing.remainingToolUses()) {
             Predicate<ItemStack> usable = PlacingTask.toolFor(use, job.getOptions().allowBreakingEnchanted());
             if (findSlot(usable) < 0) {
@@ -944,20 +947,22 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private static ItemCounter withImmediate(ItemCounter needs, @Nullable List<ItemStack> immediate) {
-        if (immediate != null) {
-            for (ItemStack stack : immediate) {
-                long extra = stack.getCount() - needs.count(stack);
-                if (extra > 0) {
-                    needs.add(stack, extra);
-                }
-            }
+        if (immediate == null) {
+            return needs;
         }
-        return needs;
+        ItemCounter result = new ItemCounter();
+        for (ItemStack stack : immediate) {
+            result.add(stack, Math.max(stack.getCount(), needs.count(stack)) - result.count(stack));
+        }
+        for (Map.Entry<ItemStack, Long> entry : needs.entries()) {
+            result.add(entry.getKey(), entry.getValue() - result.count(entry.getKey()));
+        }
+        return result;
     }
 
     private static ItemCounter missingFrom(ItemCounter needs, ItemCounter available) {
         ItemCounter missing = new ItemCounter();
-        for (Map.Entry<ItemStack, Long> entry : needs.sorted()) {
+        for (Map.Entry<ItemStack, Long> entry : needs.entries()) {
             long count = entry.getValue() - available.count(entry.getKey());
             if (count > 0) {
                 missing.add(entry.getKey(), count);
