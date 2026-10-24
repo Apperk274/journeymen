@@ -70,7 +70,7 @@ def payload(value):
 
 def write(path, root, root_name=""):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with gzip.open(path, "wb") as file:
+    with open(path, "wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as file:
         file.write(bytes([TAG_COMPOUND]) + string(root_name) + payload(root))
 
 
@@ -294,11 +294,28 @@ def tests():
     write_structure(os.path.join(OUT, "test_nether_portal.nbt"), (4, 5, 1), portal)
 
 
+def tfc_farm():
+    size = (9, 2, 9)
+    blocks = {}
+    for x in range(9):
+        for z in range(9):
+            border = x in (0, 8) or z in (0, 8)
+            blocks[(x, 0, z)] = "tfc:grass/fluvisol[snowy=false]" if border else "tfc:farmland/fluvisol"
+            if not border and (x, z) != (4, 4):
+                blocks[(x, 1, z)] = f"tfc:crop/wheat[age={(x + z) % 8}]" if z < 4 else f"tfc:crop/carrot[age={(x + z) % 5}]"
+    blocks[(4, 0, 0)] = "tfc:grass_path/fluvisol"
+    blocks[(4, 0, 4)] = state("water", level=0)
+    blocks[(0, 1, 0)] = "tfc:metal/chain/copper[axis=y]"
+    blocks[(8, 1, 8)] = "tfc:pumpkin"
+    write_sponge_v3(os.path.join(OUT, "tfc_farm.schem"), size, blocks)
+
+
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "schematics")
 wheat_farm()
 cottage()
 decor_corner()
 redstone_demo()
 clear_area()
+tfc_farm()
 tests()
 print("Wrote example schematics to " + OUT)

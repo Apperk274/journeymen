@@ -1,14 +1,13 @@
 package io.github.apperk274.journeymen.build;
 
+import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
@@ -57,7 +56,8 @@ public final class ToolCheck {
                                         List<ItemStack> tools, boolean allowBreakingEnchanted) {
         List<Slot> slots = new ArrayList<>();
         for (ItemStack stack : tools) {
-            if (stack.get(DataComponents.TOOL) != null || stack.getItem() instanceof HoeItem || stack.getItem() instanceof ShovelItem) {
+            if (stack.get(DataComponents.TOOL) != null || Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.HOE)
+                    || Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.SHOVEL)) {
                 slots.add(new Slot(stack, usableDurability(stack, allowBreakingEnchanted)));
             }
         }
@@ -88,8 +88,8 @@ public final class ToolCheck {
         }
 
         Map<BlockRequirements.ToolUse, Predicate<ItemStack>> useKinds = new EnumMap<>(BlockRequirements.ToolUse.class);
-        useKinds.put(BlockRequirements.ToolUse.HOE, stack -> stack.getItem() instanceof HoeItem);
-        useKinds.put(BlockRequirements.ToolUse.SHOVEL, stack -> stack.getItem() instanceof ShovelItem);
+        useKinds.put(BlockRequirements.ToolUse.HOE, stack -> Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.HOE));
+        useKinds.put(BlockRequirements.ToolUse.SHOVEL, stack -> Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.SHOVEL));
         for (Map.Entry<BlockRequirements.ToolUse, Integer> entry : toolUses.entrySet()) {
             List<Slot> candidates = candidates(slots, useKinds.get(entry.getKey()));
             int missing = allocate(candidates, entry.getValue(), slot -> slot.stack.isDamageableItem() ? 1 : 0);

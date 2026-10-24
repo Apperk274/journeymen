@@ -128,8 +128,8 @@ public final class PreCheck {
         for (Map.Entry<ItemStack, Long> entry : needed.sorted()) {
             long missing = entry.getValue() - available.count(entry.getKey());
             if (missing > 0) {
-                MutableComponent line = Component.literal("Missing " + missing + " ").append(entry.getKey().getHoverName());
-                if (!entry.getKey().getComponentsPatch().isEmpty()) {
+                MutableComponent line = Component.literal("Missing " + missing + " ").append(ItemMatch.name(entry.getKey()));
+                if (ItemMatch.hasVanillaData(entry.getKey())) {
                     line.append(Component.literal(" (with specific data, e.g. patterns or contents)"));
                 }
                 long inDump = builder.countInDumpChests(entry.getKey());

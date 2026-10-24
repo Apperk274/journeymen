@@ -2,7 +2,7 @@ package io.github.apperk274.journeymen.config;
 
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.platform.Services;
-import net.minecraft.resources.ResourceLocation;
+import io.github.apperk274.journeymen.hire.HirePrice;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -42,8 +42,8 @@ public final class JourneymenConfig {
             10, Integer::parseInt, value -> value >= 0));
 
     public static final Entry<String> HIRE_COST_ITEM = add(new Entry<>("hire_cost_item",
-            "The item paid to a recruiter to hire a builder (an item id such as minecraft:emerald).",
-            "minecraft:emerald", value -> value, value -> ResourceLocation.tryParse(value) != null));
+            "The item paid to a recruiter to hire a builder: an item id such as minecraft:emerald, or an item tag such as #c:gems/emerald.",
+            "#c:gems/emerald", value -> value, HirePrice::isValidSpec));
     public static final Entry<Integer> HIRE_COST_BASE = add(new Entry<>("hire_cost_base",
             "How many of that item the first builder costs.",
             10, Integer::parseInt, value -> value >= 0));

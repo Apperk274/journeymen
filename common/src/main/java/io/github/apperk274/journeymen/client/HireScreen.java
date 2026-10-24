@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.client;
 
 import io.github.apperk274.journeymen.entity.BuilderNames;
+import io.github.apperk274.journeymen.hire.HirePrice;
 import io.github.apperk274.journeymen.network.HireBuilderPayload;
 import io.github.apperk274.journeymen.network.OpenHireScreenPayload;
 import io.github.apperk274.journeymen.platform.Services;
@@ -61,7 +62,8 @@ public class HireScreen extends Screen {
     }
 
     private int have() {
-        return minecraft.player.getInventory().countItem(data.price().getItem());
+        HirePrice cost = HirePrice.parse(data.cost());
+        return cost == null ? minecraft.player.getInventory().countItem(data.price().getItem()) : cost.count(minecraft.player.getInventory());
     }
 
     private void hire() {

@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.BlockRequirements;
+import io.github.apperk274.journeymen.build.ItemMatch;
 import io.github.apperk274.journeymen.schematic.MaterialList;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
@@ -134,8 +135,8 @@ public class SchematicCommands {
 
     public static MutableComponent itemLine(ItemStack stack, long count) {
         MutableComponent line = Component.literal(String.format("%6d ", count)).withStyle(ChatFormatting.YELLOW)
-                .append(stack.getHoverName().copy().withStyle(ChatFormatting.WHITE));
-        if (!stack.getComponentsPatch().isEmpty()) {
+                .append(ItemMatch.name(stack).copy().withStyle(ChatFormatting.WHITE));
+        if (ItemMatch.hasVanillaData(stack)) {
             line.append(Component.literal(" (with data)").withStyle(ChatFormatting.GRAY));
         }
         int stackSize = stack.getMaxStackSize();

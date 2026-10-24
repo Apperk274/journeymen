@@ -3,7 +3,6 @@ package io.github.apperk274.journeymen.build;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -25,7 +24,7 @@ public final class MaterialSupply {
     public record Needs(List<ItemStack> stacks, Map<Block, Integer> unobtainable, Map<Block, Integer> noKnownTool) {
     }
 
-    public record Target(List<ItemStack> slots, Container container) {
+    public record Target(List<ItemStack> slots, List<ItemStack> original, ItemStore store) {
     }
 
     public static Needs needs(ServerLevel level, BuildPlan plan) {
@@ -68,28 +67,24 @@ public final class MaterialSupply {
         return new Needs(stacks, requirements.unobtainable(), noKnownTool);
     }
 
-    public static Target snapshot(Container container) {
+    public static Target snapshot(ItemStore store) {
         List<ItemStack> slots = new ArrayList<>();
-        for (int slot = 0; slot < container.getContainerSize(); slot++) {
-            slots.add(container.getItem(slot).copy());
+        for (int slot = 0; slot < store.size(); slot++) {
+            slots.add(store.get(slot).copy());
         }
-        return new Target(slots, container);
+        return new Target(slots, slots.stream().map(ItemStack::copy).toList(), store);
     }
 
     public static Target snapshot(Inventory inventory) {
-        List<ItemStack> slots = new ArrayList<>();
-        for (ItemStack stack : inventory.items) {
-            slots.add(stack.copy());
-        }
-        return new Target(slots, inventory);
+        return snapshot(new ContainerStore(inventory, inventory.items.size()));
     }
 
-    public static ItemStack insert(Target target, ItemStack stack, boolean playerInventory) {
+    public static ItemStack insert(Target target, ItemStack stack) {
         ItemStack remaining = stack.copy();
         for (int slot = 0; slot < target.slots().size() && !remaining.isEmpty(); slot++) {
             ItemStack existing = target.slots().get(slot);
-            if (!existing.isEmpty() && ItemStack.isSameItemSameComponents(existing, remaining) && canPlace(target, slot, remaining, playerInventory)) {
-                int room = maxStack(target, remaining, playerInventory) - existing.getCount();
+            if (!existing.isEmpty() && ItemStack.isSameItemSameComponents(existing, remaining) && target.store().accepts(slot, remaining)) {
+                int room = target.store().maxStack(slot, remaining) - existing.getCount();
                 int moved = Math.min(room, remaining.getCount());
                 if (moved > 0) {
                     existing.grow(moved);
@@ -98,29 +93,28 @@ public final class MaterialSupply {
             }
         }
         for (int slot = 0; slot < target.slots().size() && !remaining.isEmpty(); slot++) {
-            if (target.slots().get(slot).isEmpty() && canPlace(target, slot, remaining, playerInventory)) {
-                int moved = Math.min(maxStack(target, remaining, playerInventory), remaining.getCount());
+            if (target.slots().get(slot).isEmpty() && target.store().accepts(slot, remaining)) {
+                int moved = Math.min(target.store().maxStack(slot, remaining), remaining.getCount());
                 target.slots().set(slot, remaining.split(moved));
             }
         }
         return remaining;
     }
 
-    public static void apply(Target target) {
+    public static List<ItemStack> apply(Target target) {
+        List<ItemStack> leftover = new ArrayList<>();
         for (int slot = 0; slot < target.slots().size(); slot++) {
             ItemStack wanted = target.slots().get(slot);
-            if (!ItemStack.matches(target.container().getItem(slot), wanted)) {
-                target.container().setItem(slot, wanted);
+            int added = wanted.getCount() - target.original().get(slot).getCount();
+            if (added > 0) {
+                ItemStack remainder = target.store().insert(slot, wanted.copyWithCount(added), false);
+                if (!remainder.isEmpty()) {
+                    leftover.add(target.store().insert(remainder));
+                }
             }
         }
-        target.container().setChanged();
-    }
-
-    private static boolean canPlace(Target target, int slot, ItemStack stack, boolean playerInventory) {
-        return playerInventory || target.container().canPlaceItem(slot, stack);
-    }
-
-    private static int maxStack(Target target, ItemStack stack, boolean playerInventory) {
-        return playerInventory ? stack.getMaxStackSize() : target.container().getMaxStackSize(stack);
+        target.store().setChanged();
+        leftover.removeIf(ItemStack::isEmpty);
+        return leftover;
     }
 }

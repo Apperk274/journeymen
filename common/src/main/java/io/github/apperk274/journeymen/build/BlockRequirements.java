@@ -54,9 +54,7 @@ public final class BlockRequirements {
             Blocks.ATTACHED_MELON_STEM, Items.MELON_SEEDS,
             Blocks.ATTACHED_PUMPKIN_STEM, Items.PUMPKIN_SEEDS,
             Blocks.BIG_DRIPLEAF_STEM, Items.BIG_DRIPLEAF,
-            Blocks.BAMBOO_SAPLING, Items.BAMBOO,
-            Blocks.FARMLAND, Items.DIRT,
-            Blocks.DIRT_PATH, Items.DIRT);
+            Blocks.BAMBOO_SAPLING, Items.BAMBOO);
 
     private BlockRequirements() {
     }
@@ -76,13 +74,14 @@ public final class BlockRequirements {
         }
     }
 
-    public record Requirement(List<ItemStack> items, @Nullable ToolUse toolUse, boolean obtainable) {
+    public record Requirement(List<ItemStack> items, @Nullable ToolUse toolUse, @Nullable BlockState madeFrom, boolean obtainable) {
 
-        static final Requirement NOTHING = new Requirement(List.of(), null, true);
-        static final Requirement UNOBTAINABLE = new Requirement(List.of(), null, false);
+        static final Requirement NOTHING = new Requirement(List.of(), null, null, true);
+        static final Requirement UNOBTAINABLE = new Requirement(List.of(), null, null, false);
     }
 
-    public static Requirement of(BlockState target, @Nullable CompoundTag blockEntityTag, @Nullable HolderLookup.Provider registries) {
+    public static Requirement of(BlockState schematicTarget, @Nullable CompoundTag blockEntityTag, @Nullable HolderLookup.Provider registries) {
+        BlockState target = BlockDrops.placedFor(schematicTarget);
         if (target.isAir()
                 || target.getOptionalValue(BlockStateProperties.DOUBLE_BLOCK_HALF).orElse(null) == DoubleBlockHalf.UPPER
                 || target.getOptionalValue(BlockStateProperties.BED_PART).orElse(null) == BedPart.HEAD) {
@@ -93,14 +92,18 @@ public final class BlockRequirements {
             return Requirement.NOTHING;
         }
         if (block instanceof LiquidBlock) {
-            return target.getFluidState().isSource()
-                    ? new Requirement(List.of(new ItemStack(target.getFluidState().getType().getBucket())), null, true)
-                    : Requirement.NOTHING;
+            if (!target.getFluidState().isSource()) {
+                return Requirement.NOTHING;
+            }
+            ItemStack bucket = new ItemStack(target.getFluidState().getType().getBucket());
+            return bucket.isEmpty() ? Requirement.UNOBTAINABLE : new Requirement(List.of(bucket), null, null, true);
         }
 
         List<ItemStack> items = new ArrayList<>();
-        ToolUse toolUse = block == Blocks.FARMLAND ? ToolUse.HOE : block == Blocks.DIRT_PATH ? ToolUse.SHOVEL : null;
-        if (block instanceof FlowerPotBlock pot && pot.getPotted() != Blocks.AIR) {
+        BlockDrops.Made made = BlockDrops.made(block);
+        if (made != null) {
+            items.add(new ItemStack(made.from().getBlock().asItem()));
+        } else if (block instanceof FlowerPotBlock pot && pot.getPotted() != Blocks.AIR) {
             items.add(new ItemStack(Items.FLOWER_POT));
             items.add(new ItemStack(pot.getPotted()));
         } else {
@@ -122,7 +125,7 @@ public final class BlockRequirements {
         if (target.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false)) {
             items.add(new ItemStack(Items.WATER_BUCKET));
         }
-        return new Requirement(List.copyOf(items), toolUse, true);
+        return new Requirement(List.copyOf(items), made == null ? null : made.toolUse(), made == null ? null : made.from(), true);
     }
 
     private static void addBlockEntityItems(BlockState target, CompoundTag tag, HolderLookup.Provider registries, List<ItemStack> items) {

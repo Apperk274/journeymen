@@ -1,0 +1,12 @@
+TerraFirmaCraft-NeoForge-*.jar
+Patchouli-*.jar
+Firmalife-NeoForge-*.jar
+afc-*.jar
+farmerstfc-*.jar
+FarmersDelight-*.jar
+TFC-Real-World-NeoForge-*.jar
+ftb-chunks-neoforge-*.jar
+ftb-library-neoforge-*.jar
+ftb-teams-neoforge-*.jar
+architectury-*-neoforge.jar
+worldedit-mod-*.jar

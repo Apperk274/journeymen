@@ -28,6 +28,14 @@ neoForge {
         server {
             server()
         }
+        tfcClient {
+            client()
+            gameDirectory = project.file('run-tfc')
+        }
+        tfcServer {
+            server()
+            gameDirectory = project.file('run-tfc')
+        }
     }
     mods {
         "${mod_id}" {
@@ -37,3 +45,14 @@ neoForge {
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+tasks.register('syncTfcMods', Sync) {
+    group = 'journeymen'
+    description = 'Copies the TFC test mods listed in tfc-test-mods.txt from a TerraFirma Rebirth instance into run-tfc/mods.'
+    def instance = file(findProperty('tfc_instance') ?: "${System.getProperty('user.home')}/curseforge/minecraft/Instances/TerraFirma Rebirth 2")
+    def patterns = file('tfc-test-mods.txt').readLines().collect { it.trim() }.findAll { it }
+    from(new File(instance, 'mods')) {
+        patterns.each { include it }
+    }
+    into 'run-tfc/mods'
+}

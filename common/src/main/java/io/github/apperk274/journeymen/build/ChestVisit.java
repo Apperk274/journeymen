@@ -5,11 +5,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -83,8 +81,8 @@ public final class ChestVisit {
             failure = "The " + (kind == Kind.DUMP ? "dump" : "supply") + " chest at " + chest.toShortString() + " isn't loaded.";
             return Status.FAILED;
         }
-        Container container = HopperBlockEntity.getContainerAt(level, chest);
-        if (container == null) {
+        ItemStore store = ItemStores.at(level, chest);
+        if (store == null) {
             failure = "There is no chest at " + chest.toShortString() + " anymore.";
             return Status.FAILED;
         }
@@ -111,13 +109,13 @@ public final class ChestVisit {
             return Status.WORKING;
         }
         if (kind == Kind.DUMP) {
-            builder.dumpInto(container);
+            builder.dumpInto(store);
         } else if (amounts != null) {
-            builder.fetchAmounts(container, amounts);
+            builder.fetchAmounts(store, amounts);
         } else {
-            builder.fetchFrom(container, wanted);
+            builder.fetchFrom(store, wanted);
         }
-        container.setChanged();
+        store.setChanged();
         setOpen(level, false);
         return Status.DONE;
     }

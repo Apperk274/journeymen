@@ -22,12 +22,20 @@ To test commands and behaviour without a person, run a dev server (`:neoforge:ru
 - Screen buttons can be tested the same way: `debug action <builder entity> <action> <pos> <text>` (run through `debug as`) sends a builder screen action as that player (`follow`, `rename`, `link_supply`, `check`, `start`, …; `|` in the text becomes a line break, `-` means empty) and logs the builder's state, and `debug use <pos>` is a right-click on a block for chest link mode.
 - RCON only returns output produced while the command runs. Output that arrives later (schematic loading, pre-check results) only shows up in the server log via `debug as`.
 - A server with no players stops ticking entities 15 seconds after the last player leaves unless chunks are force-loaded, so `forceload add` the test area first. Force-loads may not survive a restart in the dev setup; add them again after restarting.
+- `fill` refuses more than 32768 blocks; split bigger areas, or old test builds stay in the way.
+
+### Testing with TerraFirmaCraft
+
+The owner's modpack is TerraFirma Rebirth 2 (NeoForge 21.1.248, TFC 4.2.9 and many TFC addons), so changes are also tested with TFC. NeoForge has two extra runs, `runTfcServer` and `runTfcClient`, that use `neoforge/run-tfc` (git-ignored) instead of `neoforge/run`. `mise exec -- ./gradlew :neoforge:syncTfcMods` copies the jars listed in `neoforge/tfc-test-mods.txt` (TFC, Patchouli, Firmalife, ArborFirmaCraft, FarmersTFC + Farmer's Delight, TFC Real World, FTB Chunks with its libraries, WorldEdit) from the CurseForge instance into `run-tfc/mods`; pass `-Ptfc_instance=<path>` if the instance isn't at the default CurseForge location. Production NeoForge jars run unchanged in the dev environment. The run dir needs `eula.txt`, a `schematics/` folder (the examples plus the owner's TFC schematics) and its own config. TFC is NeoForge-only, so Fabric only has to keep working without it.
+
+Things TFC changes that matter for tests: it caps many stack sizes (dirt stacks to 32, so `item replace ... 64` fails), the pack unifies vanilla emeralds, buckets and metals into TFC items, TFC soils are `tfc:dirt/<soil>`, `tfc:grass/<soil>`, `tfc:farmland/<soil>` and `tfc:grass_path/<soil>` (soils such as `fluvisol`, `entisol`), and TFC storage (barrels, large vessels) has no vanilla container, only a NeoForge item handler. `examples/schematics/tfc_farm.schem` is the TFC end-to-end case (grass, farmland with crops, a path, water, a copper chain and a pumpkin).
 
 ## Architecture rules
 
 - Put as much as possible in `common/`. It sees only vanilla Minecraft (Mojang mappings + Parchment), so no NeoForge or Fabric imports.
 - Loader-specific code goes in `neoforge/` or `fabric/`: registration, entity renderer registration, commands registration, networking, menu types, config. Expose it to common through an interface in `common/.../platform/services` with a `META-INF/services` entry in each loader.
 - Every feature has to work on both loaders. Test each change on both clients.
+- Other mods are reached through loader APIs, never through their classes: storage through NeoForge's item handler capability and Fabric's Transfer API, fluid containers through NeoForge's `FluidUtil` and Fabric's fluid storage, hoes and shovels through NeoForge item abilities (`ICompatHelper`). Rules about blocks come from the game itself (loot tables, tool actions, block states), not from lists of vanilla blocks, so modded blocks follow them too.
 - `neoforge_version` in `gradle.properties` is also the minimum NeoForge version the mod declares. It must not be newer than the NeoForge version in the owner's modpack (21.1.248). Likewise `fabric_version` (Fabric API, 0.116.7) is the declared minimum in `fabric.mod.json`, and Fabric loader is pinned low (0.16.9). Don't bump these without a reason.
 - A new `gradle.properties` key that resources need must be added to `expandProps` in `buildSrc/src/main/groovy/multiloader-common.gradle`.
 - Everything the player can do in the mod must also be possible with a command, so every feature can be tested and debugged without its UI. When a friendlier way is added (spawn egg, right-click dialogue, GUI button), the command stays. Examples: builders can always be summoned with `/journeymen builder summon`, even once a spawn egg exists. A build can always be started with `/journeymen builder build ...`, even if it can also be started from a right-click dialogue.
@@ -78,17 +86,18 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 `build` and `check` run the same check. A job starts only when everything passes; otherwise the builder lists every problem at once.
 
-- **Materials:** every item needed for placing must already be in its inventory or its supply chests. Drops it will get from clearing don't count. Only plain items count and are used: no custom name, enchantments or contents (a renamed chest or a filled shulker box is never placed).
+- **Materials:** every item needed for placing must already be in its inventory or its supply chests. Drops it will get from clearing don't count. Only plain items count and are used: no custom name, enchantments, contents or other vanilla data (a renamed chest or a filled shulker box is never placed). Data that other mods add is ignored when matching, so TFC metal items (which always carry `tfc:heat`) and TFC food blocks such as pumpkins (which carry a creation date) count.
 - **Tools:** every block to clear that needs a tool tier needs such a tool, and the tools need enough durability for all the blocks they will break. Durability is counted conservatively (1 per block, Unbreaking ignored; see Backlog). If there are 10 obsidian and its diamond pickaxe has 9 durability left, the check fails.
 - **Enchanted tools** are never used below 1 durability by default, so good gear is never lost; the check counts them as having 1 less. `allow-breaking-enchanted` lifts this. Plain tools can be used up.
-- **Made blocks:** blocks without a survival item are made like a player would: farmland = dirt + hoe, dirt path = dirt + shovel (the tool use counts toward durability). Grass block, mycelium and podzol need the silk-touched item.
+- **Made blocks:** a block that drops another block which a hoe or a shovel turns into it is made like a player would: farmland = dirt + hoe, dirt path = dirt + shovel, and the same for modded soils (TFC farmland and grass paths). The tool use counts toward durability, and any tool that can till or flatten works (TFC hoes and shovels too).
+- **Grass:** blocks with a `snowy` state (grass block, mycelium, podzol, TFC grass) are placed as the block they drop without Silk Touch (dirt, TFC dirt) and count as done once that is there; the grass spreads by itself, like crops grow. Blocks that drop no block (TFC clay grass drops clay) still need their item.
 - **Unbreakable blocks** (destroy speed < 0: bedrock, barrier, end portal frame, reinforced deepslate, …) in the clearing area fail the check.
 - **Protection:** it breaks and places through a fake player with the owner's identity, so claim and protection mods allow it exactly where the owner could build. Positions the owner may not change fail the check.
 - Size and distance limits.
 
 ### Supply and dump chests
 
-- `/journeymen builder chest <name> add <x y z> supply|dump`, plus `remove` and `list`. A builder can have several chests of each role, used in order. Both halves of a double chest count as one chest. A friendlier way to assign them (e.g. shift-right-click) can come later; the command stays.
+- `/journeymen builder chest <name> add <x y z> supply|dump`, plus `remove` and `list`. A builder can have several chests of each role, used in order. Both halves of a double chest count as one chest. Any block with an item inventory works as a "chest": vanilla containers, and modded storage that only offers the loader's item API (TFC barrels and large vessels, drawers). A friendlier way to assign them (e.g. shift-right-click) can come later; the command stays.
 - **Supply chests** are stock: it walks over and takes the materials and tools it needs. They count in the pre-check.
 - **Dump chests** take drops when its inventory is full, and whatever it doesn't need once the site is clear.
 - `/journeymen builder supply <builder> [<file> [pos] [rotation] [options]]` (ops only, creates items) puts the full material list of a job into the builder's supply chests, plus the cheapest plain tools that cover the job's required tool uses (e.g. enough wooden pickaxes for the stone, a diamond pickaxe for obsidian, a hoe for farmland). Without a file it uses the builder's current job. What doesn't fit in the supply chests goes to the player's inventory. It is all or nothing: it works out where every item goes first, and if anything doesn't fit it gives nothing and says how much didn't fit. It never dumps into a supply chest and never builds from a dump chest. With no dump chest, or all of them full, it pauses and asks.
@@ -103,7 +112,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 6. **Placing:** bottom-up, with attached, gravity and fragile blocks (torches, doors, redstone, sand, carpets) after their supports. It can place anywhere within reach: no supporting neighbor and no line of sight needed. Like a player, it places straight into replaceable blocks (short grass, snow layers, …) without breaking them first. Each block consumes its item from inventory, with a swing and a sound. The block state is kept (facing, half, axis…) and rotated. Special cases follow the material list (redstone wire → redstone, double slab → 2 slabs, potted plant → pot + plant, …). Doors and beds place both halves from one item. Blocks that hang on something (torches, doors, rails, redstone, carpets, plants, vines, lanterns, …) come after all other blocks, each once its support can hold it. It fetches the materials for the next blocks from its supply chests, as much as fits. Like a player it may walk on the structure as it rises; it can drop up to 6 blocks (taking fall damage) to get back down when healthy.
 7. **Growth stages:** crops, saplings and other aging blocks are placed young (age 0), like a player, and grow on their own. Right after tilling farmland it plants the crop that goes on top, like a player, so the farmland doesn't dry back to dirt. Leaves are placed persistent, like player-placed leaves, so they never decay. States that come from neighbors (fence, pane and wall connections, stair shape, redstone wire connections and power, `lit`, `powered`) are not compared in the diff; the game sets them as it would for a player.
 8. **Block updates** happen as for a player, so a half-built contraption may fire.
-9. **Fluids last:** water and lava sources and waterlogging go in after every solid block, with buckets. The empty buckets come back to its inventory.
+9. **Fluids last:** water and lava sources and waterlogging go in after every solid block, with any item that holds a full bucket of that fluid (vanilla buckets, TFC wooden and metal buckets, other mods' buckets). The emptied container comes back to its inventory.
 10. **Block entity data:** it copies sign text (including dye color and glow when it has the dye or glow ink sac), banner patterns (needs the patterned banner), and decor contents from stock (flower pot plants, lectern books, decorated pot item, chiseled bookshelf books, jukebox disc). Container contents are not copied. Entities (item frames, paintings, armor stands, mobs) are ignored in phase 3.
 11. **Wrong state:** if the right block is there in the wrong state and a right-click would fix it (door, trapdoor or gate open/closed, lever, repeater delay, note block pitch, comparator mode), it right-clicks (vanilla's own interaction, repeated until the state matches). Otherwise it breaks and replaces the block.
 12. **In the way:** if a player or mob stands where a block goes, it waits. After about 10 seconds it tells the owner, then reminds every few minutes. It never places a block inside itself.
@@ -127,11 +136,11 @@ Everything below also stays possible with a command (see Architecture rules).
 
 ### Recruiter's Stall
 
-- A craftable item (shaped recipe: wool across the top, planks + emerald + planks, sticks at the bottom corners; a normal data recipe so modpacks can replace it). Placed like a bed: one right-click builds a 3 wide, 2 deep, 3 tall multi-block stall facing the player, if that space is free. Vanilla textures only: plank counter across the front, spruce posts, striped wool awning on top.
+- A craftable item (shaped recipe: wool across the top, planks + emerald + planks, sticks at the bottom corners; the emerald is the `c:gems/emerald` tag so TFC's cut emerald works too; a normal data recipe so modpacks can replace it). Placed like a bed: one right-click builds a 3 wide, 2 deep, 3 tall multi-block stall facing the player, if that space is free. Vanilla textures only: plank counter across the front, spruce posts, striped wool awning on top.
 - Breaking any part removes the whole stall and drops one stall item. Explosions drop one item too.
 - Placing it spawns a **Recruiter** (villager look) who stands behind the counter. When the stall is gone, the recruiter disappears. The recruiter can be killed; break the stall and place it again to get a new one.
 - Anyone can hire from any stall. Right-clicking the recruiter opens the hiring screen: the price, a random builder name you can edit, and a Hire button. The new builder appears in front of the counter and belongs to the player who paid.
-- Price (config): item `hire_cost_item` (default `minecraft:emerald`, so packs like TFC can change it), `hire_cost_base` (10) plus `hire_cost_step` (5) for every builder the player already has, capped by `max_builders_per_player` (5, 0 = no cap). Ops summoning by command bypass the cap.
+- Price (config): `hire_cost_item`, an item id or an item tag (default `#c:gems/emerald`, which covers vanilla and TFC emeralds), `hire_cost_base` (10) plus `hire_cost_step` (5) for every builder the player already has, capped by `max_builders_per_player` (5, 0 = no cap). Ops summoning by command bypass the cap.
 - Commands: `/journeymen recruiter hire [name]` hires from the nearest recruiter (within 8 blocks) at the same price; `/journeymen stall place <pos> [facing]` (ops) places a stall without the item.
 
 ### Builder screen
@@ -158,7 +167,7 @@ Picking a schematic and clicking Place closes the screen and shows a ghost previ
 
 ## Example schematics
 
-`examples/schematics/` holds example schematics, generated by `examples/make_schematics.py` (Python, no dependencies). Regenerate them after changing the script and copy them into the dev run folders' `schematics/` (`neoforge/run`, `fabric/runs/client`, `fabric/runs/server`). They double as end-to-end test cases: supply a builder with `builder supply`, build, then `builder check` should report 0 to place.
+`examples/schematics/` holds example schematics, generated by `examples/make_schematics.py` (Python, no dependencies). Regenerate them after changing the script and copy them into the dev run folders' `schematics/` (`neoforge/run`, `neoforge/run-tfc`, `fabric/runs/client`, `fabric/runs/server`). The script writes byte-identical files when nothing changed. They double as end-to-end test cases: supply a builder with `builder supply`, build, then `builder check` should report 0 to place.
 
 ## Roadmap
 
@@ -185,7 +194,7 @@ Scaffolding and pillaring were dropped: the builder reaches any height (see Reac
 Not tested yet (no way to test them so far):
 
 - Other players hurting a builder when PvP is off (the builder should take no damage).
-- Spawn protection and claim/protection mods (FTB Chunks, Open Parties and Claims, …) blocking the pre-check and the builder's breaking and placing.
+- Spawn protection and claim/protection mods (FTB Chunks, Open Parties and Claims, …) blocking the pre-check and the builder's breaking and placing. FTB Chunks is in the TFC test set, but claiming needs a real player in a team: fake players have none, and `ftbchunks admin claim_as` doesn't find server teams from the console.
 - The phase 4b–4d client side by a person in game: the builder screen's tabs and slots, armor rendering, link mode outlines, the placement preview, rotating with sneak + scroll and the confirmation screen. Their server side is tested headlessly with `debug action` and `debug use`.
 
 Backlog (no phase yet): mirroring schematics in the build command, counting Unbreaking in the pre-check durability estimate instead of ignoring it, placing entities from schematics (item frames, paintings, armor stands), more jobs per builder (a queue), several builders on one job.

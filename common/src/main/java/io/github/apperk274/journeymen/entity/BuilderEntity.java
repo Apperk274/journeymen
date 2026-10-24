@@ -9,6 +9,9 @@ import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ChestVisit;
 import io.github.apperk274.journeymen.build.ClearingTask;
 import io.github.apperk274.journeymen.build.ItemCounter;
+import io.github.apperk274.journeymen.build.ItemMatch;
+import io.github.apperk274.journeymen.build.ItemStore;
+import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.build.PlacingTask;
 import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.build.Reach;
@@ -62,7 +65,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -269,7 +271,7 @@ public class BuilderEntity extends PathfinderMob {
         if (chests.size() >= MAX_CHESTS) {
             return "A builder can have at most " + MAX_CHESTS + " chests.";
         }
-        if (!(level().getBlockEntity(pos) instanceof Container)) {
+        if (ItemStores.at(level(), pos) == null) {
             return "There is no chest or other container at " + pos.toShortString() + ".";
         }
         BlockPos otherHalf = otherChestHalf(pos);
@@ -321,13 +323,13 @@ public class BuilderEntity extends PathfinderMob {
                 problems.add(Component.literal("The supply chest at " + chest.pos().toShortString() + " isn't loaded."));
                 continue;
             }
-            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
-            if (container == null) {
+            ItemStore store = ItemStores.at(level(), chest.pos());
+            if (store == null) {
                 problems.add(Component.literal("There is no container at " + chest.pos().toShortString() + " anymore (supply chest)."));
                 continue;
             }
-            for (int slot = 0; slot < container.getContainerSize(); slot++) {
-                ItemStack stack = container.getItem(slot);
+            for (int slot = 0; slot < store.size(); slot++) {
+                ItemStack stack = store.get(slot);
                 if (!stack.isEmpty()) {
                     stock.add(stack.copy());
                 }
@@ -342,13 +344,13 @@ public class BuilderEntity extends PathfinderMob {
             if (chest.role() != AssignedChest.Role.DUMP || !level().isLoaded(chest.pos())) {
                 continue;
             }
-            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
-            if (container == null) {
+            ItemStore store = ItemStores.at(level(), chest.pos());
+            if (store == null) {
                 continue;
             }
-            for (int slot = 0; slot < container.getContainerSize(); slot++) {
-                ItemStack stack = container.getItem(slot);
-                if (ItemStack.isSameItemSameComponents(stack, template)) {
+            for (int slot = 0; slot < store.size(); slot++) {
+                ItemStack stack = store.get(slot);
+                if (ItemMatch.same(stack, template)) {
                     count += stack.getCount();
                 }
             }
@@ -396,8 +398,8 @@ public class BuilderEntity extends PathfinderMob {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
-            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
-            if (container != null && containsMatching(container, useful)) {
+            ItemStore store = ItemStores.at(level(), chest.pos());
+            if (store != null && containsMatching(store, useful)) {
                 queueVisit(ChestVisit.fetch(chest.pos(), useful));
             }
         }
@@ -488,7 +490,7 @@ public class BuilderEntity extends PathfinderMob {
             ItemStack result = wanted.copyWithCount(0);
             for (int slot = 0; slot < inventory.getContainerSize() && remaining > 0; slot++) {
                 ItemStack stack = inventory.getItem(slot);
-                if (!stack.isEmpty() && ItemStack.isSameItemSameComponents(stack, wanted)) {
+                if (ItemMatch.same(stack, wanted)) {
                     int count = Math.min(remaining, stack.getCount());
                     if (result.isEmpty()) {
                         result = stack.copyWithCount(count);
@@ -525,23 +527,46 @@ public class BuilderEntity extends PathfinderMob {
         return -1;
     }
 
-    public void fetchAmounts(Container container, ItemCounter amounts) {
-        for (int slot = 0; slot < container.getContainerSize(); slot++) {
-            ItemStack stack = container.getItem(slot);
+    public void fetchAmounts(ItemStore store, ItemCounter amounts) {
+        for (int slot = 0; slot < store.size(); slot++) {
+            ItemStack stack = store.get(slot);
             long wanted = stack.isEmpty() ? 0 : amounts.count(stack);
-            if (wanted <= 0) {
+            int count = (int) Math.min(Math.min(wanted, stack.getCount()), roomFor(stack));
+            if (count <= 0) {
                 continue;
             }
-            int count = (int) Math.min(wanted, stack.getCount());
-            ItemStack remainder = inventory.addItem(stack.copyWithCount(count));
-            int moved = count - remainder.getCount();
-            if (moved > 0) {
-                amounts.remove(stack, moved);
-                stack.shrink(moved);
-                container.setItem(slot, stack.isEmpty() ? ItemStack.EMPTY : stack);
-            }
+            ItemStack taken = store.take(slot, count);
+            ItemStack remainder = inventory.addItem(taken.copy());
+            amounts.remove(taken, taken.getCount() - remainder.getCount());
+            putBack(store, slot, remainder);
         }
         inventory.setChanged();
+    }
+
+    private int roomFor(ItemStack stack) {
+        int max = Math.min(stack.getMaxStackSize(), inventory.getMaxStackSize());
+        int room = 0;
+        for (ItemStack existing : inventory.getItems()) {
+            if (existing.isEmpty()) {
+                room += max;
+            } else if (ItemStack.isSameItemSameComponents(existing, stack)) {
+                room += Math.max(0, max - existing.getCount());
+            }
+        }
+        return room;
+    }
+
+    private void putBack(ItemStore store, int slot, ItemStack remainder) {
+        if (remainder.isEmpty()) {
+            return;
+        }
+        remainder = store.insert(slot, remainder, false);
+        if (!remainder.isEmpty()) {
+            remainder = store.insert(remainder);
+        }
+        if (!remainder.isEmpty()) {
+            overflow.add(remainder);
+        }
     }
 
     public ServerPlayer actor() {
@@ -574,9 +599,9 @@ public class BuilderEntity extends PathfinderMob {
         }
     }
 
-    public void dumpInto(Container container) {
+    public void dumpInto(ItemStore store) {
         for (int i = 0; i < overflow.size(); i++) {
-            overflow.set(i, HopperBlockEntity.addItem(null, container, overflow.get(i), null));
+            overflow.set(i, store.insert(overflow.get(i)));
         }
         overflow.removeIf(ItemStack::isEmpty);
         ItemCounter keep = itemsToKeep();
@@ -589,7 +614,7 @@ public class BuilderEntity extends PathfinderMob {
             if (dumpCount <= 0) {
                 continue;
             }
-            ItemStack remainder = HopperBlockEntity.addItem(null, container, stack.split(dumpCount), null);
+            ItemStack remainder = store.insert(stack.split(dumpCount));
             stack.grow(remainder.getCount());
         }
         inventory.setChanged();
@@ -612,11 +637,12 @@ public class BuilderEntity extends PathfinderMob {
         return false;
     }
 
-    public void fetchFrom(Container container, Predicate<ItemStack> wanted) {
-        for (int slot = 0; slot < container.getContainerSize(); slot++) {
-            ItemStack stack = container.getItem(slot);
-            if (!stack.isEmpty() && wanted.test(stack)) {
-                container.setItem(slot, inventory.addItem(stack.copy()));
+    public void fetchFrom(ItemStore store, Predicate<ItemStack> wanted) {
+        for (int slot = 0; slot < store.size(); slot++) {
+            ItemStack stack = store.get(slot);
+            int count = stack.isEmpty() || !wanted.test(stack) ? 0 : Math.min(stack.getCount(), roomFor(stack));
+            if (count > 0) {
+                putBack(store, slot, inventory.addItem(store.take(slot, count)));
             }
         }
         inventory.setChanged();
@@ -889,8 +915,8 @@ public class BuilderEntity extends PathfinderMob {
                     if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                         continue;
                     }
-                    Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
-                    if (container != null && containsMatching(container, usable)) {
+                    ItemStore store = ItemStores.at(level(), chest.pos());
+                    if (store != null && containsMatching(store, usable)) {
                         queueVisit(ChestVisit.fetch(chest.pos(), usable));
                         break;
                     }
@@ -905,8 +931,8 @@ public class BuilderEntity extends PathfinderMob {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
-            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
-            if (container != null && containsMatching(container, stack -> wanted.count(stack) > 0)) {
+            ItemStore store = ItemStores.at(level(), chest.pos());
+            if (store != null && containsMatching(store, stack -> wanted.count(stack) > 0)) {
                 queueVisit(ChestVisit.fetchAmounts(chest.pos(), wanted));
                 queued = true;
             }
@@ -924,7 +950,7 @@ public class BuilderEntity extends PathfinderMob {
         for (Map.Entry<ItemStack, Long> entry : placing.remainingNeeds().sorted()) {
             long shortfall = entry.getValue() - available.count(entry.getKey());
             if (shortfall > 0) {
-                missing.add(shortfall + " " + entry.getKey().getHoverName().getString());
+                missing.add(shortfall + " " + ItemMatch.name(entry.getKey()).getString());
             }
         }
         if (missing.isEmpty()) {
@@ -1002,8 +1028,8 @@ public class BuilderEntity extends PathfinderMob {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
-            Container container = HopperBlockEntity.getContainerAt(level(), chest.pos());
-            if (container != null && containsMatching(container, wanted)) {
+            ItemStore store = ItemStores.at(level(), chest.pos());
+            if (store != null && containsMatching(store, wanted)) {
                 queueVisit(ChestVisit.fetch(chest.pos(), wanted));
                 return;
             }
@@ -1011,9 +1037,9 @@ public class BuilderEntity extends PathfinderMob {
         pauseJob("I need " + description + ".");
     }
 
-    private static boolean containsMatching(Container container, Predicate<ItemStack> wanted) {
-        for (int slot = 0; slot < container.getContainerSize(); slot++) {
-            ItemStack stack = container.getItem(slot);
+    private static boolean containsMatching(ItemStore store, Predicate<ItemStack> wanted) {
+        for (int slot = 0; slot < store.size(); slot++) {
+            ItemStack stack = store.get(slot);
             if (!stack.isEmpty() && wanted.test(stack)) {
                 return true;
             }

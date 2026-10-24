@@ -95,6 +95,14 @@ public final class BuildPlan {
             doneCount++;
             return;
         }
+        BlockState grownFrom = BlockDrops.grownFrom(target);
+        if (grownFrom != null) {
+            if (actual.is(grownFrom.getBlock())) {
+                doneCount++;
+                return;
+            }
+            target = grownFrom;
+        }
         if (StateRules.matches(target, actual)) {
             toWaterlog.add(new Placement(pos, target, blockEntity));
             return;

@@ -25,6 +25,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import net.neoforged.neoforge.registries.RegisterEvent;
@@ -68,6 +70,8 @@ public class JourneymenNeoForge {
                 event.setCancellationResult(InteractionResult.SUCCESS);
             }
         });
+        NeoForge.EVENT_BUS.addListener((ServerStartingEvent event) -> CommonClass.onServerStarting(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> CommonClass.onServerStopped());
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
             if (event.getEntity() instanceof ServerPlayer player) {
                 CommonClass.onPlayerJoin(player);

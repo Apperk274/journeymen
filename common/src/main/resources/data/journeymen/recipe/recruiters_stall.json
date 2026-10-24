@@ -14,7 +14,7 @@
       "tag": "minecraft:planks"
     },
     "E": {
-      "item": "minecraft:emerald"
+      "tag": "c:gems/emerald"
     },
     "S": {
       "item": "minecraft:stick"

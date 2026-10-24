@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.menu;
 
 import io.github.apperk274.journeymen.build.AssignedChest;
+import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
@@ -8,7 +9,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.Container;
 import net.minecraft.world.entity.Entity;
 
 import java.util.ArrayList;
@@ -50,7 +50,7 @@ public final class LinkModeService {
             stop(player, builder, "Finished linking chests for " + builder.getBuilderName() + ".");
             return true;
         }
-        if (!(player.level().getBlockEntity(pos) instanceof Container)) {
+        if (ItemStores.at(player.level(), pos) == null) {
             player.displayClientMessage(Component.literal("That isn't a chest or other container.").withStyle(ChatFormatting.RED), true);
             return true;
         }

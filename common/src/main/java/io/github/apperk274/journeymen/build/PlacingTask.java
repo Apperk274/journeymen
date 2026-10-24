@@ -16,10 +16,8 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.level.block.AbstractBannerBlock;
 import net.minecraft.world.level.block.AmethystClusterBlock;
 import net.minecraft.world.level.block.BambooSaplingBlock;
@@ -31,7 +29,6 @@ import net.minecraft.world.level.block.BellBlock;
 import net.minecraft.world.level.block.BigDripleafBlock;
 import net.minecraft.world.level.block.BigDripleafStemBlock;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.BushBlock;
 import net.minecraft.world.level.block.CactusBlock;
 import net.minecraft.world.level.block.CandleBlock;
@@ -71,6 +68,8 @@ import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.material.FlowingFluid;
+import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -286,14 +285,15 @@ public final class PlacingTask {
             return finish(false);
         }
         List<ItemStack> taken = builder.takeItems(requirement.items());
-        place(entry.placement(), placeState, taken, actor, toolSlot, requirement.toolUse());
+        place(entry.placement(), placeState, taken, actor, toolSlot, requirement);
         return finish(true);
     }
 
     private void place(BuildPlan.Placement placement, BlockState placeState, List<ItemStack> taken, ServerPlayer actor, int toolSlot,
-                       @Nullable BlockRequirements.ToolUse toolUse) {
+                       BlockRequirements.Requirement requirement) {
         BlockPos pos = placement.pos();
-        BlockState state = toolUse != null ? Blocks.DIRT.defaultBlockState() : placeState;
+        BlockRequirements.ToolUse toolUse = requirement.toolUse();
+        BlockState state = requirement.madeFrom() != null ? requirement.madeFrom() : placeState;
         boolean twoParts = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) || state.hasProperty(BlockStateProperties.BED_PART);
         if (!twoParts) {
             state = Block.updateFromNeighbourShapes(state, level, pos);
@@ -328,8 +328,7 @@ public final class PlacingTask {
             builder.showInHand(tool);
             tool.hurtAndBreak(1, builder, EquipmentSlot.MAINHAND);
             builder.getInventory().setChanged();
-            level.setBlock(pos, toolUse == BlockRequirements.ToolUse.HOE ? Blocks.FARMLAND.defaultBlockState() : Blocks.DIRT_PATH.defaultBlockState(),
-                    Block.UPDATE_ALL);
+            level.setBlock(pos, placeState, Block.UPDATE_ALL);
             level.playSound(null, pos, toolUse == BlockRequirements.ToolUse.HOE ? SoundEvents.HOE_TILL : SoundEvents.SHOVEL_FLATTEN,
                     SoundSource.BLOCKS, 1.0F, 1.0F);
             if (toolUse == BlockRequirements.ToolUse.HOE) {
@@ -438,13 +437,13 @@ public final class PlacingTask {
             skipped.add(pos);
             return finish(false);
         }
-        builder.takeItems(List.of(bucket));
-        builder.showInHand(bucket);
+        ItemStack container = builder.takeItems(List.of(bucket)).get(0);
+        builder.showInHand(container);
         builder.getLookControl().setLookAt(Vec3.atCenterOf(pos));
         level.setBlock(pos, target, Block.UPDATE_ALL);
         level.playSound(null, pos, water ? SoundEvents.BUCKET_EMPTY : SoundEvents.BUCKET_EMPTY_LAVA, SoundSource.BLOCKS, 1.0F, 1.0F);
         level.gameEvent(builder, GameEvent.FLUID_PLACE, pos);
-        builder.giveItem(new ItemStack(Items.BUCKET));
+        builder.giveItem(emptied(container, target.getFluidState().getType()));
         builder.swing(InteractionHand.MAIN_HAND);
         placed++;
         return finish(true);
@@ -475,17 +474,23 @@ public final class PlacingTask {
             skipped.add(pos);
             return finish(false);
         }
-        builder.takeItems(List.of(bucket));
-        builder.showInHand(bucket);
+        ItemStack container = builder.takeItems(List.of(bucket)).get(0);
+        builder.showInHand(container);
         builder.getLookControl().setLookAt(Vec3.atCenterOf(pos));
         level.setBlock(pos, actual.setValue(BlockStateProperties.WATERLOGGED, true), Block.UPDATE_ALL);
         level.scheduleTick(pos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
         level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
         level.gameEvent(builder, GameEvent.FLUID_PLACE, pos);
-        builder.giveItem(new ItemStack(Items.BUCKET));
+        builder.giveItem(emptied(container, Fluids.WATER));
         builder.swing(InteractionHand.MAIN_HAND);
         placed++;
         return finish(true);
+    }
+
+    private static ItemStack emptied(ItemStack container, Fluid fluid) {
+        Fluid source = fluid instanceof FlowingFluid flowing ? flowing.getSource() : fluid;
+        ItemStack empty = Services.COMPAT.drainBucket(container, source);
+        return empty != null ? empty : ItemStack.EMPTY;
     }
 
     private Status finish(boolean acted) {
@@ -596,10 +601,7 @@ public final class PlacingTask {
     }
 
     public static Predicate<ItemStack> toolFor(BlockRequirements.ToolUse use, boolean allowBreakingEnchanted) {
-        Predicate<ItemStack> matches = use == BlockRequirements.ToolUse.HOE
-                ? stack -> stack.getItem() instanceof HoeItem
-                : stack -> stack.getItem() instanceof ShovelItem;
-        return stack -> matches.test(stack) && ToolCheck.usableDurability(stack, allowBreakingEnchanted) >= 1;
+        return stack -> Services.COMPAT.canDo(stack, use) && ToolCheck.usableDurability(stack, allowBreakingEnchanted) >= 1;
     }
 
     public Set<BlockRequirements.ToolUse> remainingToolUses() {
@@ -607,9 +609,9 @@ public final class PlacingTask {
         for (TreeMap<Integer, List<Entry>> layers : List.of(supports, dependents)) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
-                    Block block = entry.placement().target().getBlock();
-                    if (entry.kind() == Kind.PLACE && (block == Blocks.FARMLAND || block == Blocks.DIRT_PATH)) {
-                        uses.add(block == Blocks.FARMLAND ? BlockRequirements.ToolUse.HOE : BlockRequirements.ToolUse.SHOVEL);
+                    BlockDrops.Made made = entry.kind() == Kind.PLACE ? BlockDrops.made(entry.placement().target().getBlock()) : null;
+                    if (made != null) {
+                        uses.add(made.toolUse());
                     }
                 }
             }

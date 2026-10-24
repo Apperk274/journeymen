@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.platform;
 
 import io.github.apperk274.journeymen.Constants;
+import io.github.apperk274.journeymen.platform.services.ICompatHelper;
 import io.github.apperk274.journeymen.platform.services.IMenuHelper;
 import io.github.apperk274.journeymen.platform.services.INetworkHelper;
 import io.github.apperk274.journeymen.platform.services.IPlatformHelper;
@@ -12,6 +13,7 @@ public class Services {
     public static final IPlatformHelper PLATFORM = load(IPlatformHelper.class);
     public static final INetworkHelper NETWORK = load(INetworkHelper.class);
     public static final IMenuHelper MENUS = load(IMenuHelper.class);
+    public static final ICompatHelper COMPAT = load(ICompatHelper.class);
 
     public static <T> T load(Class<T> clazz) {
         final T loadedService = ServiceLoader.load(clazz)

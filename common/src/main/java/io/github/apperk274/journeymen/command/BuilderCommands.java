@@ -12,11 +12,12 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ClearingTask;
+import io.github.apperk274.journeymen.build.ItemStore;
+import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.build.MaterialSupply;
 import io.github.apperk274.journeymen.build.PlacingTask;
 import io.github.apperk274.journeymen.build.PlacementTransform;
-import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderNames;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
@@ -33,11 +34,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -183,9 +181,9 @@ public class BuilderCommands {
         List<MaterialSupply.Target> chests = new ArrayList<>();
         for (AssignedChest chest : builder.getChests()) {
             if (chest.role() == AssignedChest.Role.SUPPLY && level.isLoaded(chest.pos())) {
-                Container container = HopperBlockEntity.getContainerAt(level, chest.pos());
-                if (container != null) {
-                    chests.add(MaterialSupply.snapshot(container));
+                ItemStore store = ItemStores.at(level, chest.pos());
+                if (store != null) {
+                    chests.add(MaterialSupply.snapshot(store));
                 }
             }
         }
@@ -197,7 +195,7 @@ public class BuilderCommands {
         for (ItemStack stack : needs.stacks()) {
             ItemStack remaining = stack;
             for (MaterialSupply.Target chest : chests) {
-                remaining = MaterialSupply.insert(chest, remaining, false);
+                remaining = MaterialSupply.insert(chest, remaining);
                 if (remaining.isEmpty()) {
                     break;
                 }
@@ -205,7 +203,7 @@ public class BuilderCommands {
             toChests += stack.getCount() - remaining.getCount();
             if (!remaining.isEmpty() && playerTarget != null) {
                 int before = remaining.getCount();
-                remaining = MaterialSupply.insert(playerTarget, remaining, true);
+                remaining = MaterialSupply.insert(playerTarget, remaining);
                 toPlayer += before - remaining.getCount();
             }
             notFitting += remaining.getCount();
@@ -216,9 +214,13 @@ public class BuilderCommands {
                     + where + (playerTarget == null ? ", and there is no player inventory to fall back on" : " or your inventory") + "). Nothing was given."));
             return;
         }
-        chests.forEach(MaterialSupply::apply);
+        List<ItemStack> leftover = new ArrayList<>();
+        chests.forEach(chest -> leftover.addAll(MaterialSupply.apply(chest)));
         if (playerTarget != null) {
-            MaterialSupply.apply(playerTarget);
+            leftover.addAll(MaterialSupply.apply(playerTarget));
+        }
+        if (player != null) {
+            leftover.forEach(stack -> player.getInventory().placeItemBackInInventory(stack));
         }
         long total = toChests + toPlayer;
         long finalToChests = toChests;
