@@ -10,22 +10,22 @@
       "model": "journeymen:block/stall_counter"
     },
     "facing=north,part=front_post_left": {
-      "model": "journeymen:block/stall_post"
+      "model": "journeymen:block/stall_post_tall"
     },
     "facing=north,part=front_post_right": {
-      "model": "journeymen:block/stall_post"
+      "model": "journeymen:block/stall_post_tall"
     },
     "facing=north,part=back_post_left_low": {
       "model": "journeymen:block/stall_post"
     },
     "facing=north,part=back_post_left_high": {
-      "model": "journeymen:block/stall_post"
+      "model": "journeymen:block/stall_post_tall"
     },
     "facing=north,part=back_post_right_low": {
       "model": "journeymen:block/stall_post"
     },
     "facing=north,part=back_post_right_high": {
-      "model": "journeymen:block/stall_post"
+      "model": "journeymen:block/stall_post_tall"
     },
     "facing=north,part=awning_front_left": {
       "model": "journeymen:block/stall_awning_red"
@@ -58,11 +58,11 @@
       "y": 90
     },
     "facing=east,part=front_post_left": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 90
     },
     "facing=east,part=front_post_right": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 90
     },
     "facing=east,part=back_post_left_low": {
@@ -70,7 +70,7 @@
       "y": 90
     },
     "facing=east,part=back_post_left_high": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 90
     },
     "facing=east,part=back_post_right_low": {
@@ -78,7 +78,7 @@
       "y": 90
     },
     "facing=east,part=back_post_right_high": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 90
     },
     "facing=east,part=awning_front_left": {
@@ -118,11 +118,11 @@
       "y": 180
     },
     "facing=south,part=front_post_left": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 180
     },
     "facing=south,part=front_post_right": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 180
     },
     "facing=south,part=back_post_left_low": {
@@ -130,7 +130,7 @@
       "y": 180
     },
     "facing=south,part=back_post_left_high": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 180
     },
     "facing=south,part=back_post_right_low": {
@@ -138,7 +138,7 @@
       "y": 180
     },
     "facing=south,part=back_post_right_high": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 180
     },
     "facing=south,part=awning_front_left": {
@@ -178,11 +178,11 @@
       "y": 270
     },
     "facing=west,part=front_post_left": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 270
     },
     "facing=west,part=front_post_right": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 270
     },
     "facing=west,part=back_post_left_low": {
@@ -190,7 +190,7 @@
       "y": 270
     },
     "facing=west,part=back_post_left_high": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 270
     },
     "facing=west,part=back_post_right_low": {
@@ -198,7 +198,7 @@
       "y": 270
     },
     "facing=west,part=back_post_right_high": {
-      "model": "journeymen:block/stall_post",
+      "model": "journeymen:block/stall_post_tall",
       "y": 270
     },
     "facing=west,part=awning_front_left": {
