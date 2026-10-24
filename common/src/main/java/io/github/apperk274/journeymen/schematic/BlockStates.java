@@ -65,6 +65,22 @@ final class BlockStates {
                 .getValue();
     }
 
+    static int unpack(long[] data, int bits, long index) {
+        long start = index * bits;
+        int first = (int) (start >> 6);
+        int last = (int) ((start + bits - 1) >> 6);
+        int shift = (int) (start & 63);
+        long mask = (1L << bits) - 1;
+        if (first == last) {
+            return (int) (data[first] >>> shift & mask);
+        }
+        return (int) ((data[first] >>> shift | data[last] << (64 - shift)) & mask);
+    }
+
+    static boolean fitsPacked(long[] data, int bits, long count) {
+        return data.length >= (count * bits + 63) >> 6;
+    }
+
     @Nullable
     static BlockState read(CompoundTag stateTag, Set<String> unknownBlocks) {
         String name = stateTag.getString("Name");

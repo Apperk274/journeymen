@@ -14,7 +14,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.core.Vec3i;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
@@ -25,23 +24,45 @@ import net.minecraft.world.level.block.Block;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 public class SchematicCommands {
 
     public static final SuggestionProvider<CommandSourceStack> SCHEMATIC_FILES = (context, builder) -> {
-        Stream<String> names;
+        List<String> names;
         try {
-            names = SchematicFiles.list().stream().map(StringArgumentType::escapeIfRequired);
+            names = SchematicFiles.list();
         } catch (IOException e) {
-            names = Stream.empty();
+            names = List.of();
         }
-        return SharedSuggestionProvider.suggest(names, builder);
+        String typed = builder.getRemaining().toLowerCase(Locale.ROOT);
+        String prefix = typed.startsWith("\"") || typed.startsWith("'") ? typed.substring(1) : typed;
+        for (String name : names) {
+            if (matchesFile(name.toLowerCase(Locale.ROOT), prefix)) {
+                builder.suggest(StringArgumentType.escapeIfRequired(name));
+            }
+        }
+        return builder.buildFuture();
     };
+
+    private static boolean matchesFile(String name, String prefix) {
+        for (int start = 0; start >= 0; ) {
+            if (name.startsWith(prefix, start)) {
+                return true;
+            }
+            int slash = name.indexOf('/', start);
+            int underscore = name.indexOf('_', start);
+            start = slash < 0 ? underscore : underscore < 0 ? slash : Math.min(slash, underscore);
+            if (start >= 0) {
+                start++;
+            }
+        }
+        return false;
+    }
 
     static LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal("schematic")
@@ -85,7 +106,7 @@ public class SchematicCommands {
             return 0;
         }
         if (names.isEmpty()) {
-            source.sendSuccess(() -> Component.literal("No schematics yet. Put .schem or .nbt files in " + SchematicFiles.directory()), false);
+            source.sendSuccess(() -> Component.literal("No schematics yet. Put " + SchematicFiles.FORMATS + " files in " + SchematicFiles.directory()), false);
             return 0;
         }
         source.sendSuccess(() -> Component.literal(names.size() + " schematic(s) in " + SchematicFiles.directory() + ":"), false);

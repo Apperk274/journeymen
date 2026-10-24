@@ -3,7 +3,8 @@ import os
 import struct
 import sys
 
-TAG_END, TAG_BYTE, TAG_SHORT, TAG_INT, TAG_STRING, TAG_LIST, TAG_COMPOUND, TAG_INT_ARRAY, TAG_BYTE_ARRAY = 0, 1, 2, 3, 8, 9, 10, 11, 7
+TAG_END, TAG_BYTE, TAG_SHORT, TAG_INT, TAG_LONG, TAG_STRING, TAG_LIST, TAG_COMPOUND, TAG_INT_ARRAY, TAG_BYTE_ARRAY, TAG_LONG_ARRAY = \
+    0, 1, 2, 3, 4, 8, 9, 10, 11, 7, 12
 DATA_VERSION = 3955
 
 
@@ -15,7 +16,15 @@ class Short(int):
     pass
 
 
+class Long(int):
+    pass
+
+
 class IntArray(list):
+    pass
+
+
+class LongArray(list):
     pass
 
 
@@ -28,6 +37,8 @@ def tag_type(value):
         return TAG_COMPOUND
     if isinstance(value, IntArray):
         return TAG_INT_ARRAY
+    if isinstance(value, LongArray):
+        return TAG_LONG_ARRAY
     if isinstance(value, ByteArray):
         return TAG_BYTE_ARRAY
     if isinstance(value, list):
@@ -38,6 +49,8 @@ def tag_type(value):
         return TAG_BYTE
     if isinstance(value, Short):
         return TAG_SHORT
+    if isinstance(value, Long):
+        return TAG_LONG
     if isinstance(value, int):
         return TAG_INT
     raise TypeError(value)
@@ -54,6 +67,8 @@ def payload(value):
         return b"".join(bytes([tag_type(v)]) + string(k) + payload(v) for k, v in value.items()) + bytes([TAG_END])
     if kind == TAG_INT_ARRAY:
         return struct.pack(">i", len(value)) + b"".join(struct.pack(">i", v) for v in value)
+    if kind == TAG_LONG_ARRAY:
+        return struct.pack(">i", len(value)) + b"".join(struct.pack(">q", v) for v in value)
     if kind == TAG_BYTE_ARRAY:
         return struct.pack(">i", len(value)) + bytes(value)
     if kind == TAG_LIST:
@@ -65,6 +80,8 @@ def payload(value):
         return struct.pack(">b", value)
     if kind == TAG_SHORT:
         return struct.pack(">h", value)
+    if kind == TAG_LONG:
+        return struct.pack(">q", value)
     return struct.pack(">i", value)
 
 
@@ -146,6 +163,77 @@ def write_sponge_v2(path, size, blocks, data_version, we_offset=(0, 0, 0)):
         "PaletteMax": len(palette), "Palette": palette, "BlockData": data, "BlockEntities": [],
         "Metadata": {"WEOffsetX": we_offset[0], "WEOffsetY": we_offset[1], "WEOffsetZ": we_offset[2]},
     }, "Schematic")
+
+
+def pack_longs(values, bits):
+    total = 0
+    for i, value in enumerate(values):
+        total |= value << (i * bits)
+    longs = []
+    for i in range((len(values) * bits + 63) // 64):
+        word = (total >> (i * 64)) & 0xFFFFFFFFFFFFFFFF
+        longs.append(word - (1 << 64) if word >= 1 << 63 else word)
+    return LongArray(longs)
+
+
+def litematic_region(position, size, blocks, block_entities=None):
+    sx, sy, sz = (abs(v) for v in size)
+    palette, index, values = [{"Name": "minecraft:air"}], {"minecraft:air": 0}, []
+    for y in range(sy):
+        for z in range(sz):
+            for x in range(sx):
+                text = blocks.get((x, y, z), "minecraft:air")
+                if text not in index:
+                    index[text] = len(palette)
+                    palette.append(parse_state(text))
+                values.append(index[text])
+    bits = max(2, (len(palette) - 1).bit_length())
+    entities = [dict(tag, x=pos[0], y=pos[1], z=pos[2]) for pos, tag in sorted((block_entities or {}).items())]
+    return {
+        "Position": {"x": position[0], "y": position[1], "z": position[2]},
+        "Size": {"x": size[0], "y": size[1], "z": size[2]},
+        "BlockStatePalette": palette, "BlockStates": pack_longs(values, bits),
+        "TileEntities": entities, "Entities": [], "PendingBlockTicks": [], "PendingFluidTicks": [],
+    }
+
+
+def write_litematic(path, name, regions, enclosing_size):
+    volume = sum(abs(r["Size"]["x"] * r["Size"]["y"] * r["Size"]["z"]) for r in regions.values())
+    write(path, {
+        "MinecraftDataVersion": DATA_VERSION, "Version": 7, "SubVersion": 1,
+        "Metadata": {
+            "Name": name, "Author": "Journeymen examples", "Description": "",
+            "RegionCount": len(regions), "TotalVolume": volume, "TotalBlocks": volume,
+            "TimeCreated": Long(0), "TimeModified": Long(0),
+            "EnclosingSize": {"x": enclosing_size[0], "y": enclosing_size[1], "z": enclosing_size[2]},
+        },
+        "Regions": regions,
+    })
+
+
+def write_mcedit(path, size, blocks, block_entities=None, we_offset=None):
+    width, height, length = size
+    ids, data = bytearray(), bytearray()
+    add = bytearray((width * height * length + 1) // 2)
+    for y in range(height):
+        for z in range(length):
+            for x in range(width):
+                block_id, meta = blocks.get((x, y, z), (0, 0))
+                index = len(ids)
+                add[index >> 1] |= (block_id >> 8) << (4 if index & 1 else 0)
+                ids.append(block_id & 0xFF)
+                data.append(meta)
+    root = {
+        "Width": Short(width), "Height": Short(height), "Length": Short(length), "Materials": "Alpha",
+        "Blocks": ByteArray(bytes(ids)), "Data": ByteArray(bytes(data)), "Entities": [],
+        "TileEntities": [dict(tag, x=pos[0], y=pos[1], z=pos[2]) for pos, tag in sorted((block_entities or {}).items())],
+    }
+    if any(add):
+        root["AddBlocks"] = ByteArray(bytes(add))
+    if we_offset is not None:
+        root.update({"WEOriginX": 0, "WEOriginY": 0, "WEOriginZ": 0,
+                     "WEOffsetX": we_offset[0], "WEOffsetY": we_offset[1], "WEOffsetZ": we_offset[2]})
+    write(path, root, "Schematic")
 
 
 def sign_text(lines, color="black", glowing=False):
@@ -292,6 +380,8 @@ def tests():
         portal[(1, y, 0)] = state("nether_portal", axis="x")
         portal[(2, y, 0)] = state("nether_portal", axis="x")
     write_structure(os.path.join(OUT, "test_nether_portal.nbt"), (4, 5, 1), portal)
+    legacy = {(0, 0, 0): (1, 0), (1, 0, 0): (1, 1), (2, 0, 0): (300, 0), (3, 0, 0): (253, 0)}
+    write_mcedit(os.path.join(OUT, "test_legacy_unknown_ids.schematic"), (4, 1, 1), legacy)
 
 
 def tfc_farm():
@@ -310,6 +400,76 @@ def tfc_farm():
     write_sponge_v3(os.path.join(OUT, "tfc_farm.schem"), size, blocks)
 
 
+def garden_shed():
+    shed = {}
+    for x in range(5):
+        for z in range(4):
+            shed[(x, 0, z)] = state("cobblestone")
+            shed[(x, 3, z)] = state("spruce_slab", type="bottom", waterlogged=False)
+            if x in (0, 4) or z in (0, 3):
+                for y in (1, 2):
+                    shed[(x, y, z)] = state("spruce_planks")
+    shed[(2, 1, 0)] = state("spruce_door", half="lower", facing="north", hinge="left", open=False, powered=False)
+    shed[(2, 2, 0)] = state("spruce_door", half="upper", facing="north", hinge="left", open=False, powered=False)
+    shed[(1, 1, 2)] = state("barrel", facing="up", open=False)
+    shed[(3, 1, 2)] = state("composter", level=0)
+    shed[(1, 2, 1)] = state("wall_torch", facing="south")
+    garden = {}
+    for x in range(4):
+        for z in range(3):
+            garden[(x, 0, z)] = state("moss_block")
+    garden[(0, 1, 0)] = state("poppy")
+    garden[(1, 1, 1)] = state("dandelion")
+    garden[(3, 1, 2)] = state("oak_sign", rotation=8, waterlogged=False)
+    sign = {(3, 1, 2): {"id": "minecraft:sign", "is_waxed": Byte(0),
+                        "front_text": sign_text(["Garden"], color="green"), "back_text": sign_text([])}}
+    regions = {
+        "Shed": litematic_region((0, 0, 0), (5, 4, 4), shed),
+        "Garden": litematic_region((-1, 0, -1), (-4, 2, -3), garden, sign),
+    }
+    write_litematic(os.path.join(OUT, "garden_shed.litematic"), "Garden shed", regions, (9, 4, 7))
+
+
+def old_hut():
+    blocks = {}
+    for x in range(5):
+        for z in range(5):
+            blocks[(x, 0, z)] = (4, 0)
+            blocks[(x, 3, z)] = (44, 0)
+            if x in (0, 4) or z in (0, 4):
+                corner = x in (0, 4) and z in (0, 4)
+                for y in (1, 2):
+                    blocks[(x, y, z)] = (17, 0) if corner else (5, 0)
+    blocks[(2, 1, 0)] = (64, 3)
+    blocks[(2, 2, 0)] = (64, 8)
+    blocks[(1, 1, 3)] = (26, 2)
+    blocks[(1, 1, 2)] = (26, 10)
+    blocks[(3, 1, 3)] = (140, 0)
+    blocks[(3, 1, 1)] = (50, 5)
+    blocks[(2, 1, 2)] = (171, 14)
+    blocks[(2, 2, 3)] = (68, 2)
+    entities = {
+        (1, 1, 3): {"id": "minecraft:bed", "color": 11},
+        (1, 1, 2): {"id": "minecraft:bed", "color": 11},
+        (3, 1, 3): {"id": "minecraft:flower_pot", "Item": "minecraft:red_flower", "Data": 0},
+        (2, 2, 3): {"id": "minecraft:sign", "Text1": '{"text":"Old hut"}', "Text2": '{"text":"1.12"}',
+                    "Text3": '{"text":""}', "Text4": '{"text":""}'},
+    }
+    write_mcedit(os.path.join(OUT, "old_hut.schematic"), (5, 4, 5), blocks, entities, we_offset=(-2, 0, 0))
+
+
+def uploaded_tower():
+    blocks = {}
+    for y in range(4):
+        for x in range(3):
+            for z in range(3):
+                if x != 1 or z != 1:
+                    blocks[(x, y, z)] = state("stone_bricks")
+    blocks[(1, 0, 1)] = state("stone_bricks")
+    blocks[(0, 4, 0)] = state("lantern", hanging=False, waterlogged=False)
+    write_structure(os.path.join(OUT, "uploaded", "Steve", "watchtower.nbt"), (3, 5, 3), blocks)
+
+
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "schematics")
 wheat_farm()
 cottage()
@@ -318,4 +478,7 @@ redstone_demo()
 clear_area()
 tfc_farm()
 tests()
+garden_shed()
+old_hut()
+uploaded_tower()
 print("Wrote example schematics to " + OUT)

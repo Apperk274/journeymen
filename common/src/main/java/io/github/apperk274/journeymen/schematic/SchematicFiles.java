@@ -4,6 +4,7 @@ import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.Tag;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,6 +15,8 @@ import java.util.stream.Stream;
 import java.util.zip.ZipException;
 
 public final class SchematicFiles {
+
+    public static final String FORMATS = ".schem, .litematic, .schematic or .nbt";
 
     private SchematicFiles() {
     }
@@ -36,7 +39,7 @@ public final class SchematicFiles {
 
     public static Schematic load(String name) throws IOException {
         if (!isSupported(name)) {
-            throw new SchematicException("Unsupported file type: " + name + " (expected .schem or .nbt)");
+            throw new SchematicException("Unsupported file type: " + name + " (expected " + FORMATS + ")");
         }
         Path directory = directory();
         Path file = directory.resolve(name).normalize();
@@ -52,13 +55,21 @@ public final class SchematicFiles {
         } catch (ZipException e) {
             throw new SchematicException(name + " is not a gzip-compressed NBT file");
         }
-        return name.toLowerCase(Locale.ROOT).endsWith(".schem")
-                ? SpongeSchematicReader.read(root)
-                : StructureNbtReader.read(root);
+        String lower = name.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".schem")) {
+            return SpongeSchematicReader.read(root);
+        }
+        if (lower.endsWith(".litematic")) {
+            return LitematicaReader.read(root);
+        }
+        if (lower.endsWith(".schematic")) {
+            return root.contains("Materials", Tag.TAG_STRING) ? McEditSchematicReader.read(root) : SpongeSchematicReader.read(root);
+        }
+        return StructureNbtReader.read(root);
     }
 
     private static boolean isSupported(String name) {
         String lower = name.toLowerCase(Locale.ROOT);
-        return lower.endsWith(".schem") || lower.endsWith(".nbt");
+        return lower.endsWith(".schem") || lower.endsWith(".litematic") || lower.endsWith(".schematic") || lower.endsWith(".nbt");
     }
 }

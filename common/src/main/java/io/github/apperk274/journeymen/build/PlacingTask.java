@@ -317,7 +317,7 @@ public final class PlacingTask {
             blockEntity.setChanged();
         }
         state.getBlock().setPlacedBy(level, pos, state, actor, base);
-        if (placement.blockEntity() != null && taken.size() > 1) {
+        if (placement.blockEntity() != null && (taken.size() > 1 || blockEntity instanceof SignBlockEntity)) {
             applyContents(pos, placement.blockEntity(), taken.subList(1, taken.size()));
         }
         SoundType sound = state.getSoundType();
