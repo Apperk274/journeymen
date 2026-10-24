@@ -22,6 +22,7 @@ public final class ChestVisit {
 
     public enum Kind {
         DUMP,
+        STORE,
         FETCH
     }
 
@@ -56,6 +57,10 @@ public final class ChestVisit {
 
     public static ChestVisit fetch(BlockPos chest, Predicate<ItemStack> wanted) {
         return new ChestVisit(Kind.FETCH, chest, wanted, null);
+    }
+
+    public static ChestVisit store(BlockPos chest, ItemCounter keep) {
+        return new ChestVisit(Kind.STORE, chest, stack -> true, keep);
     }
 
     public static ChestVisit fetchAmounts(BlockPos chest, ItemCounter amounts) {
@@ -110,6 +115,8 @@ public final class ChestVisit {
         }
         if (kind == Kind.DUMP) {
             builder.dumpInto(store);
+        } else if (kind == Kind.STORE) {
+            builder.storeInto(store, amounts == null ? new ItemCounter() : amounts);
         } else if (amounts != null) {
             builder.fetchAmounts(store, amounts);
         } else {

@@ -42,6 +42,22 @@ public final class ItemCounter {
         return removed;
     }
 
+    public ItemCounter copy() {
+        ItemCounter copy = new ItemCounter();
+        copy.counts.putAll(counts);
+        copy.examples.putAll(examples);
+        return copy;
+    }
+
+    public int slots() {
+        int slots = 0;
+        for (Map.Entry<ItemMatch.Key, Long> entry : counts.entrySet()) {
+            int max = Math.max(1, examples.get(entry.getKey()).getMaxStackSize());
+            slots += (int) ((entry.getValue() + max - 1) / max);
+        }
+        return slots;
+    }
+
     public boolean isEmpty() {
         return counts.isEmpty();
     }

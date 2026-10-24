@@ -98,6 +98,7 @@ public class BuilderEntity extends PathfinderMob {
     private static final int NEAR_SITE_STUCK_TICKS = 60;
     private static final int STUCK_TICKS = 1200;
     private static final int PAUSE_RETRY_TICKS = 100;
+    private static final int STORE_RETRY_TICKS = 1200;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -132,6 +133,7 @@ public class BuilderEntity extends PathfinderMob {
     private static final double PROGRESS_BAR_RANGE = 64.0;
     private boolean clearedSomething;
     private boolean toolsFetched;
+    private int storeBlockedUntil;
     private final List<ItemStack> overflow = new ArrayList<>();
     private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
     private final List<BlockPos> unclearable = new ArrayList<>();
@@ -695,12 +697,14 @@ public class BuilderEntity extends PathfinderMob {
                     visits.poll();
                     if (visit.getKind() == ChestVisit.Kind.DUMP && emptyingOut) {
                         queueEmptyingOut();
-                    } else if (visit.getKind() == ChestVisit.Kind.DUMP) {
+                    } else if (visit.getKind() == ChestVisit.Kind.DUMP && visits.isEmpty()) {
                         if (!overflow.isEmpty() || !hasFreeSlot()) {
                             startDump();
                         } else {
                             triedDumpChests.clear();
                         }
+                    } else if (visit.getKind() == ChestVisit.Kind.DUMP) {
+                        triedDumpChests.clear();
                     }
                 }
                 case FAILED -> {
@@ -874,10 +878,6 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void fetchMaterials(@Nullable List<ItemStack> immediate) {
-        if (!hasFreeSlot() && hasDumpableItems()) {
-            startDump();
-            return;
-        }
         ItemCounter inInventory = inventoryCounter();
         ItemCounter inSupply = new ItemCounter();
         List<Component> ignored = new ArrayList<>();
@@ -895,25 +895,19 @@ public class BuilderEntity extends PathfinderMob {
             }
         }
         int freeSlots = (int) inventory.getItems().stream().filter(ItemStack::isEmpty).count();
-        if (freeSlots == 0) {
-            pauseJob("My inventory is full of things I still need, so I can't carry the next materials. Please take out what I don't need.");
+        int toolSlots = (int) inventory.getItems().stream().filter(stack -> !stack.isEmpty() && isTool(stack)).count();
+        ItemCounter soon = withImmediate(placing.upcomingNeeds(INVENTORY_SIZE - toolSlots), immediate);
+        ItemCounter forFullInventory = missingFrom(soon, inInventory);
+        boolean unloading = forFullInventory.slots() > freeSlots && queueUnload(soon);
+        if (!unloading && freeSlots == 0) {
+            if (hasDumpableItems()) {
+                startDump();
+            } else {
+                pauseJob("My inventory is full of things I still need, so I can't carry the next materials. Please take out what I don't need.");
+            }
             return;
         }
-        ItemCounter wanted = new ItemCounter();
-        for (Map.Entry<ItemStack, Long> entry : placing.upcomingNeeds(freeSlots).sorted()) {
-            long missing = entry.getValue() - inInventory.count(entry.getKey());
-            if (missing > 0) {
-                wanted.add(entry.getKey(), missing);
-            }
-        }
-        if (immediate != null) {
-            for (ItemStack stack : immediate) {
-                long missing = stack.getCount() - inInventory.count(stack) - wanted.count(stack);
-                if (missing > 0) {
-                    wanted.add(stack, missing);
-                }
-            }
-        }
+        ItemCounter wanted = unloading ? forFullInventory : missingFrom(withImmediate(placing.upcomingNeeds(freeSlots), immediate), inInventory);
         for (BlockRequirements.ToolUse use : placing.remainingToolUses()) {
             Predicate<ItemStack> usable = PlacingTask.toolFor(use, job.getOptions().allowBreakingEnchanted());
             if (findSlot(usable) < 0) {
@@ -945,6 +939,92 @@ public class BuilderEntity extends PathfinderMob {
         }
         if (!queued && !job.getOptions().skipMissing()) {
             pauseForMaterials();
+        }
+    }
+
+    private static ItemCounter withImmediate(ItemCounter needs, @Nullable List<ItemStack> immediate) {
+        if (immediate != null) {
+            for (ItemStack stack : immediate) {
+                long extra = stack.getCount() - needs.count(stack);
+                if (extra > 0) {
+                    needs.add(stack, extra);
+                }
+            }
+        }
+        return needs;
+    }
+
+    private static ItemCounter missingFrom(ItemCounter needs, ItemCounter available) {
+        ItemCounter missing = new ItemCounter();
+        for (Map.Entry<ItemStack, Long> entry : needs.sorted()) {
+            long count = entry.getValue() - available.count(entry.getKey());
+            if (count > 0) {
+                missing.add(entry.getKey(), count);
+            }
+        }
+        return missing;
+    }
+
+    private boolean queueUnload(ItemCounter keep) {
+        boolean queued = false;
+        if (hasDumpableItems()) {
+            for (AssignedChest chest : chests) {
+                if (chest.role() == AssignedChest.Role.DUMP && level().isLoaded(chest.pos())) {
+                    queueVisit(ChestVisit.dump(chest.pos()));
+                    queued = true;
+                    break;
+                }
+            }
+        }
+        if (tickCount >= storeBlockedUntil && hasSpareItems(keep)) {
+            AssignedChest supply = firstSupplyChest();
+            if (supply != null) {
+                queueVisit(ChestVisit.store(supply.pos(), keep));
+                queued = true;
+            }
+        }
+        return queued;
+    }
+
+    private boolean hasSpareItems(ItemCounter keep) {
+        ItemCounter remaining = keep.copy();
+        for (ItemStack stack : inventory.getItems()) {
+            if (!stack.isEmpty() && !isTool(stack) && remaining.remove(stack, stack.getCount()) < stack.getCount()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Nullable
+    private AssignedChest firstSupplyChest() {
+        for (AssignedChest chest : chests) {
+            if (chest.role() == AssignedChest.Role.SUPPLY && level().isLoaded(chest.pos())) {
+                return chest;
+            }
+        }
+        return null;
+    }
+
+    public void storeInto(ItemStore store, ItemCounter keep) {
+        ItemCounter remaining = keep.copy();
+        int stored = 0;
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (stack.isEmpty() || isTool(stack)) {
+                continue;
+            }
+            int count = stack.getCount() - (int) remaining.remove(stack, stack.getCount());
+            if (count <= 0) {
+                continue;
+            }
+            ItemStack remainder = store.insert(stack.split(count));
+            stored += count - remainder.getCount();
+            stack.grow(remainder.getCount());
+        }
+        inventory.setChanged();
+        if (stored == 0) {
+            storeBlockedUntil = tickCount + STORE_RETRY_TICKS;
         }
     }
 
@@ -1018,6 +1098,13 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void startDump() {
+        if (overflow.isEmpty() && !hasDumpableItems() && tickCount >= storeBlockedUntil) {
+            AssignedChest supply = firstSupplyChest();
+            if (supply != null) {
+                queueVisit(ChestVisit.store(supply.pos(), new ItemCounter()));
+                return;
+            }
+        }
         for (AssignedChest chest : chests) {
             if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
                 queueVisit(ChestVisit.dump(chest.pos()));
