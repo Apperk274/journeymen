@@ -31,7 +31,8 @@ public final class LinkModeService {
     public static void start(ServerPlayer player, BuilderEntity builder, boolean supply) {
         SESSIONS.put(player.getUUID(), new Session(builder.getId(), supply, player.level().getGameTime() + SESSION_TICKS));
         player.sendSystemMessage(Component.literal("Right-click chests to link them as " + (supply ? "supply" : "dump") + " chests for "
-                + builder.getBuilderName() + ". Right-click a linked chest again to unlink it. Sneak + right-click to finish.")
+                + builder.getBuilderName() + ". Right-click a linked chest again to unlink it. Right-click "
+                + builder.getBuilderName() + " to finish.")
                 .withStyle(ChatFormatting.YELLOW));
         send(player, builder, true, supply);
     }
@@ -45,10 +46,6 @@ public final class LinkModeService {
         if (!(entity instanceof BuilderEntity builder) || !builder.isAlive() || player.level().getGameTime() > session.expiresAt()) {
             stop(player, entity instanceof BuilderEntity builder ? builder : null, "Linking chests has ended.");
             return false;
-        }
-        if (player.isShiftKeyDown()) {
-            stop(player, builder, "Finished linking chests for " + builder.getBuilderName() + ".");
-            return true;
         }
         if (ItemStores.at(player.level(), pos) == null) {
             player.displayClientMessage(Component.literal("That isn't a chest or other container.").withStyle(ChatFormatting.RED), true);
@@ -68,6 +65,20 @@ public final class LinkModeService {
         SESSIONS.put(player.getUUID(), new Session(session.builderId(), session.supply(), player.level().getGameTime() + SESSION_TICKS));
         send(player, builder, true, session.supply());
         return true;
+    }
+
+    public static boolean finish(ServerPlayer player, BuilderEntity builder) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return false;
+        }
+        boolean same = session.builderId() == builder.getId();
+        stop(player, builder, same ? "Finished linking chests for " + builder.getBuilderName() + "." : "Linking chests has ended.");
+        return same;
+    }
+
+    public static boolean isLinking(ServerPlayer player) {
+        return SESSIONS.containsKey(player.getUUID());
     }
 
     public static void forget(ServerPlayer player) {

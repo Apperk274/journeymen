@@ -19,7 +19,7 @@ To test commands and behaviour without a person, run a dev server (`:neoforge:ru
 
 - Gradle doesn't pass console input through to the server, so RCON is the way in.
 - In the dev environment, `/journeymen debug as <player> <permission> <pos> <command>` runs a command as a fake player (for commands that need a player, like `builder summon`) and copies its output to the server log.
-- Screen buttons can be tested the same way: `debug action <builder entity> <action> <pos> <text>` (run through `debug as`) sends a builder screen action as that player (`follow`, `rename`, `link_supply`, `check`, `start`, …; `|` in the text becomes a line break, `-` means empty) and logs the builder's state, and `debug use <pos>` is a right-click on a block for chest link mode.
+- Screen buttons can be tested the same way: `debug action <builder entity> <action> <pos> <text>` (run through `debug as`) sends a builder screen action as that player (`follow`, `rename`, `link_supply`, `check`, `start`, …; `|` in the text becomes a line break, `-` means empty) and logs the builder's state, `debug use <pos>` is a right-click on a block for chest link mode, and `debug interact <entity>` is a right-click on an entity (on a builder it ends link mode); it logs whether link mode is still on and which builder screen tab opened (`none` for the fake player, which can't open screens).
 - RCON only returns output produced while the command runs. Output that arrives later (schematic loading, pre-check results) only shows up in the server log via `debug as`.
 - A server with no players stops ticking entities 15 seconds after the last player leaves unless chunks are force-loaded, so `forceload add` the test area first. Force-loads may not survive a restart in the dev setup; add them again after restarting.
 - `fill` refuses more than 32768 blocks; split bigger areas, or old test builds stay in the way.
@@ -99,7 +99,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 ### Supply and dump chests
 
-- `/journeymen builder chest <name> add <x y z> supply|dump`, plus `remove` and `list`. A builder can have several chests of each role, used in order. Both halves of a double chest count as one chest. Any block with an item inventory works as a "chest": vanilla containers, and modded storage that only offers the loader's item API (TFC barrels and large vessels, drawers). A friendlier way to assign them (e.g. shift-right-click) can come later; the command stays.
+- `/journeymen builder chest <name> add <x y z> supply|dump`, plus `remove` and `list`. A builder can have several chests of each role, used in order. Both halves of a double chest count as one chest. Any block with an item inventory works as a "chest": vanilla containers, and modded storage that only offers the loader's item API (TFC barrels and large vessels, drawers). In survival they are assigned with link mode from the builder screen (see Builder screen); the command stays.
 - **Supply chests** are stock: it walks over and takes the materials and tools it needs. They count in the pre-check.
 - **Dump chests** take drops when its inventory is full, and whatever it doesn't need once the site is clear.
 - `/journeymen builder supply <builder> [<file> [pos] [rotation] [options]]` (ops only, creates items) puts the full material list of a job into the builder's supply chests, plus the cheapest plain tools that cover the job's required tool uses (e.g. enough wooden pickaxes for the stone, a diamond pickaxe for obsidian, a hoe for farmland). Without a file it uses the builder's current job. What doesn't fit in the supply chests goes to the player's inventory. It is all or nothing: it works out where every item goes first, and if anything doesn't fit it gives nothing and says how much didn't fit. It never dumps into a supply chest and never builds from a dump chest. With no dump chest, or all of them full, it pauses and asks.
@@ -151,7 +151,7 @@ Right-clicking your builder (owner or op) opens one screen with tabs:
 
 - **Inventory:** its 27 slots and 4 armor slots, plus your inventory. Shift-clicking armor in your inventory puts it in the matching armor slot, like your own inventory does.
 - **Job:** with a job: the file, phase, progress and what it's waiting for, and Cancel job (click twice). Without one: a schematic picker (server `schematics/` folder) with the material list, the `corner` and `allow-breaking-enchanted` options, and Place (starts placement mode).
-- **Chests:** assigned supply and dump chests with remove buttons. Link mode: click "Link supply chests" or "Link dump chests", then right-click chests in the world (each click toggles a chest; linked chests are outlined, supply green and dump orange). Sneak + right-click ends it, and it ends by itself after a minute without a click.
+- **Chests:** assigned supply and dump chests with remove buttons. Link mode: click "Link supply chests" or "Link dump chests", then right-click chests in the world (each click toggles a chest; linked chests are outlined, supply green and dump orange). Right-clicking the builder ends it and reopens its screen on the Chests tab; right-clicking another builder ends it too and opens that builder's screen as usual. It also ends by itself after a minute without a click.
 - **Orders:** follow / stay, rename, notices, dismiss (kill, with a confirmation).
 
 ### Placement mode
@@ -197,9 +197,9 @@ Not tested yet (no way to test them so far):
 
 - Other players hurting a builder when PvP is off (the builder should take no damage).
 - Spawn protection and claim/protection mods (FTB Chunks, Open Parties and Claims, …) blocking the pre-check and the builder's breaking and placing. FTB Chunks is in the TFC test set, but claiming needs a real player in a team: fake players have none, and `ftbchunks admin claim_as` doesn't find server teams from the console.
-- The phase 4b–4d client side by a person in game: the builder screen's tabs and slots, armor rendering, link mode outlines, the placement preview, rotating with sneak + scroll and the confirmation screen. Their server side is tested headlessly with `debug action` and `debug use`.
+- The phase 4b–4d client side by a person in game: the builder screen's tabs and slots, armor rendering, link mode outlines, the placement preview, rotating with sneak + scroll and the confirmation screen. Their server side is tested headlessly with `debug action`, `debug use` and `debug interact`.
 
-Backlog (no phase yet): mirroring schematics in the build command, counting Unbreaking in the pre-check durability estimate instead of ignoring it, placing entities from schematics (item frames, paintings, armor stands), more jobs per builder (a queue), several builders on one job.
+Backlog (no phase yet): mirroring schematics in the build command, counting Unbreaking in the pre-check durability estimate instead of ignoring it, placing entities from schematics (item frames, paintings, armor stands), more jobs per builder (a queue), several builders on one job, an early material check in the builder screen's Job tab (have/need for the picked schematic before the player goes to place it; design not decided yet).
 
 ## Related mods (stay distinct from these)
 

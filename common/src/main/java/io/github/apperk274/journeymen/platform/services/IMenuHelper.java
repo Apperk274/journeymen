@@ -9,5 +9,5 @@ public interface IMenuHelper {
 
     MenuType<BuilderMenu> builderMenu();
 
-    void openBuilderMenu(ServerPlayer player, BuilderEntity builder);
+    void openBuilderMenu(ServerPlayer player, BuilderEntity builder, int tab);
 }

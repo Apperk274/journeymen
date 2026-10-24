@@ -8,6 +8,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.menu.BuilderMenu;
 import io.github.apperk274.journeymen.menu.BuilderScreenService;
 import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
@@ -21,6 +22,8 @@ import net.minecraft.commands.arguments.coordinates.Vec3Argument;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
@@ -43,7 +46,10 @@ public class DebugCommands {
                                                         .executes(DebugCommands::action))))))
                 .then(Commands.literal("use")
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
-                                .executes(DebugCommands::use)));
+                                .executes(DebugCommands::use)))
+                .then(Commands.literal("interact")
+                        .then(Commands.argument("entity", EntityArgument.entity())
+                                .executes(DebugCommands::interact)));
     }
 
     private static int action(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -63,6 +69,16 @@ public class DebugCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         boolean handled = LinkModeService.onUseBlock(player, BlockPosArgument.getBlockPos(context, "pos"));
         Constants.LOG.info("[debug use] handled={}", handled);
+        return 1;
+    }
+
+    private static int interact(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        Entity entity = EntityArgument.getEntity(context, "entity");
+        boolean linkingBefore = LinkModeService.isLinking(player);
+        InteractionResult result = player.interactOn(entity, InteractionHand.MAIN_HAND);
+        Constants.LOG.info("[debug interact] {} result={} linking={}->{} menu={}", entity.getName().getString(), result, linkingBefore,
+                LinkModeService.isLinking(player), player.containerMenu instanceof BuilderMenu menu ? "builder tab " + menu.getActiveTab() : "none");
         return 1;
     }
 

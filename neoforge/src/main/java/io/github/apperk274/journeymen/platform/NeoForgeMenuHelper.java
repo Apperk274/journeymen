@@ -11,7 +11,7 @@ import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 public class NeoForgeMenuHelper implements IMenuHelper {
 
     public static final MenuType<BuilderMenu> BUILDER_MENU =
-            IMenuTypeExtension.create((containerId, inventory, data) -> new BuilderMenu(containerId, inventory, data.readVarInt()));
+            IMenuTypeExtension.create((containerId, inventory, data) -> new BuilderMenu(containerId, inventory, BuilderMenu.OpenData.CODEC.decode(data)));
 
     @Override
     public MenuType<BuilderMenu> builderMenu() {
@@ -19,8 +19,8 @@ public class NeoForgeMenuHelper implements IMenuHelper {
     }
 
     @Override
-    public void openBuilderMenu(ServerPlayer player, BuilderEntity builder) {
-        player.openMenu(new SimpleMenuProvider((containerId, inventory, p) -> new BuilderMenu(containerId, inventory, builder),
-                builder.getDisplayName()), data -> data.writeVarInt(builder.getId()));
+    public void openBuilderMenu(ServerPlayer player, BuilderEntity builder, int tab) {
+        player.openMenu(new SimpleMenuProvider((containerId, inventory, p) -> new BuilderMenu(containerId, inventory, builder, tab),
+                builder.getDisplayName()), data -> BuilderMenu.OpenData.CODEC.encode(data, new BuilderMenu.OpenData(builder.getId(), tab)));
     }
 }

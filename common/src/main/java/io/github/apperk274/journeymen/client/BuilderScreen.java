@@ -24,9 +24,6 @@ import java.util.List;
 public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
 
     private static final String[] TABS = {"Inventory", "Job", "Chests", "Orders"};
-    private static final int JOB_TAB = 1;
-    private static final int CHESTS_TAB = 2;
-    private static final int ORDERS_TAB = 3;
     private static final int TEXT = 0x404040;
     private static final int ROW = 11;
     private static final int LIST_TOP = 20;
@@ -35,7 +32,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
     private static final int MATERIALS_LEFT = 126;
     private static final int RIGHT = 248;
 
-    private int tab = BuilderMenu.INVENTORY_TAB;
+    private int tab;
     private boolean builtWithJob;
     @Nullable
     private String selected;
@@ -65,6 +62,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
         this.imageWidth = 256;
         this.imageHeight = 204;
         this.inventoryLabelY = 112;
+        this.tab = menu.getActiveTab();
     }
 
     @Nullable
@@ -98,9 +96,9 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
         ScreenPayloads.BuilderState state = state();
         builtWithJob = state != null && state.hasJob();
         switch (tab) {
-            case JOB_TAB -> initJobTab();
-            case CHESTS_TAB -> initChestsTab();
-            case ORDERS_TAB -> initOrdersTab();
+            case BuilderMenu.JOB_TAB -> initJobTab();
+            case BuilderMenu.CHESTS_TAB -> initChestsTab();
+            case BuilderMenu.ORDERS_TAB -> initOrdersTab();
             default -> {
             }
         }
@@ -112,7 +110,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
         dismissArmed = false;
         cancelArmed = false;
         menu.setActiveTab(index);
-        if (index == JOB_TAB) {
+        if (index == BuilderMenu.JOB_TAB) {
             send("schematic_list");
         }
         rebuildWidgets();
@@ -190,7 +188,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
     protected void containerTick() {
         super.containerTick();
         ScreenPayloads.BuilderState state = state();
-        if (tab == JOB_TAB && state != null && state.hasJob() != builtWithJob) {
+        if (tab == BuilderMenu.JOB_TAB && state != null && state.hasJob() != builtWithJob) {
             rebuildWidgets();
             return;
         }
@@ -231,7 +229,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         double x = mouseX - leftPos;
         double y = mouseY - topPos;
-        if (button == 0 && tab == JOB_TAB && !builtWithJob && x >= 8 && x < FILES_RIGHT && y >= LIST_TOP && y < LIST_BOTTOM) {
+        if (button == 0 && tab == BuilderMenu.JOB_TAB && !builtWithJob && x >= 8 && x < FILES_RIGHT && y >= LIST_TOP && y < LIST_BOTTOM) {
             int index = fileScroll + (int) ((y - LIST_TOP) / ROW);
             List<String> files = ClientState.schematics;
             if (index < files.size()) {
@@ -244,7 +242,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             }
             return true;
         }
-        if (button == 0 && tab == CHESTS_TAB && x >= RIGHT - 12 && x < RIGHT && y >= LIST_TOP && y < LIST_BOTTOM) {
+        if (button == 0 && tab == BuilderMenu.CHESTS_TAB && x >= RIGHT - 12 && x < RIGHT && y >= LIST_TOP && y < LIST_BOTTOM) {
             ScreenPayloads.BuilderState state = state();
             int index = chestScroll + (int) ((y - LIST_TOP) / ROW);
             if (state != null && index < state.chests().size()) {
@@ -260,7 +258,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
         double x = mouseX - leftPos;
         int step = scrollY > 0 ? -1 : scrollY < 0 ? 1 : 0;
         int rows = (LIST_BOTTOM - LIST_TOP) / ROW;
-        if (tab == JOB_TAB && !builtWithJob) {
+        if (tab == BuilderMenu.JOB_TAB && !builtWithJob) {
             if (x < FILES_RIGHT) {
                 fileScroll = clamp(fileScroll + step, ClientState.schematics.size() - rows);
             } else {
@@ -268,7 +266,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             }
             return true;
         }
-        if (tab == CHESTS_TAB) {
+        if (tab == BuilderMenu.CHESTS_TAB) {
             ScreenPayloads.BuilderState state = state();
             chestScroll = clamp(chestScroll + step, state == null ? 0 : state.chests().size() - rows);
             return true;
@@ -313,9 +311,9 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             for (Slot slot : menu.slots) {
                 slotBackground(graphics, x + slot.x - 1, y + slot.y - 1);
             }
-        } else if (tab == JOB_TAB && !builtWithJob || tab == CHESTS_TAB) {
-            inset(graphics, x + 7, y + LIST_TOP - 1, x + (tab == JOB_TAB ? FILES_RIGHT : RIGHT) + 1, y + LIST_BOTTOM + 1);
-            if (tab == JOB_TAB) {
+        } else if (tab == BuilderMenu.JOB_TAB && !builtWithJob || tab == BuilderMenu.CHESTS_TAB) {
+            inset(graphics, x + 7, y + LIST_TOP - 1, x + (tab == BuilderMenu.JOB_TAB ? FILES_RIGHT : RIGHT) + 1, y + LIST_BOTTOM + 1);
+            if (tab == BuilderMenu.JOB_TAB) {
                 inset(graphics, x + MATERIALS_LEFT - 1, y + LIST_TOP - 1, x + RIGHT + 1, y + LIST_BOTTOM + 1);
             }
         }
@@ -343,9 +341,9 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             return;
         }
         switch (tab) {
-            case JOB_TAB -> renderJob(graphics, state, mouseX - leftPos, mouseY - topPos);
-            case CHESTS_TAB -> renderChests(graphics, state, mouseX - leftPos, mouseY - topPos);
-            case ORDERS_TAB -> renderOrders(graphics, state);
+            case BuilderMenu.JOB_TAB -> renderJob(graphics, state, mouseX - leftPos, mouseY - topPos);
+            case BuilderMenu.CHESTS_TAB -> renderChests(graphics, state, mouseX - leftPos, mouseY - topPos);
+            case BuilderMenu.ORDERS_TAB -> renderOrders(graphics, state);
             default -> renderInventory(graphics, state);
         }
     }
@@ -440,7 +438,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             graphics.drawString(font, "✕", RIGHT - 9, y + 2, hovered ? 0xFFFF5555 : 0xFFFFFFFF, false);
         }
         int y = LIST_BOTTOM + 5;
-        for (FormattedCharSequence part : font.split(Component.literal("Link mode: right-click chests to add or remove them, sneak + right-click to finish."),
+        for (FormattedCharSequence part : font.split(Component.literal("Link mode: right-click chests to add or remove them, then right-click the builder to finish."),
                 RIGHT - 8)) {
             graphics.drawString(font, part, 8, y, TEXT, false);
             y += 10;

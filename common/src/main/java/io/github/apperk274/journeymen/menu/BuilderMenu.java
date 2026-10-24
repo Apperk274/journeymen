@@ -3,6 +3,9 @@ package io.github.apperk274.journeymen.menu;
 import com.mojang.datafixers.util.Pair;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.platform.Services;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
@@ -19,6 +22,10 @@ import org.jetbrains.annotations.Nullable;
 public class BuilderMenu extends AbstractContainerMenu {
 
     public static final int INVENTORY_TAB = 0;
+    public static final int JOB_TAB = 1;
+    public static final int CHESTS_TAB = 2;
+    public static final int ORDERS_TAB = 3;
+    public static final int TAB_COUNT = 4;
     public static final int BUILDER_SLOTS = BuilderEntity.INVENTORY_SIZE;
     public static final int ARMOR_SLOTS = 4;
     public static final int PLAYER_SLOTS = 36;
@@ -30,23 +37,32 @@ public class BuilderMenu extends AbstractContainerMenu {
     @Nullable
     private final BuilderEntity builder;
     private final boolean clientSide;
-    private int activeTab = INVENTORY_TAB;
+    private int activeTab;
 
-    public BuilderMenu(int containerId, Inventory playerInventory, BuilderEntity builder) {
-        this(containerId, playerInventory, builder.getId(), builder, builder.getInventory(), new ArmorContainer(builder), false);
+    public record OpenData(int builderId, int tab) {
+
+        public static final StreamCodec<ByteBuf, OpenData> CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, OpenData::builderId,
+                ByteBufCodecs.VAR_INT, OpenData::tab,
+                OpenData::new);
     }
 
-    public BuilderMenu(int containerId, Inventory playerInventory, int builderId) {
-        this(containerId, playerInventory, builderId, findBuilder(playerInventory.player, builderId),
+    public BuilderMenu(int containerId, Inventory playerInventory, BuilderEntity builder, int tab) {
+        this(containerId, playerInventory, builder.getId(), tab, builder, builder.getInventory(), new ArmorContainer(builder), false);
+    }
+
+    public BuilderMenu(int containerId, Inventory playerInventory, OpenData data) {
+        this(containerId, playerInventory, data.builderId(), data.tab(), findBuilder(playerInventory.player, data.builderId()),
                 new SimpleContainer(BUILDER_SLOTS), new SimpleContainer(ARMOR_SLOTS), true);
     }
 
-    private BuilderMenu(int containerId, Inventory playerInventory, int builderId, @Nullable BuilderEntity builder, Container inventory,
+    private BuilderMenu(int containerId, Inventory playerInventory, int builderId, int tab, @Nullable BuilderEntity builder, Container inventory,
                         Container armor, boolean clientSide) {
         super(Services.MENUS.builderMenu(), containerId);
         this.builderId = builderId;
         this.builder = builder;
         this.clientSide = clientSide;
+        this.activeTab = tab >= 0 && tab < TAB_COUNT ? tab : INVENTORY_TAB;
         for (int i = 0; i < ARMOR_SLOTS; i++) {
             EquipmentSlot equipmentSlot = ARMOR_ORDER[i];
             ResourceLocation icon = ARMOR_ICONS[i];
@@ -100,6 +116,10 @@ public class BuilderMenu extends AbstractContainerMenu {
     @Nullable
     public BuilderEntity getBuilder() {
         return builder;
+    }
+
+    public int getActiveTab() {
+        return activeTab;
     }
 
     public void setActiveTab(int tab) {

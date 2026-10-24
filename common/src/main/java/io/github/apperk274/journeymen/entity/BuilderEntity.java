@@ -17,6 +17,7 @@ import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.build.Reach;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.ai.BuilderMoveGoal;
+import io.github.apperk274.journeymen.menu.BuilderMenu;
 import io.github.apperk274.journeymen.menu.BuilderScreenService;
 import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.entity.ai.BuilderNodeEvaluator;
@@ -1379,7 +1380,8 @@ public class BuilderEntity extends PathfinderMob {
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (!level().isClientSide) {
             if (canBeCommandedBy(player) && player instanceof ServerPlayer serverPlayer) {
-                BuilderScreenService.open(serverPlayer, this);
+                boolean linked = LinkModeService.finish(serverPlayer, this);
+                BuilderScreenService.open(serverPlayer, this, linked ? BuilderMenu.CHESTS_TAB : BuilderMenu.INVENTORY_TAB);
             } else {
                 player.displayClientMessage(Component.literal(getBuilderName() + " works for someone else."), true);
             }

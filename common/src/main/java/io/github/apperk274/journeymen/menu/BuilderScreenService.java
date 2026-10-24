@@ -38,8 +38,8 @@ public final class BuilderScreenService {
     private BuilderScreenService() {
     }
 
-    public static void open(ServerPlayer player, BuilderEntity builder) {
-        Services.MENUS.openBuilderMenu(player, builder);
+    public static void open(ServerPlayer player, BuilderEntity builder, int tab) {
+        Services.MENUS.openBuilderMenu(player, builder, tab);
         sendState(player, builder);
         sendSchematicList(player);
     }
