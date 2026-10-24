@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.ChatFormatting;
@@ -33,8 +34,7 @@ public final class PlacementMode {
     @Nullable
     private static ScreenPayloads.SchematicInfo info;
     private static Rotation rotation = Rotation.NONE;
-    private static boolean corner;
-    private static boolean allowBreakingEnchanted;
+    private static String options = "";
     @Nullable
     private static BlockPos origin;
     private static long lastHint;
@@ -43,17 +43,16 @@ public final class PlacementMode {
     private PlacementMode() {
     }
 
-    public static void start(int builderId, ScreenPayloads.SchematicInfo info, boolean corner, boolean allowBreakingEnchanted) {
+    public static void start(int builderId, ScreenPayloads.SchematicInfo info, String options) {
         PlacementMode.active = true;
         PlacementMode.builderId = builderId;
         PlacementMode.info = info;
-        PlacementMode.corner = corner;
-        PlacementMode.allowBreakingEnchanted = allowBreakingEnchanted;
+        PlacementMode.options = options.strip();
         PlacementMode.lastHint = 0;
     }
 
-    public static void resume(int builderId, ScreenPayloads.SchematicInfo info, Rotation rotation, boolean corner, boolean allowBreakingEnchanted) {
-        start(builderId, info, corner, allowBreakingEnchanted);
+    public static void resume(int builderId, ScreenPayloads.SchematicInfo info, Rotation rotation, String options) {
+        start(builderId, info, options);
         PlacementMode.rotation = rotation;
     }
 
@@ -96,9 +95,8 @@ public final class PlacementMode {
             minecraft.player.displayClientMessage(Component.literal("Look at a block to place the schematic there.").withStyle(ChatFormatting.RED), true);
             return true;
         }
-        String options = (corner ? "corner " : "") + (allowBreakingEnchanted ? "allow-breaking-enchanted" : "");
         Services.NETWORK.sendToServer(new ScreenPayloads.BuilderAction(builderId, "check",
-                info.file() + "\n" + rotation.getSerializedName() + "\n" + options.strip(), origin));
+                info.file() + "\n" + rotation.getSerializedName() + "\n" + options, origin));
         return true;
     }
 
@@ -129,7 +127,7 @@ public final class PlacementMode {
             return;
         }
         Vec3 cameraPos = camera.getPosition();
-        BlockPos base = corner ? BlockPos.ZERO : info.offset();
+        BlockPos base = List.of(options.split(" ")).contains(BuildOptions.CORNER) ? BlockPos.ZERO : info.offset();
         BlockRenderDispatcher dispatcher = minecraft.getBlockRenderer();
         VertexConsumer ghost = new TranslucentConsumer(buffers.getBuffer(RenderType.translucent()));
         List<BlockState> palette = info.palette();

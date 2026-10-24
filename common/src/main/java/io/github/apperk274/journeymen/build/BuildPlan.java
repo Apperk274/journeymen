@@ -35,11 +35,14 @@ public final class BuildPlan {
     private final List<Placement> toFix = new ArrayList<>();
     private final List<Placement> toWaterlog = new ArrayList<>();
     private final List<BlockPos> fluidsInTheWay = new ArrayList<>();
+    private final Map<Block, Integer> unplaceable = new LinkedHashMap<>();
+    private final boolean skipUnplaceable;
     private int doneCount;
     private int totalCount;
 
-    private BuildPlan(BoundingBox area) {
+    private BuildPlan(BoundingBox area, boolean skipUnplaceable) {
         this.area = area;
+        this.skipUnplaceable = skipUnplaceable;
     }
 
     public static boolean isLoaded(ServerLevel level, BoundingBox area) {
@@ -53,8 +56,8 @@ public final class BuildPlan {
         return true;
     }
 
-    public static BuildPlan create(ServerLevel level, Schematic schematic, PlacementTransform transform) {
-        BuildPlan plan = new BuildPlan(transform.area(schematic.getSize()));
+    public static BuildPlan create(ServerLevel level, Schematic schematic, PlacementTransform transform, BuildOptions options) {
+        BuildPlan plan = new BuildPlan(transform.area(schematic.getSize()), options.skipUnplaceable());
         int width = schematic.getSize().getX();
         int height = schematic.getSize().getY();
         int length = schematic.getSize().getZ();
@@ -111,6 +114,11 @@ public final class BuildPlan {
             toFix.add(new Placement(pos, target, blockEntity));
             return;
         }
+        if (skipUnplaceable && !BlockRequirements.of(target, null, null).obtainable()) {
+            unplaceable.merge(target.getBlock(), 1, Integer::sum);
+            totalCount--;
+            return;
+        }
         if (actual.getBlock() instanceof LiquidBlock) {
             fluidsInTheWay.add(pos);
         } else if (!actual.isAir() && !actual.canBeReplaced()) {
@@ -146,6 +154,10 @@ public final class BuildPlan {
             targets.put(placement.pos(), placement.target());
         }
         return targets;
+    }
+
+    public Map<Block, Integer> getUnplaceable() {
+        return unplaceable;
     }
 
     public BoundingBox getArea() {

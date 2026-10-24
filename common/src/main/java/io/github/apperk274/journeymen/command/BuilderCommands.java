@@ -177,7 +177,7 @@ public class BuilderCommands {
             source.sendFailure(Component.literal("Part of the site isn't loaded. Go closer to it and try again. Nothing was given."));
             return;
         }
-        MaterialSupply.Needs needs = MaterialSupply.needs(level, BuildPlan.create(level, schematic, transform));
+        MaterialSupply.Needs needs = MaterialSupply.needs(level, BuildPlan.create(level, schematic, transform, options));
         List<MaterialSupply.Target> chests = new ArrayList<>();
         for (AssignedChest chest : builder.getChests()) {
             if (chest.role() == AssignedChest.Role.SUPPLY && level.isLoaded(chest.pos())) {

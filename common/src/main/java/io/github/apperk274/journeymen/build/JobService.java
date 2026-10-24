@@ -24,10 +24,11 @@ public final class JobService {
     private JobService() {
     }
 
-    public record Result(@Nullable Component header, List<Component> lines, boolean passed, boolean started, @Nullable String error) {
+    public record Result(@Nullable Component header, List<Component> lines, boolean passed, boolean started, @Nullable String error,
+                         int unplaceable, long missing) {
 
         static Result failure(String error) {
-            return new Result(null, List.of(), false, false, error);
+            return new Result(null, List.of(), false, false, error, 0, 0);
         }
     }
 
@@ -75,15 +76,17 @@ public final class JobService {
         List<Component> lines = check.lines();
         BuildPlan plan = check.getPlan();
         if (!start) {
-            return new Result(header, lines, check.passed(), false, null);
+            return new Result(header, lines, check.passed(), false, null, check.getUnplaceableCount(), check.getMissingCount());
         }
         if (!check.passed() || plan == null) {
-            return new Result(header, lines, false, false, builder.getBuilderName() + " can't start this job yet.");
+            return new Result(header, lines, false, false, builder.getBuilderName() + " can't start this job yet.", check.getUnplaceableCount(),
+                    check.getMissingCount());
         }
         if (builder.getJob() != null) {
-            return new Result(header, lines, true, false, builder.getBuilderName() + " got another job in the meantime.");
+            return new Result(header, lines, true, false, builder.getBuilderName() + " got another job in the meantime.", check.getUnplaceableCount(),
+                    check.getMissingCount());
         }
         builder.startJob(new BuildJob(file, origin, rotation, options, area, BuildJob.Phase.WALKING), schematic, plan);
-        return new Result(header, lines, true, true, null);
+        return new Result(header, lines, true, true, null, check.getUnplaceableCount(), check.getMissingCount());
     }
 }

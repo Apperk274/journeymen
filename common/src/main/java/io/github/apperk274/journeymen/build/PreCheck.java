@@ -29,6 +29,9 @@ public final class PreCheck {
 
     private final List<Component> problems = new ArrayList<>();
     private final List<Component> warnings = new ArrayList<>();
+    private final List<Component> hints = new ArrayList<>();
+    private int unplaceableCount;
+    private long missingCount;
     private final BoundingBox area;
     @Nullable
     private BuildPlan plan;
@@ -72,7 +75,7 @@ public final class PreCheck {
             return check;
         }
 
-        BuildPlan plan = BuildPlan.create(level, schematic, transform);
+        BuildPlan plan = BuildPlan.create(level, schematic, transform, options);
         check.plan = plan;
         if (!schematic.getUnknownBlocks().isEmpty()) {
             check.warning("Skipping blocks this game doesn't have (missing mod?): " + String.join(", ", schematic.getUnknownBlocks().stream().sorted().toList()));
@@ -82,6 +85,13 @@ public final class PreCheck {
         ItemCounter needed = requirements.items();
         Map<BlockRequirements.ToolUse, Integer> toolUses = requirements.toolUses();
         requirements.unobtainable().forEach((block, count) -> check.problem(Component.literal("Can't be placed by hand: " + count + " ").append(block.getName())));
+        plan.getUnplaceable().forEach((block, count) -> check.warnings.add(Component.literal("Skipping " + count + " ").append(block.getName())
+                .append(Component.literal(", which can't be placed by hand."))));
+        check.unplaceableCount = requirements.unobtainable().values().stream().mapToInt(Integer::intValue).sum()
+                + plan.getUnplaceable().values().stream().mapToInt(Integer::intValue).sum();
+        if (!requirements.unobtainable().isEmpty()) {
+            check.hints.add(Component.literal("Add the " + BuildOptions.SKIP_UNPLACEABLE + " option to build without the blocks that can't be placed by hand."));
+        }
 
         List<BlockPos> unbreakable = new ArrayList<>();
         for (BlockPos pos : plan.getToClear()) {
@@ -136,8 +146,16 @@ public final class PreCheck {
                 if (inDump > 0) {
                     line.append(Component.literal(". " + inDump + " are in a dump chest, which doesn't count as stock"));
                 }
-                check.problems.add(line);
+                check.missingCount += missing;
+                if (options.skipMissing()) {
+                    check.warnings.add(line.append(Component.literal("; those blocks will be skipped")));
+                } else {
+                    check.problems.add(line);
+                }
             }
+        }
+        if (check.missingCount > 0 && !options.skipMissing()) {
+            check.hints.add(Component.literal("Add the " + BuildOptions.SKIP_MISSING + " option to build without the blocks whose materials are missing."));
         }
         check.problems.addAll(ToolCheck.check(level, plan.getToClear(), toolUses, stock, options.allowBreakingEnchanted()));
         return check;
@@ -150,6 +168,14 @@ public final class PreCheck {
     @Nullable
     public BuildPlan getPlan() {
         return plan;
+    }
+
+    public int getUnplaceableCount() {
+        return unplaceableCount;
+    }
+
+    public long getMissingCount() {
+        return missingCount;
     }
 
     public BoundingBox getArea() {
@@ -171,6 +197,9 @@ public final class PreCheck {
         }
         for (Component warning : warnings) {
             lines.add(Component.literal("! ").append(warning).withStyle(ChatFormatting.GOLD));
+        }
+        for (Component hint : hints) {
+            lines.add(hint.copy().withStyle(ChatFormatting.GRAY));
         }
         if (passed()) {
             lines.add(Component.literal("✓ Everything is ready.").withStyle(ChatFormatting.GREEN));

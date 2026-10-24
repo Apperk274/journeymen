@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.client;
 
+import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.entity.BuilderNames;
 import io.github.apperk274.journeymen.menu.BuilderMenu;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
@@ -180,7 +181,8 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
         if (info == null || !info.file().equals(selected)) {
             return;
         }
-        PlacementMode.start(menu.getBuilderId(), info, corner, allowBreakingEnchanted);
+        PlacementMode.start(menu.getBuilderId(), info, (corner ? BuildOptions.CORNER + " " : "")
+                + (allowBreakingEnchanted ? BuildOptions.ALLOW_BREAKING_ENCHANTED : ""));
         onClose();
     }
 

@@ -123,7 +123,7 @@ public final class ScreenPayloads {
     }
 
     public record CheckResult(int builderId, String file, BlockPos origin, String rotation, String options, List<Component> lines,
-                              boolean passed, boolean started, String error) implements CustomPacketPayload {
+                              boolean passed, boolean started, String error, int unplaceable, int missing) implements CustomPacketPayload {
 
         public static final Type<CheckResult> TYPE = payloadType("check_result");
         public static final StreamCodec<RegistryFriendlyByteBuf, CheckResult> CODEC = StreamCodec.of((buf, value) -> {
@@ -136,8 +136,10 @@ public final class ScreenPayloads {
             buf.writeBoolean(value.passed);
             buf.writeBoolean(value.started);
             buf.writeUtf(value.error);
+            buf.writeVarInt(value.unplaceable);
+            buf.writeVarInt(value.missing);
         }, buf -> new CheckResult(buf.readVarInt(), buf.readUtf(), buf.readBlockPos(), buf.readUtf(), buf.readUtf(), COMPONENTS.decode(buf),
-                buf.readBoolean(), buf.readBoolean(), buf.readUtf()));
+                buf.readBoolean(), buf.readBoolean(), buf.readUtf(), buf.readVarInt(), buf.readVarInt()));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

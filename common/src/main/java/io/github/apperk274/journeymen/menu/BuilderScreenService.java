@@ -174,7 +174,7 @@ public final class BuilderScreenService {
             lines.addAll(result.lines());
             Services.NETWORK.sendToPlayer(player, new ScreenPayloads.CheckResult(builder.getId(), file, origin, finalRotation.getSerializedName(),
                     options.describe().equals("none") ? "" : options.describe(), lines, result.passed(), result.started(),
-                    result.error() == null ? "" : result.error()));
+                    result.error() == null ? "" : result.error(), result.unplaceable(), (int) Math.min(Integer.MAX_VALUE, result.missing())));
             if (result.started()) {
                 tell(player, builder.getBuilderName() + " is on the way to build " + file + ".", true);
             }

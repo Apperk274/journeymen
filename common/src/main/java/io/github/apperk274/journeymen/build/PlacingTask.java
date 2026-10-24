@@ -493,6 +493,13 @@ public final class PlacingTask {
         return empty != null ? empty : ItemStack.EMPTY;
     }
 
+    public void skipCurrent() {
+        if (current != null) {
+            skipped.add(current.pos());
+            finish(false);
+        }
+    }
+
     private Status finish(boolean acted) {
         if (current != null && currentGroup != null) {
             List<Entry> layer = currentGroup.get(current.pos().getY());

@@ -135,6 +135,7 @@ public class BuilderEntity extends PathfinderMob {
     private final List<ItemStack> overflow = new ArrayList<>();
     private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
     private final List<BlockPos> unclearable = new ArrayList<>();
+    private final Set<BlockPos> skippedPositions = new LinkedHashSet<>();
     @Nullable
     private String lastNotice;
     private int lastNoticeTick;
@@ -416,6 +417,7 @@ public class BuilderEntity extends PathfinderMob {
         job = null;
         redoCounts.clear();
         unclearable.clear();
+        skippedPositions.clear();
         for (ItemStack stack : overflow) {
             ItemStack remainder = inventory.addItem(stack);
             if (!remainder.isEmpty()) {
@@ -752,7 +754,7 @@ public class BuilderEntity extends PathfinderMob {
                 pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
                 return false;
             }
-            plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform());
+            plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
             job.setPlan(plan);
         }
         clearing = new ClearingTask(this, job, plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition());
@@ -766,7 +768,7 @@ public class BuilderEntity extends PathfinderMob {
         clearedSomething |= clearing.getCleared() > 0;
         List<BlockPos> skipped = clearing.getSkipped();
         clearing = null;
-        BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform());
+        BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
         job.setPlan(plan);
         List<BlockPos> leftover = new ArrayList<>();
         for (BlockPos pos : plan.getToClear()) {
@@ -860,7 +862,7 @@ public class BuilderEntity extends PathfinderMob {
                 pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
                 return false;
             }
-            plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform());
+            plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
             job.setPlan(plan);
         }
         placing = new PlacingTask(this, plan, this::withinRedoLimit);
@@ -868,7 +870,7 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private boolean withinRedoLimit(BlockPos pos) {
-        return redoCounts.getOrDefault(pos, 0) <= JourneymenConfig.REDO_LIMIT.get();
+        return redoCounts.getOrDefault(pos, 0) <= JourneymenConfig.REDO_LIMIT.get() && !skippedPositions.contains(pos);
     }
 
     private void fetchMaterials(@Nullable List<ItemStack> immediate) {
@@ -883,7 +885,11 @@ public class BuilderEntity extends PathfinderMob {
         if (immediate != null) {
             for (ItemStack stack : immediate) {
                 if (inSupply.count(stack) < stack.getCount()) {
-                    pauseForMaterials();
+                    if (job.getOptions().skipMissing()) {
+                        placing.skipCurrent();
+                    } else {
+                        pauseForMaterials();
+                    }
                     return;
                 }
             }
@@ -937,7 +943,7 @@ public class BuilderEntity extends PathfinderMob {
                 queued = true;
             }
         }
-        if (!queued) {
+        if (!queued && !job.getOptions().skipMissing()) {
             pauseForMaterials();
         }
     }
@@ -962,16 +968,17 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void finishPlacing() {
-        List<BlockPos> skipped = placing.getSkipped();
+        skippedPositions.addAll(placing.getSkipped());
         placing.stop();
         placing = null;
-        BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform());
+        BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
         job.setPlan(plan);
         Set<BlockPos> leftover = new LinkedHashSet<>(plan.getToClear());
         plan.getToPlace().forEach(placement -> leftover.add(placement.pos()));
         plan.getToFix().forEach(placement -> leftover.add(placement.pos()));
         plan.getToWaterlog().forEach(placement -> leftover.add(placement.pos()));
         leftover.addAll(plan.getFluidsInTheWay());
+        leftover.removeAll(skippedPositions);
         boolean redo = false;
         for (BlockPos pos : leftover) {
             if (redoCounts.merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
@@ -981,7 +988,7 @@ public class BuilderEntity extends PathfinderMob {
             }
         }
         if (!redo) {
-            finishJob(skipped);
+            finishJob();
             return;
         }
         List<BlockPos> toClear = plan.getToClear().stream().filter(this::withinRedoLimit).toList();
@@ -993,10 +1000,10 @@ public class BuilderEntity extends PathfinderMob {
         placing = new PlacingTask(this, plan, this::withinRedoLimit);
     }
 
-    private void finishJob(List<BlockPos> skipped) {
+    private void finishJob() {
         String file = job.getFile();
         Set<BlockPos> problems = new LinkedHashSet<>(unclearable);
-        problems.addAll(skipped);
+        problems.addAll(skippedPositions);
         if (!problems.isEmpty()) {
             notifyOwner("I couldn't build " + problems.size() + " block(s) of " + file + ", e.g. at "
                     + problems.iterator().next().toShortString() + ".");
@@ -1006,6 +1013,7 @@ public class BuilderEntity extends PathfinderMob {
         job = null;
         redoCounts.clear();
         unclearable.clear();
+        skippedPositions.clear();
         updateJobArea();
     }
 

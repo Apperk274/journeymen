@@ -73,7 +73,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - **Origin:** by default `<x y z>` is the WorldEdit paste origin (the offset stored in a `.schem`, like `//paste`). `.nbt` files have no offset, so the min corner is used. The `corner` option uses the min corner for any file.
 - **Rotation:** none, 90, 180 or 270 degrees clockwise around the origin. Block states rotate with it. Mirroring is in the backlog.
 - **Area:** the rotated schematic bounding box. Schematic air is cleared. Structure void and positions without data are left alone.
-- **Options:** `corner` (see Origin) and `allow-breaking-enchanted` (see Tools).
+- **Options:** `corner` (see Origin), `allow-breaking-enchanted` (see Tools), `skip-unplaceable` and `skip-missing` (see Pre-check).
 - **One job per builder.** `build` is refused while it has a job. `builder cancel <name>` stops it and leaves the half-built structure as it is. Leftover items stay in its inventory and chests. Issuing the same job again continues from what is in the world, because the plan is a diff.
 - **Getting there:** before walking to the site it fetches what the first stage needs from its supply chests (tools if there is anything to clear, otherwise the materials for the first blocks plus any hoe or shovel for farmland and paths), then walks to the site. `build` is refused if the site is farther than a configured distance or no path is found.
 - **Chunks:** like any mob, it stops when its chunks unload and continues when they load again. A config option (off by default) lets a builder with an active job keep its chunks loaded.
@@ -91,6 +91,8 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - **Enchanted tools** are never used below 1 durability by default, so good gear is never lost; the check counts them as having 1 less. `allow-breaking-enchanted` lifts this. Plain tools can be used up.
 - **Made blocks:** a block that drops another block which a hoe or a shovel turns into it is made like a player would: farmland = dirt + hoe, dirt path = dirt + shovel, and the same for modded soils (TFC farmland and grass paths). The tool use counts toward durability, and any tool that can till or flatten works (TFC hoes and shovels too).
 - **Grass:** blocks with a `snowy` state (grass block, mycelium, podzol, TFC grass) are placed as the block they drop without Silk Touch (dirt, TFC dirt) and count as done once that is there; the grass spreads by itself, like crops grow. Blocks that drop no block (TFC clay grass drops clay) still need their item.
+- **Can't be placed by hand:** blocks that have no item at all (TFC's forge, which is made by lighting a charcoal pile; fire; portals) fail the check. Blocks that have an item that survival can't get (TFC clay grass, bedrock) show up as missing materials instead.
+- **Skipping:** `skip-unplaceable` leaves the blocks that can't be placed by hand alone, like structure void (not cleared, not placed). `skip-missing` lets the job start with materials missing; during the build, a block whose items are neither in its inventory nor in its supply chests is skipped instead of pausing. Each problem needs its own option, and the check names the option when that problem is present. Skipped blocks are reported when the job ends and aren't retried by the tampering pass. Tools are always required.
 - **Unbreakable blocks** (destroy speed < 0: bedrock, barrier, end portal frame, reinforced deepslate, …) in the clearing area fail the check.
 - **Protection:** it breaks and places through a fake player with the owner's identity, so claim and protection mods allow it exactly where the owner could build. Positions the owner may not change fail the check.
 - Size and distance limits.
@@ -116,7 +118,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 10. **Block entity data:** it copies sign text (including dye color and glow when it has the dye or glow ink sac), banner patterns (needs the patterned banner), and decor contents from stock (flower pot plants, lectern books, decorated pot item, chiseled bookshelf books, jukebox disc). Container contents are not copied. Entities (item frames, paintings, armor stands, mobs) are ignored in phase 3.
 11. **Wrong state:** if the right block is there in the wrong state and a right-click would fix it (door, trapdoor or gate open/closed, lever, repeater delay, note block pitch, comparator mode), it right-clicks (vanilla's own interaction, repeated until the state matches). Otherwise it breaks and replaces the block.
 12. **In the way:** if a player or mob stands where a block goes, it waits. After about 10 seconds it tells the owner, then reminds every few minutes. It never places a block inside itself.
-13. **Missing items mid-build** (taken out, or the world changed): pause, tell the owner exactly what is missing, and continue as soon as it shows up in its inventory or supply chests.
+13. **Missing items mid-build** (taken out, or the world changed): pause, tell the owner exactly what is missing, and continue as soon as it shows up in its inventory or supply chests. With `skip-missing` it skips that block instead.
 14. **Tampering:** before finishing, it re-checks the area and fixes differences. Each position is fixed at most N times (config, default 3), so griefing one spot can't loop it forever. Positions over the limit are reported at the end. Then it tells the owner it finished, the job ends and it stays where it is.
 15. **Speed:** player pace by default, with a config multiplier.
 
@@ -154,7 +156,7 @@ Right-clicking your builder (owner or op) opens one screen with tabs:
 
 ### Placement mode
 
-Picking a schematic and clicking Place closes the screen and shows a ghost preview (translucent blocks and the bounding box) at your crosshair. Sneak + scroll rotates, right-click confirms, sneak + right-click cancels. Confirming opens a confirmation screen with the pre-check result and Start (only when the check passes), Move (back to placement) and Cancel. No item is involved. Schematics with more than 6000 blocks show only their bounding box.
+Picking a schematic and clicking Place closes the screen and shows a ghost preview (translucent blocks and the bounding box) at your crosshair. Sneak + scroll rotates, right-click confirms, sneak + right-click cancels. Confirming opens a confirmation screen with the pre-check result and Start (only when the check passes), Move (back to placement) and Cancel. When the check finds blocks that can't be placed by hand or missing materials, a checkbox for `skip-unplaceable` or `skip-missing` appears for each, and ticking one runs the check again. No item is involved. Schematics with more than 6000 blocks show only their bounding box.
 
 ### Phase 4 steps
 
