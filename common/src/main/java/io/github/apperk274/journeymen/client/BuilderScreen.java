@@ -31,14 +31,15 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
     private static final int FILES_RIGHT = 120;
     private static final int MATERIALS_LEFT = 126;
     private static final int RIGHT = 248;
+    private static final int ROWS = (LIST_BOTTOM - LIST_TOP) / ROW;
 
     private int tab;
     private boolean builtWithJob;
     @Nullable
     private String selected;
-    private int fileScroll;
-    private int materialScroll;
-    private int chestScroll;
+    private final ScrollBar fileBar = new ScrollBar();
+    private final ScrollBar materialBar = new ScrollBar();
+    private final ScrollBar chestBar = new ScrollBar();
     private boolean corner;
     private boolean allowBreakingEnchanted;
     private String renameText = "";
@@ -93,6 +94,9 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
                     .bounds(leftPos + i * 64, topPos - 21, 62, 20).build());
             button.active = i != tab;
         }
+        fileBar.place(leftPos + FILES_RIGHT - ScrollBar.WIDTH, topPos + LIST_TOP, LIST_BOTTOM - LIST_TOP);
+        materialBar.place(leftPos + RIGHT - ScrollBar.WIDTH, topPos + LIST_TOP, LIST_BOTTOM - LIST_TOP);
+        chestBar.place(leftPos + RIGHT - ScrollBar.WIDTH, topPos + LIST_TOP, LIST_BOTTOM - LIST_TOP);
         ScreenPayloads.BuilderState state = state();
         builtWithJob = state != null && state.hasJob();
         switch (tab) {
@@ -225,16 +229,44 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
+    private List<ScrollBar> activeBars() {
+        if (tab == BuilderMenu.JOB_TAB && !builtWithJob) {
+            return List.of(fileBar, materialBar);
+        }
+        return tab == BuilderMenu.CHESTS_TAB ? List.of(chestBar) : List.of();
+    }
+
+    private void updateBars() {
+        ScreenPayloads.BuilderState state = state();
+        fileBar.setContent(ClientState.schematics.size(), ROWS);
+        materialBar.setContent(materialLines().size(), ROWS);
+        chestBar.setContent(state == null ? 0 : state.chests().size(), ROWS);
+    }
+
+    private int filesRight() {
+        return fileBar.isVisible() ? FILES_RIGHT - ScrollBar.WIDTH - 1 : FILES_RIGHT;
+    }
+
+    private int removeRight() {
+        return chestBar.isVisible() ? RIGHT - ScrollBar.WIDTH - 2 : RIGHT;
+    }
+
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        updateBars();
+        for (ScrollBar bar : activeBars()) {
+            if (bar.mouseClicked(mouseX, mouseY, button)) {
+                return true;
+            }
+        }
         double x = mouseX - leftPos;
         double y = mouseY - topPos;
         if (button == 0 && tab == BuilderMenu.JOB_TAB && !builtWithJob && x >= 8 && x < FILES_RIGHT && y >= LIST_TOP && y < LIST_BOTTOM) {
-            int index = fileScroll + (int) ((y - LIST_TOP) / ROW);
+            int index = fileBar.offset() + (int) ((y - LIST_TOP) / ROW);
             List<String> files = ClientState.schematics;
             if (index < files.size()) {
                 selected = files.get(index);
-                materialScroll = 0;
+                materialBar.setOffset(0);
                 if (ClientState.info == null || !ClientState.info.file().equals(selected)) {
                     ClientState.info = null;
                     send("schematic_info", selected, BlockPos.ZERO);
@@ -242,9 +274,9 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             }
             return true;
         }
-        if (button == 0 && tab == BuilderMenu.CHESTS_TAB && x >= RIGHT - 12 && x < RIGHT && y >= LIST_TOP && y < LIST_BOTTOM) {
+        if (button == 0 && tab == BuilderMenu.CHESTS_TAB && x >= removeRight() - 12 && x < removeRight() && y >= LIST_TOP && y < LIST_BOTTOM) {
             ScreenPayloads.BuilderState state = state();
-            int index = chestScroll + (int) ((y - LIST_TOP) / ROW);
+            int index = chestBar.offset() + (int) ((y - LIST_TOP) / ROW);
             if (state != null && index < state.chests().size()) {
                 send("remove_chest", "", state.chests().get(index).pos());
             }
@@ -254,44 +286,57 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
     }
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        for (ScrollBar bar : activeBars()) {
+            if (bar.mouseDragged(mouseY, button)) {
+                return true;
+            }
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        boolean released = false;
+        for (ScrollBar bar : List.of(fileBar, materialBar, chestBar)) {
+            released |= bar.mouseReleased(button);
+        }
+        return released || super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         double x = mouseX - leftPos;
-        int step = scrollY > 0 ? -1 : scrollY < 0 ? 1 : 0;
-        int rows = (LIST_BOTTOM - LIST_TOP) / ROW;
+        updateBars();
         if (tab == BuilderMenu.JOB_TAB && !builtWithJob) {
-            if (x < FILES_RIGHT) {
-                fileScroll = clamp(fileScroll + step, ClientState.schematics.size() - rows);
-            } else {
-                materialScroll = clamp(materialScroll + step, materialLines().size() - rows);
-            }
+            (x < FILES_RIGHT ? fileBar : materialBar).scroll(scrollY);
             return true;
         }
         if (tab == BuilderMenu.CHESTS_TAB) {
-            ScreenPayloads.BuilderState state = state();
-            chestScroll = clamp(chestScroll + step, state == null ? 0 : state.chests().size() - rows);
+            chestBar.scroll(scrollY);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
-    private static int clamp(int value, int max) {
-        return Math.max(0, Math.min(Math.max(0, max), value));
+    private List<FormattedCharSequence> materialLines() {
+        List<FormattedCharSequence> lines = materialLines(RIGHT - MATERIALS_LEFT);
+        return lines.size() > ROWS ? materialLines(RIGHT - MATERIALS_LEFT - ScrollBar.WIDTH - 2) : lines;
     }
 
-    private List<FormattedCharSequence> materialLines() {
+    private List<FormattedCharSequence> materialLines(int width) {
         ScreenPayloads.SchematicInfo info = ClientState.info;
         List<FormattedCharSequence> lines = new ArrayList<>();
         if (selected == null) {
-            lines.addAll(font.split(Component.literal("Pick a schematic on the left."), RIGHT - MATERIALS_LEFT));
+            lines.addAll(font.split(Component.literal("Pick a schematic on the left."), width));
         } else if (info == null || !info.file().equals(selected)) {
-            lines.addAll(font.split(Component.literal("Loading…"), RIGHT - MATERIALS_LEFT));
+            lines.addAll(font.split(Component.literal("Loading…"), width));
         } else {
             for (Component line : info.materials()) {
-                lines.addAll(font.split(line, RIGHT - MATERIALS_LEFT));
+                lines.addAll(font.split(line, width));
             }
             if (!info.complete()) {
-                lines.addAll(font.split(Component.literal("Too big to preview; only its outline is shown.").withStyle(ChatFormatting.GRAY),
-                        RIGHT - MATERIALS_LEFT));
+                lines.addAll(font.split(Component.literal("Too big to preview; only its outline is shown.").withStyle(ChatFormatting.GRAY), width));
             }
         }
         return lines;
@@ -316,6 +361,8 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             if (tab == BuilderMenu.JOB_TAB) {
                 inset(graphics, x + MATERIALS_LEFT - 1, y + LIST_TOP - 1, x + RIGHT + 1, y + LIST_BOTTOM + 1);
             }
+            updateBars();
+            activeBars().forEach(bar -> bar.render(graphics));
         }
     }
 
@@ -395,7 +442,8 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             return;
         }
         List<String> files = ClientState.schematics;
-        int rows = (LIST_BOTTOM - LIST_TOP) / ROW;
+        int fileScroll = fileBar.offset();
+        int right = filesRight();
         if (files.isEmpty()) {
             int y = LIST_TOP + 2;
             for (FormattedCharSequence part : font.split(Component.literal("No schematics in the server's schematics folder."), FILES_RIGHT - 12)) {
@@ -403,30 +451,32 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
                 y += 10;
             }
         }
-        for (int i = 0; i < rows && fileScroll + i < files.size(); i++) {
+        for (int i = 0; i < ROWS && fileScroll + i < files.size(); i++) {
             String file = files.get(fileScroll + i);
             int y = LIST_TOP + i * ROW;
-            boolean hovered = mouseX >= 8 && mouseX < FILES_RIGHT && mouseY >= y && mouseY < y + ROW;
+            boolean hovered = mouseX >= 8 && mouseX < right && mouseY >= y && mouseY < y + ROW;
             if (file.equals(selected)) {
-                graphics.fill(8, y, FILES_RIGHT, y + ROW, 0xFF5A7FBF);
+                graphics.fill(8, y, right, y + ROW, 0xFF5A7FBF);
             } else if (hovered) {
-                graphics.fill(8, y, FILES_RIGHT, y + ROW, 0xFF6F6F6F);
+                graphics.fill(8, y, right, y + ROW, 0xFF6F6F6F);
             }
-            graphics.drawString(font, font.plainSubstrByWidth(file, FILES_RIGHT - 12), 10, y + 2, 0xFFFFFF, false);
+            graphics.drawString(font, font.plainSubstrByWidth(file, right - 12), 10, y + 2, 0xFFFFFF, false);
         }
         List<FormattedCharSequence> lines = materialLines();
-        for (int i = 0; i < rows && materialScroll + i < lines.size(); i++) {
+        int materialScroll = materialBar.offset();
+        for (int i = 0; i < ROWS && materialScroll + i < lines.size(); i++) {
             graphics.drawString(font, lines.get(materialScroll + i), MATERIALS_LEFT + 1, LIST_TOP + 2 + i * ROW, 0xFFFFFF, false);
         }
     }
 
     private void renderChests(GuiGraphics graphics, ScreenPayloads.BuilderState state, int mouseX, int mouseY) {
         List<ScreenPayloads.ChestEntry> chests = state.chests();
-        int rows = (LIST_BOTTOM - LIST_TOP) / ROW;
+        int chestScroll = chestBar.offset();
+        int right = removeRight();
         if (chests.isEmpty()) {
             graphics.drawString(font, "No chests yet.", 10, LIST_TOP + 2, 0xFFFFFF, false);
         }
-        for (int i = 0; i < rows && chestScroll + i < chests.size(); i++) {
+        for (int i = 0; i < ROWS && chestScroll + i < chests.size(); i++) {
             ScreenPayloads.ChestEntry chest = chests.get(chestScroll + i);
             int y = LIST_TOP + i * ROW;
             BlockPos pos = chest.pos();
@@ -434,8 +484,8 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
                     .withStyle(chest.supply() ? ChatFormatting.GREEN : ChatFormatting.GOLD)
                     .append(Component.literal(pos.getX() + " " + pos.getY() + " " + pos.getZ()).withStyle(ChatFormatting.WHITE));
             graphics.drawString(font, line, 10, y + 2, 0xFFFFFF, false);
-            boolean hovered = mouseX >= RIGHT - 12 && mouseX < RIGHT && mouseY >= y && mouseY < y + ROW;
-            graphics.drawString(font, "✕", RIGHT - 9, y + 2, hovered ? 0xFFFF5555 : 0xFFFFFFFF, false);
+            boolean hovered = mouseX >= right - 12 && mouseX < right && mouseY >= y && mouseY < y + ROW;
+            graphics.drawString(font, "✕", right - 9, y + 2, hovered ? 0xFFFF5555 : 0xFFFFFFFF, false);
         }
         int y = LIST_BOTTOM + 5;
         for (FormattedCharSequence part : font.split(Component.literal("Link mode: right-click chests to add or remove them, then right-click the builder to finish."),

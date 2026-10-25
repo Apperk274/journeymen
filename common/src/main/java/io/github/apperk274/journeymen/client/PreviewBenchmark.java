@@ -81,12 +81,7 @@ public final class PreviewBenchmark {
                     minecraft.options.pauseOnLostFocus = false;
                     minecraft.options.framerateLimit().set(260);
                     minecraft.options.enableVsync().set(false);
-                    String name = settings.getProperty("world", "jm-preview-test");
-                    minecraft.createWorldOpenFlows().createFreshLevel(name,
-                            new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT),
-                            new WorldOptions(1L, false, false),
-                            registries -> registries.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
-                            new TitleScreen());
+                    createWorld(minecraft, settings.getProperty("world", "jm-preview-test"));
                     next(Step.LOADING);
                 }
             }
@@ -196,6 +191,14 @@ public final class PreviewBenchmark {
         }
     }
 
+    static void createWorld(Minecraft minecraft, String name) {
+        minecraft.createWorldOpenFlows().createFreshLevel(name,
+                new LevelSettings(name, GameType.CREATIVE, false, Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT),
+                new WorldOptions(1L, false, false),
+                registries -> registries.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+                new TitleScreen());
+    }
+
     public static void frame() {
         if (step == null || step == Step.OFF) {
             return;
@@ -260,7 +263,7 @@ public final class PreviewBenchmark {
         }
     }
 
-    private static void command(String command) {
+    static void command(String command) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
             minecraft.player.connection.sendCommand(command);

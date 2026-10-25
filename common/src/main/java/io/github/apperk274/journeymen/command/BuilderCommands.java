@@ -12,12 +12,9 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ClearingTask;
-import io.github.apperk274.journeymen.build.ItemStore;
-import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.build.MaterialSupply;
 import io.github.apperk274.journeymen.build.PlacingTask;
-import io.github.apperk274.journeymen.build.PlacementTransform;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderNames;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
@@ -35,7 +32,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Rotation;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,16 +40,21 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Stream;
 
 public class BuilderCommands {
 
-    private static final SuggestionProvider<CommandSourceStack> OPTION_SUGGESTIONS = (context, builder) -> {
-        String remaining = builder.getRemaining();
-        int lastSpace = remaining.lastIndexOf(' ');
-        SuggestionsBuilder offset = builder.createOffset(builder.getStart() + lastSpace + 1);
-        List<String> used = List.of(remaining.toLowerCase(Locale.ROOT).split("\\s+"));
-        return SharedSuggestionProvider.suggest(BuildOptions.ALL.stream().filter(option -> !used.contains(option)), offset);
-    };
+    private static final List<String> SUPPLY_OPTIONS = Stream.concat(BuildOptions.ALL.stream(), Stream.of(MaterialSupply.MISSING_ONLY)).toList();
+
+    private static SuggestionProvider<CommandSourceStack> optionSuggestions(List<String> options) {
+        return (context, builder) -> {
+            String remaining = builder.getRemaining();
+            int lastSpace = remaining.lastIndexOf(' ');
+            SuggestionsBuilder offset = builder.createOffset(builder.getStart() + lastSpace + 1);
+            List<String> used = List.of(remaining.toLowerCase(Locale.ROOT).split("\\s+"));
+            return SharedSuggestionProvider.suggest(options.stream().filter(option -> !used.contains(option)), offset);
+        };
+    }
 
     private static final int STUCK_SHOWN_SECONDS = 5;
 
@@ -85,7 +86,8 @@ public class BuilderCommands {
                 .then(Commands.literal("build").then(jobArguments(JobMode.BUILD)))
                 .then(Commands.literal("supply")
                         .requires(source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
-                        .then(jobArguments(JobMode.SUPPLY).executes(BuilderCommands::supplyCurrentJob)))
+                        .then(jobArguments(JobMode.SUPPLY).executes(context -> supplyCurrentJob(context, false))
+                                .then(Commands.literal(MaterialSupply.MISSING_ONLY).executes(context -> supplyCurrentJob(context, true)))))
                 .then(Commands.literal("cancel").then(BuilderTargets.argument().executes(BuilderCommands::cancel)))
                 .then(Commands.literal("chest").then(BuilderTargets.argument()
                         .then(Commands.literal("add").then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -111,7 +113,7 @@ public class BuilderCommands {
                         .then(Commands.argument("rotation", TemplateRotationArgument.templateRotation())
                                 .executes(context -> job(context, mode, true, true, false))
                                 .then(Commands.argument("options", StringArgumentType.greedyString())
-                                        .suggests(OPTION_SUGGESTIONS)
+                                        .suggests(optionSuggestions(mode == JobMode.SUPPLY ? SUPPLY_OPTIONS : BuildOptions.ALL))
                                         .executes(context -> job(context, mode, true, true, true))))));
     }
 
@@ -129,16 +131,24 @@ public class BuilderCommands {
         String file = StringArgumentType.getString(context, "file");
         BlockPos origin = hasPos ? BlockPosArgument.getBlockPos(context, "pos") : BlockPos.containing(source.getPosition());
         Rotation rotation = hasRotation ? TemplateRotationArgument.getRotation(context, "rotation") : Rotation.NONE;
+        String optionText = hasOptions ? StringArgumentType.getString(context, "options") : "";
+        boolean missingOnly = false;
+        if (mode == JobMode.SUPPLY) {
+            List<String> words = new ArrayList<>(List.of(optionText.trim().split("\\s+")));
+            missingOnly = words.removeIf(word -> word.equalsIgnoreCase(MaterialSupply.MISSING_ONLY));
+            optionText = String.join(" ", words);
+        }
         BuildOptions options;
         try {
-            options = hasOptions ? BuildOptions.parse(StringArgumentType.getString(context, "options")) : BuildOptions.DEFAULT;
+            options = BuildOptions.parse(optionText);
         } catch (IllegalArgumentException e) {
-            throw JourneymenCommand.fail(e.getMessage());
+            throw JourneymenCommand.fail(mode == JobMode.SUPPLY ? e.getMessage() + ", " + MaterialSupply.MISSING_ONLY : e.getMessage());
         }
         if (mode == JobMode.SUPPLY) {
+            boolean onlyMissing = missingOnly;
             SchematicCommands.loadAsync(source, file, schematic -> {
                 if (builder.isAlive()) {
-                    supply(source, builder, file, origin, rotation, options, schematic);
+                    supply(source, builder, file, origin, rotation, options, schematic, onlyMissing);
                 }
             });
             return 1;
@@ -157,7 +167,7 @@ public class BuilderCommands {
         return 1;
     }
 
-    private static int supplyCurrentJob(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+    private static int supplyCurrentJob(CommandContext<CommandSourceStack> context, boolean missingOnly) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
         BuilderEntity builder = BuilderTargets.resolveLoaded(context);
         BuildJob job = builder.getJob();
@@ -167,75 +177,21 @@ public class BuilderCommands {
         }
         SchematicCommands.loadAsync(source, job.getFile(), schematic -> {
             if (builder.isAlive()) {
-                supply(source, builder, job.getFile(), job.getOrigin(), job.getRotation(), job.getOptions(), schematic);
+                supply(source, builder, job.getFile(), job.getOrigin(), job.getRotation(), job.getOptions(), schematic, missingOnly);
             }
         });
         return 1;
     }
 
     private static void supply(CommandSourceStack source, BuilderEntity builder, String file, BlockPos origin, Rotation rotation,
-                               BuildOptions options, Schematic schematic) {
-        ServerLevel level = (ServerLevel) builder.level();
-        PlacementTransform transform = PlacementTransform.of(schematic, origin, rotation, options.corner());
-        if (!BuildPlan.isLoaded(level, transform.area(schematic.getSize()))) {
-            source.sendFailure(Component.literal("Part of the site isn't loaded. Go closer to it and try again. Nothing was given."));
+                               BuildOptions options, Schematic schematic, boolean missingOnly) {
+        MaterialSupply.Outcome outcome = MaterialSupply.supply(builder, schematic, file, origin, rotation, options, missingOnly, source.getPlayer());
+        if (!outcome.success()) {
+            source.sendFailure(outcome.summary());
             return;
         }
-        MaterialSupply.Needs needs = MaterialSupply.needs(level, BuildPlan.create(level, schematic, transform, options));
-        List<MaterialSupply.Target> chests = new ArrayList<>();
-        for (AssignedChest chest : builder.getChests()) {
-            if (chest.role() == AssignedChest.Role.SUPPLY && level.isLoaded(chest.pos())) {
-                ItemStore store = ItemStores.at(level, chest.pos());
-                if (store != null) {
-                    chests.add(MaterialSupply.snapshot(store));
-                }
-            }
-        }
-        ServerPlayer player = source.getPlayer();
-        MaterialSupply.Target playerTarget = player == null ? null : MaterialSupply.snapshot(player.getInventory());
-        long toChests = 0;
-        long toPlayer = 0;
-        long notFitting = 0;
-        for (ItemStack stack : needs.stacks()) {
-            ItemStack remaining = stack;
-            for (MaterialSupply.Target chest : chests) {
-                remaining = MaterialSupply.insert(chest, remaining);
-                if (remaining.isEmpty()) {
-                    break;
-                }
-            }
-            toChests += stack.getCount() - remaining.getCount();
-            if (!remaining.isEmpty() && playerTarget != null) {
-                int before = remaining.getCount();
-                remaining = MaterialSupply.insert(playerTarget, remaining);
-                toPlayer += before - remaining.getCount();
-            }
-            notFitting += remaining.getCount();
-        }
-        if (notFitting > 0) {
-            String where = chests.isEmpty() ? builder.getBuilderName() + " has no loaded supply chests" : "they don't fit in " + builder.getBuilderName() + "'s supply chests";
-            source.sendFailure(Component.literal("Not enough room: " + notFitting + " of " + (toChests + toPlayer + notFitting) + " items don't fit ("
-                    + where + (playerTarget == null ? ", and there is no player inventory to fall back on" : " or your inventory") + "). Nothing was given."));
-            return;
-        }
-        List<ItemStack> leftover = new ArrayList<>();
-        chests.forEach(chest -> leftover.addAll(MaterialSupply.apply(chest)));
-        if (playerTarget != null) {
-            leftover.addAll(MaterialSupply.apply(playerTarget));
-        }
-        if (player != null) {
-            leftover.forEach(stack -> player.getInventory().placeItemBackInInventory(stack));
-        }
-        long total = toChests + toPlayer;
-        long finalToChests = toChests;
-        long finalToPlayer = toPlayer;
-        source.sendSuccess(() -> Component.literal("Supplied " + total + (total == 1 ? " item" : " items") + " for " + file + ": " + finalToChests + " into "
-                + builder.getBuilderName() + "'s supply chests" + (finalToPlayer > 0 ? ", " + finalToPlayer + " into your inventory" : "") + ".")
-                .withStyle(ChatFormatting.GREEN), true);
-        needs.unobtainable().forEach((block, count) -> source.sendSuccess(() -> Component.literal("Can't be supplied (no survival item): " + count + " ")
-                .append(block.getName()).withStyle(ChatFormatting.GOLD), false));
-        needs.noKnownTool().forEach((block, count) -> source.sendSuccess(() -> Component.literal("No known tool for " + count + " ")
-                .append(block.getName()).withStyle(ChatFormatting.GOLD), false));
+        source.sendSuccess(outcome::summary, outcome.given() > 0);
+        outcome.notes().forEach(note -> source.sendSuccess(() -> note, false));
     }
 
     private static int cancel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

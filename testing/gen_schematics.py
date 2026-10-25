@@ -51,6 +51,12 @@ def hang():
     return blocks
 
 
+def missing():
+    blocks = {(x, y, z): state("stone_bricks") if y == 0 else state("oak_planks") for x in range(4) for y in range(2) for z in range(4)}
+    blocks[(0, 1, 0)] = state("farmland", moisture=0)
+    return blocks
+
+
 def tfc_shelf():
     blocks = {(x, y, 0): state("bricks") for x in range(3) for y in range(3)}
     blocks[(1, 1, 1)] = "tfc:fire_brick_shelf[facing=north]"
@@ -65,6 +71,7 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_restock.schem"), (32, 2, 32), restock())
     write_sponge_v3(os.path.join(out, "test_skip.schem"), (5, 1, 1), skip())
     write_sponge_v3(os.path.join(out, "test_hang.schem"), (3, 3, 3), hang())
+    write_sponge_v3(os.path.join(out, "test_missing.schem"), (4, 2, 4), missing())
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
 

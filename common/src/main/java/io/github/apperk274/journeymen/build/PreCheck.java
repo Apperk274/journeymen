@@ -35,6 +35,7 @@ public final class PreCheck {
     private final List<Component> hints = new ArrayList<>();
     private int unplaceableCount;
     private long missingCount;
+    private boolean missingTools;
     private final BoundingBox area;
     @Nullable
     private BuildPlan plan;
@@ -163,7 +164,9 @@ public final class PreCheck {
         if (check.missingCount > 0 && !options.skipMissing()) {
             check.hints.add(Component.literal("Add the " + BuildOptions.SKIP_MISSING + " option to build without the blocks whose materials are missing."));
         }
-        check.problems.addAll(ToolCheck.check(level, plan.getToClear(), toolUses, stock, options.allowBreakingEnchanted()));
+        ToolCheck.Shortfalls tools = ToolCheck.shortfalls(level, plan.getToClear(), toolUses, stock, options.allowBreakingEnchanted());
+        check.problems.addAll(tools.problems());
+        check.missingTools = tools.suppliable();
         return check;
     }
 
@@ -182,6 +185,10 @@ public final class PreCheck {
 
     public long getMissingCount() {
         return missingCount;
+    }
+
+    public boolean isMissingTools() {
+        return missingTools;
     }
 
     public BoundingBox getArea() {

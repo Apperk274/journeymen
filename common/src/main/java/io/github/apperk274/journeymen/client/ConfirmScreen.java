@@ -22,10 +22,11 @@ public class ConfirmScreen extends Screen {
 
     private static final int WIDTH = 300;
     private static final int ROW = 22;
+    private static final int TEXT_TOP = 30;
 
     private ScreenPayloads.CheckResult result;
     private final List<FormattedCharSequence> wrapped = new ArrayList<>();
-    private int scroll;
+    private final ScrollBar scrollBar = new ScrollBar();
     private int textBottom;
     private Button startButton;
 
@@ -40,6 +41,7 @@ public class ConfirmScreen extends Screen {
 
     public void update(ScreenPayloads.CheckResult updated) {
         this.result = updated;
+        scrollBar.setOffset(0);
         rebuildWidgets();
     }
 
@@ -68,8 +70,17 @@ public class ConfirmScreen extends Screen {
                     .onValueChange((box, value) -> recheck(BuildOptions.SKIP_UNPLACEABLE, value)).build());
             y -= ROW;
         }
+        if ((result.missing() > 0 || result.missingTools()) && minecraft != null && minecraft.player != null && minecraft.player.isCreative()) {
+            addRenderableWidget(Button.builder(Component.literal("Supply missing (creative)"), button -> {
+                button.active = false;
+                startButton.active = false;
+                send("supply_missing", result.options());
+            }).bounds(left, y, 160, 20).build());
+            y -= ROW;
+        }
         textBottom = y + ROW - 4;
-        scroll = Math.min(scroll, Math.max(0, wrapped.size() - visibleLines()));
+        scrollBar.place(left + WIDTH + 4, TEXT_TOP, visibleLines() * (font.lineHeight + 1) - 1);
+        scrollBar.setContent(wrapped.size(), visibleLines());
         startButton = addRenderableWidget(Button.builder(Component.literal("Start"), button -> start())
                 .bounds(left, bottom, 96, 20).build());
         startButton.active = result.passed();
@@ -125,12 +136,27 @@ public class ConfirmScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        scroll = Math.max(0, Math.min(Math.max(0, wrapped.size() - visibleLines()), scroll - (int) Math.signum(scrollY)));
+        scrollBar.scroll(scrollY);
         return true;
     }
 
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return scrollBar.mouseClicked(mouseX, mouseY, button) || super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        return scrollBar.mouseDragged(mouseY, button) || super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return scrollBar.mouseReleased(button) || super.mouseReleased(mouseX, mouseY, button);
+    }
+
     private int visibleLines() {
-        return Math.max(1, (textBottom - 30) / (font.lineHeight + 1));
+        return Math.max(1, (textBottom - TEXT_TOP) / (font.lineHeight + 1));
     }
 
     @Override
@@ -138,11 +164,13 @@ public class ConfirmScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(font, title, width / 2, 12, 0xFFFFFF);
         int left = (width - WIDTH) / 2;
-        int y = 30;
+        int y = TEXT_TOP;
+        int scroll = scrollBar.offset();
         for (int i = scroll; i < wrapped.size() && i < scroll + visibleLines(); i++) {
             graphics.drawString(font, wrapped.get(i), left, y, 0xFFFFFF);
             y += font.lineHeight + 1;
         }
+        scrollBar.render(graphics);
     }
 
     @Override

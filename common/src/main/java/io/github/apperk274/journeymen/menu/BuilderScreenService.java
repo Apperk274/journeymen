@@ -1,10 +1,12 @@
 package io.github.apperk274.journeymen.menu;
 
+import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.BlockRequirements;
 import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.build.JobService;
+import io.github.apperk274.journeymen.build.MaterialSupply;
 import io.github.apperk274.journeymen.command.SchematicCommands;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 
 public final class BuilderScreenService {
 
@@ -132,7 +135,14 @@ public final class BuilderScreenService {
             }
             case "schematic_list" -> sendSchematicList(player);
             case "schematic_info" -> sendSchematicInfo(player, action.text());
-            case "check", "start" -> runJob(player, builder, action, action.action().equals("start"));
+            case "check", "start" -> runJob(player, builder, action, action.action().equals("start") ? JobAction.START : JobAction.CHECK);
+            case "supply_missing" -> {
+                if (player.isCreative()) {
+                    runJob(player, builder, action, JobAction.SUPPLY_MISSING);
+                } else {
+                    tell(player, "Only players in creative mode can supply missing items.", false);
+                }
+            }
             default -> {
             }
         }
@@ -143,7 +153,13 @@ public final class BuilderScreenService {
         player.sendSystemMessage(Component.literal(message).withStyle(good ? ChatFormatting.GREEN : ChatFormatting.RED));
     }
 
-    private static void runJob(ServerPlayer player, BuilderEntity builder, ScreenPayloads.BuilderAction action, boolean start) {
+    private enum JobAction {
+        CHECK,
+        START,
+        SUPPLY_MISSING
+    }
+
+    private static void runJob(ServerPlayer player, BuilderEntity builder, ScreenPayloads.BuilderAction action, JobAction jobAction) {
         String[] parts = action.text().split("\n", -1);
         if (parts.length != 3) {
             return;
@@ -164,19 +180,34 @@ public final class BuilderScreenService {
         }
         BlockPos origin = action.pos();
         Rotation finalRotation = rotation;
-        JobService.run(player.server, builder, file, origin, rotation, options, start, result -> {
+        Consumer<JobService.Result> done = result -> {
             List<Component> lines = new ArrayList<>();
+            MaterialSupply.Outcome supplied = result.supplied();
+            if (supplied != null) {
+                lines.add(supplied.summary());
+                lines.addAll(supplied.notes());
+                player.sendSystemMessage(supplied.summary());
+                supplied.notes().forEach(player::sendSystemMessage);
+                Constants.LOG.info("[supply] {} for {}: {} The check {} now.", player.getName().getString(), builder.getBuilderName(),
+                        supplied.summary().getString(), result.passed() ? "passes" : "still fails");
+            }
             if (result.header() != null) {
                 lines.add(result.header());
             }
             lines.addAll(result.lines());
             Services.NETWORK.sendToPlayer(player, new ScreenPayloads.CheckResult(builder.getId(), file, origin, finalRotation.getSerializedName(),
                     options.describe().equals("none") ? "" : options.describe(), lines, result.passed(), result.started(),
-                    result.error() == null ? "" : result.error(), result.unplaceable(), (int) Math.min(Integer.MAX_VALUE, result.missing())));
+                    result.error() == null ? "" : result.error(), result.unplaceable(), (int) Math.min(Integer.MAX_VALUE, result.missing()),
+                    result.missingTools()));
             if (result.started()) {
                 tell(player, builder.getBuilderName() + " is on the way to build " + file + ".", true);
             }
-        });
+        };
+        if (jobAction == JobAction.SUPPLY_MISSING) {
+            JobService.supplyMissing(player.server, builder, file, origin, rotation, options, player, done);
+        } else {
+            JobService.run(player.server, builder, file, origin, rotation, options, jobAction == JobAction.START, done);
+        }
     }
 
     private static void sendSchematicInfo(ServerPlayer player, String file) {

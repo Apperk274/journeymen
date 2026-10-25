@@ -52,7 +52,42 @@ public final class ToolCheck {
         return tool.damagePerBlock();
     }
 
+    public record BlockShortfall(BlockState state, int missing, int total, BlockPos example, @Nullable Item exampleTool, boolean noTool) {
+    }
+
+    public record UseShortfall(BlockRequirements.ToolUse use, int missing) {
+    }
+
+    public record Shortfalls(List<BlockShortfall> blocks, List<UseShortfall> uses) {
+
+        public List<Component> problems() {
+            List<Component> problems = new ArrayList<>();
+            for (BlockShortfall shortfall : blocks) {
+                problems.add(toolProblem(shortfall.missing(), shortfall.total(), shortfall.state().getBlock().getName(), shortfall.exampleTool(),
+                        shortfall.noTool()));
+            }
+            for (UseShortfall shortfall : uses) {
+                problems.add(Component.literal("Needs " + shortfall.use().description() + " with " + shortfall.missing()
+                        + " more use(s) left, for farmland or dirt paths."));
+            }
+            return problems;
+        }
+
+        public long missing() {
+            return blocks.stream().mapToLong(BlockShortfall::missing).sum() + uses.stream().mapToLong(UseShortfall::missing).sum();
+        }
+
+        public boolean suppliable() {
+            return !uses.isEmpty() || blocks.stream().anyMatch(shortfall -> shortfall.exampleTool() != null);
+        }
+    }
+
     public static List<Component> check(ServerLevel level, List<BlockPos> toClear, Map<BlockRequirements.ToolUse, Integer> toolUses,
+                                        List<ItemStack> tools, boolean allowBreakingEnchanted) {
+        return shortfalls(level, toClear, toolUses, tools, allowBreakingEnchanted).problems();
+    }
+
+    public static Shortfalls shortfalls(ServerLevel level, List<BlockPos> toClear, Map<BlockRequirements.ToolUse, Integer> toolUses,
                                         List<ItemStack> tools, boolean allowBreakingEnchanted) {
         List<Slot> slots = new ArrayList<>();
         for (ItemStack stack : tools) {
@@ -75,7 +110,7 @@ public final class ToolCheck {
         List<Map.Entry<BlockState, Integer>> ordered = new ArrayList<>(needingTool.entrySet());
         ordered.sort(Comparator.comparingInt(entry -> candidates(slots, stack -> stack.isCorrectToolForDrops(entry.getKey())).size()));
 
-        List<Component> problems = new ArrayList<>();
+        List<BlockShortfall> blocks = new ArrayList<>();
         for (Map.Entry<BlockState, Integer> entry : ordered) {
             BlockState state = entry.getKey();
             BlockPos pos = examplePos.get(state);
@@ -83,21 +118,22 @@ public final class ToolCheck {
             candidates.sort(Comparator.comparingDouble((Slot slot) -> slot.stack.getDestroySpeed(state)).reversed());
             int missing = allocate(candidates, entry.getValue(), slot -> damagePerBlock(slot.stack, state, level, pos));
             if (missing > 0) {
-                problems.add(toolProblem(missing, entry.getValue(), state.getBlock().getName(), exampleTool(state), candidates.isEmpty()));
+                blocks.add(new BlockShortfall(state, missing, entry.getValue(), pos, exampleTool(state), candidates.isEmpty()));
             }
         }
 
         Map<BlockRequirements.ToolUse, Predicate<ItemStack>> useKinds = new EnumMap<>(BlockRequirements.ToolUse.class);
         useKinds.put(BlockRequirements.ToolUse.HOE, stack -> Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.HOE));
         useKinds.put(BlockRequirements.ToolUse.SHOVEL, stack -> Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.SHOVEL));
+        List<UseShortfall> uses = new ArrayList<>();
         for (Map.Entry<BlockRequirements.ToolUse, Integer> entry : toolUses.entrySet()) {
             List<Slot> candidates = candidates(slots, useKinds.get(entry.getKey()));
             int missing = allocate(candidates, entry.getValue(), slot -> slot.stack.isDamageableItem() ? 1 : 0);
             if (missing > 0) {
-                problems.add(Component.literal("Needs " + entry.getKey().description() + " with " + missing + " more use(s) left, for farmland or dirt paths."));
+                uses.add(new UseShortfall(entry.getKey(), missing));
             }
         }
-        return problems;
+        return new Shortfalls(blocks, uses);
     }
 
     private static Component toolProblem(int missing, int total, Component blockName, @Nullable Item example, boolean noTool) {

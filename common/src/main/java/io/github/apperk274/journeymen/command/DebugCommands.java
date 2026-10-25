@@ -17,6 +17,7 @@ import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.GameModeArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.commands.arguments.coordinates.Vec3Argument;
 import net.minecraft.core.UUIDUtil;
@@ -44,6 +45,10 @@ public class DebugCommands {
                                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                                 .then(Commands.argument("text", StringArgumentType.greedyString())
                                                         .executes(DebugCommands::action))))))
+                .then(Commands.literal("gamemode")
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .then(Commands.argument("gamemode", GameModeArgument.gameMode())
+                                        .executes(DebugCommands::gameMode))))
                 .then(Commands.literal("use")
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                 .executes(DebugCommands::use)))
@@ -62,6 +67,14 @@ public class DebugCommands {
             Constants.LOG.info("[debug action] {} alive={} following={} job={} chests={}", builder.getBuilderName(), builder.isAlive(),
                     builder.isFollowing(), builder.getJob() == null ? "-" : builder.getJob().getFile(), builder.getChests());
         }
+        return 1;
+    }
+
+    private static int gameMode(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String name = StringArgumentType.getString(context, "player");
+        ServerPlayer player = Services.PLATFORM.getFakePlayer(context.getSource().getLevel(), new GameProfile(UUIDUtil.createOfflinePlayerUUID(name), name));
+        player.setGameMode(GameModeArgument.getGameMode(context, "gamemode"));
+        Constants.LOG.info("[debug gamemode] {} is in {} mode", name, player.gameMode.getGameModeForPlayer().getName());
         return 1;
     }
 

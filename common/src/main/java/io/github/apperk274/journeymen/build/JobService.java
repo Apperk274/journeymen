@@ -9,6 +9,7 @@ import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
@@ -25,10 +26,14 @@ public final class JobService {
     }
 
     public record Result(@Nullable Component header, List<Component> lines, boolean passed, boolean started, @Nullable String error,
-                         int unplaceable, long missing) {
+                         int unplaceable, long missing, boolean missingTools, @Nullable MaterialSupply.Outcome supplied) {
 
         static Result failure(String error) {
-            return new Result(null, List.of(), false, false, error, 0, 0);
+            return new Result(null, List.of(), false, false, error, 0, 0, false, null);
+        }
+
+        Result withSupplied(MaterialSupply.Outcome outcome) {
+            return new Result(header, lines, passed, started, error, unplaceable, missing, missingTools, outcome);
         }
     }
 
@@ -38,6 +43,18 @@ public final class JobService {
             done.accept(Result.failure(builder.getBuilderName() + " is already working on " + builder.getJob().getFile() + ". Cancel that job first."));
             return;
         }
+        load(server, builder, file, done, schematic -> done.accept(check(builder, file, origin, rotation, options, start, schematic)));
+    }
+
+    public static void supplyMissing(MinecraftServer server, BuilderEntity builder, String file, BlockPos origin, Rotation rotation,
+                                     BuildOptions options, ServerPlayer player, Consumer<Result> done) {
+        load(server, builder, file, done, schematic -> {
+            MaterialSupply.Outcome outcome = MaterialSupply.supply(builder, schematic, file, origin, rotation, options, true, player);
+            done.accept(check(builder, file, origin, rotation, options, false, schematic).withSupplied(outcome));
+        });
+    }
+
+    private static void load(MinecraftServer server, BuilderEntity builder, String file, Consumer<Result> done, Consumer<Schematic> loaded) {
         CompletableFuture
                 .supplyAsync(() -> {
                     try {
@@ -59,7 +76,7 @@ public final class JobService {
                         done.accept(Result.failure(builder.getBuilderName() + " is gone."));
                         return;
                     }
-                    done.accept(check(builder, file, origin, rotation, options, start, schematic));
+                    loaded.accept(schematic);
                 }, server);
     }
 
@@ -76,17 +93,18 @@ public final class JobService {
         List<Component> lines = check.lines();
         BuildPlan plan = check.getPlan();
         if (!start) {
-            return new Result(header, lines, check.passed(), false, null, check.getUnplaceableCount(), check.getMissingCount());
+            return new Result(header, lines, check.passed(), false, null, check.getUnplaceableCount(), check.getMissingCount(),
+                    check.isMissingTools(), null);
         }
         if (!check.passed() || plan == null) {
             return new Result(header, lines, false, false, builder.getBuilderName() + " can't start this job yet.", check.getUnplaceableCount(),
-                    check.getMissingCount());
+                    check.getMissingCount(), check.isMissingTools(), null);
         }
         if (builder.getJob() != null) {
             return new Result(header, lines, true, false, builder.getBuilderName() + " got another job in the meantime.", check.getUnplaceableCount(),
-                    check.getMissingCount());
+                    check.getMissingCount(), check.isMissingTools(), null);
         }
         builder.startJob(new BuildJob(file, origin, rotation, options, area, BuildJob.Phase.WALKING), schematic, plan);
-        return new Result(header, lines, true, true, null, check.getUnplaceableCount(), check.getMissingCount());
+        return new Result(header, lines, true, true, null, check.getUnplaceableCount(), check.getMissingCount(), check.isMissingTools(), null);
     }
 }
