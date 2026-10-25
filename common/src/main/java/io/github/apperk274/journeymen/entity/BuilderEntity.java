@@ -8,12 +8,15 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ChestVisit;
 import io.github.apperk274.journeymen.build.ClearingTask;
+import io.github.apperk274.journeymen.build.ClearingWork;
+import io.github.apperk274.journeymen.build.CrewWork;
 import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.build.ItemCounter;
 import io.github.apperk274.journeymen.build.ItemMatch;
 import io.github.apperk274.journeymen.build.ItemStore;
 import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.build.PlacingTask;
+import io.github.apperk274.journeymen.build.PlacingWork;
 import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.build.Reach;
 import io.github.apperk274.journeymen.build.WorkState;
@@ -48,6 +51,7 @@ import net.minecraft.world.BossEvent;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
@@ -104,6 +108,10 @@ public class BuilderEntity extends PathfinderMob {
     private static final int PAUSE_RETRY_TICKS = 100;
     private static final int STORE_RETRY_TICKS = 1200;
     private static final double COME_ARRIVE_DISTANCE = 1.5;
+    private static final int CREW_WAIT_TICKS = 20;
+    private static final int HAND_BACK_TICKS = 100;
+    private static final int STEP_ASIDE_TICKS = 40;
+    private static final int LEAVE_SITE_TICKS = 60;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -151,6 +159,12 @@ public class BuilderEntity extends PathfinderMob {
     private int lastNoticeTick;
     private final StuckRecovery stuck = new StuckRecovery(this);
     private int visitsDone;
+    private int crewModeTick = -1;
+    private boolean crewMode;
+    private int crewWaitUntil;
+    private int idleSince = -1;
+    private boolean idle;
+    private int stepAsideUntil;
 
     public BuilderEntity(EntityType<? extends BuilderEntity> type, Level level) {
         super(type, level);
@@ -368,7 +382,7 @@ public class BuilderEntity extends PathfinderMob {
         return work;
     }
 
-    public boolean isWorker() {
+    public boolean isCrewSpeaker() {
         BuildJob current = getJob();
         if (current == null) {
             return false;
@@ -378,6 +392,150 @@ public class BuilderEntity extends PathfinderMob {
         }
         List<BuilderEntity> loaded = Crew.loaded(getServer(), current);
         return !loaded.isEmpty() && loaded.get(0) == this;
+    }
+
+    public boolean inCrewMode() {
+        if (crewModeTick != tickCount) {
+            crewModeTick = tickCount;
+            BuildJob current = getJob();
+            crewMode = current != null && current.size() > 1 && Crew.loaded(getServer(), current).size() > 1;
+        }
+        return crewMode;
+    }
+
+    public Set<UUID> activeCrew() {
+        Set<UUID> active = new HashSet<>();
+        if (job != null) {
+            Crew.loaded(getServer(), job).forEach(member -> active.add(member.getUUID()));
+        }
+        active.add(getUUID());
+        return active;
+    }
+
+    public ItemCounter countInventory() {
+        return inventoryCounter();
+    }
+
+    public int freeSlots() {
+        return (int) inventory.getItems().stream().filter(ItemStack::isEmpty).count();
+    }
+
+    public ItemCounter fetchableStock() {
+        ItemCounter stock = new ItemCounter();
+        Crew.supplyStock(level(), jobChests(), new ArrayList<>()).forEach(stack -> stock.add(stack, stack.getCount()));
+        if (job != null) {
+            for (Map.Entry<ItemStack, Long> entry : job.getCrewWork().reservedByOthers(getUUID()).entries()) {
+                stock.remove(entry.getKey(), entry.getValue());
+            }
+        }
+        return stock;
+    }
+
+    public ItemCounter heldByOtherMembers() {
+        ItemCounter held = new ItemCounter();
+        if (job == null) {
+            return held;
+        }
+        for (BuilderEntity member : Crew.loaded(getServer(), job)) {
+            if (member != this) {
+                member.inventory.getItems().forEach(stack -> held.add(stack, stack.getCount()));
+            }
+        }
+        for (Map.Entry<ItemStack, Long> entry : job.getCrewWork().reservedByOthers(getUUID()).entries()) {
+            held.add(entry.getKey(), entry.getValue());
+        }
+        return held;
+    }
+
+    public boolean supplyHas(Predicate<ItemStack> wanted) {
+        for (AssignedChest chest : jobChests()) {
+            if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
+                continue;
+            }
+            ItemStore store = ItemStores.at(level(), chest.pos());
+            if (store != null && containsMatching(store, wanted)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean crewHolds(Predicate<ItemStack> wanted) {
+        if (job == null) {
+            return false;
+        }
+        for (BuilderEntity member : Crew.loaded(getServer(), job)) {
+            if (member != this && member.findSlot(wanted) >= 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean makeRoomAmongCrew(AABB box) {
+        List<Entity> blocking = level().getEntities((Entity) null, box, entity -> !entity.isSpectator() && entity.blocksBuilding);
+        if (blocking.isEmpty() || job == null) {
+            return false;
+        }
+        for (Entity entity : blocking) {
+            if (!(entity instanceof BuilderEntity member) || member == this || member.getJob() != job) {
+                return false;
+            }
+        }
+        for (Entity entity : blocking) {
+            ((BuilderEntity) entity).stepAside(box.getCenter());
+        }
+        return true;
+    }
+
+    private void stepAside(Vec3 from) {
+        stepAsideUntil = tickCount + STEP_ASIDE_TICKS;
+        Vec3 away = DefaultRandomPos.getPosAway(this, 4, 2, from);
+        if (away == null || !getNavigation().moveTo(away.x, away.y, away.z, 1.0)) {
+            leaveSite();
+        }
+    }
+
+    private void leaveSite() {
+        if (job == null) {
+            return;
+        }
+        BoundingBox area = job.getArea();
+        BlockPos pos = blockPosition();
+        if (pos.getX() < area.minX() || pos.getX() > area.maxX() || pos.getZ() < area.minZ() || pos.getZ() > area.maxZ()) {
+            return;
+        }
+        StuckRecovery.Goal goal = siteGoal(true);
+        if (goal != null) {
+            walkTowards(Vec3.atBottomCenterOf(goal.target()));
+        }
+    }
+
+    private void waitForCrew(boolean handBack) {
+        idle = true;
+        crewWaitUntil = tickCount + CREW_WAIT_TICKS;
+        if (idleSince < 0) {
+            idleSince = tickCount;
+        }
+        if (tickCount - idleSince >= LEAVE_SITE_TICKS && getNavigation().isDone()) {
+            leaveSite();
+        }
+        if (handBack && tickCount - idleSince >= HAND_BACK_TICKS && tickCount >= storeBlockedUntil && hasSpareItems(new ItemCounter())) {
+            idleSince = tickCount;
+            queueUnload(new ItemCounter());
+        }
+    }
+
+    private void releaseClaims() {
+        if (clearing != null) {
+            clearing.releaseClaims();
+        }
+        if (placing != null) {
+            placing.releaseClaims();
+        }
+        if (job != null) {
+            job.getCrewWork().release(getUUID());
+        }
     }
 
     public void beginJob(BuildJob newJob) {
@@ -395,7 +553,7 @@ public class BuilderEntity extends PathfinderMob {
         Constants.LOG.debug("{} starts {}", getBuilderName(), newJob.getFile());
         if (newJob.getSchematic() == null) {
             work.setPhase(BuildJob.Phase.LOADING);
-        } else if (newJob.isLeader(getUUID()) && newJob.getPlan() != null) {
+        } else if (newJob.getPlan() != null) {
             prepareForSite(newJob.getPlan());
         }
     }
@@ -404,8 +562,14 @@ public class BuilderEntity extends PathfinderMob {
         if (!plan.getToClear().isEmpty()) {
             queueToolFetch(ClearingTask.usefulTools((ServerLevel) level(), plan.getToClear()));
         } else if (plan.getFluidsInTheWay().isEmpty()) {
-            placing = new PlacingTask(this, plan, this::withinRedoLimit);
-            fetchMaterials(null);
+            CrewWork shared = job.getCrewWork();
+            if (shared.getPlacing() == null) {
+                shared.setPlacing(new PlacingWork((ServerLevel) level(), plan, this::withinRedoLimit, PlacingTask.rampStart(this)));
+            }
+            placing = new PlacingTask(this, job, shared.getPlacing());
+            if (!inCrewMode()) {
+                fetchMaterials(null);
+            }
         }
     }
 
@@ -417,7 +581,7 @@ public class BuilderEntity extends PathfinderMob {
             }
             ItemStore store = ItemStores.at(level(), chest.pos());
             if (store != null && containsMatching(store, useful)) {
-                queueVisit(ChestVisit.fetch(chest.pos(), useful));
+                queueVisit(inCrewMode() ? ChestVisit.fetchOneEach(chest.pos(), useful) : ChestVisit.fetch(chest.pos(), useful));
             }
         }
     }
@@ -462,6 +626,7 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void detachJob() {
+        releaseClaims();
         stopWork();
         job = null;
         jobId = null;
@@ -591,6 +756,9 @@ public class BuilderEntity extends PathfinderMob {
                 ItemStack taken = store.take(slot, count);
                 ItemStack remainder = inventory.addItem(taken.copy());
                 amounts.remove(taken, taken.getCount() - remainder.getCount());
+                if (job != null) {
+                    job.getCrewWork().reservationOf(getUUID()).remove(taken, taken.getCount() - remainder.getCount());
+                }
                 putBack(store, slot, remainder);
             }
         }
@@ -691,10 +859,13 @@ public class BuilderEntity extends PathfinderMob {
         return false;
     }
 
-    public void fetchFrom(ItemStore store, Predicate<ItemStack> wanted) {
+    public void fetchFrom(ItemStore store, Predicate<ItemStack> wanted, boolean oneEach) {
         for (int slot = 0; slot < store.size(); slot++) {
             ItemStack stack = store.get(slot);
-            int count = stack.isEmpty() || !wanted.test(stack) ? 0 : Math.min(stack.getCount(), roomFor(stack));
+            if (oneEach && !stack.isEmpty() && findSlot(carried -> carried.is(stack.getItem())) >= 0) {
+                continue;
+            }
+            int count = stack.isEmpty() || !wanted.test(stack) ? 0 : Math.min(oneEach ? 1 : stack.getCount(), roomFor(stack));
             if (count > 0) {
                 putBack(store, slot, inventory.addItem(store.take(slot, count)));
             }
@@ -727,6 +898,9 @@ public class BuilderEntity extends PathfinderMob {
         }
         visits.clear();
         getNavigation().stop();
+        if (inCrewMode()) {
+            releaseClaims();
+        }
         work.pause(reason);
         pausedTicks = 0;
         int reminderTicks = JourneymenConfig.REMINDER_INTERVAL_SECONDS.get() * 20;
@@ -789,15 +963,33 @@ public class BuilderEntity extends PathfinderMob {
             startDump();
             return;
         }
-        if (clearing == null && !prepareClearing()) {
+        if (tickCount < crewWaitUntil || tickCount < stepAsideUntil) {
             return;
         }
-        switch (clearing.tick()) {
+        CrewWork shared = job.getCrewWork();
+        if (shared.isClearingDone()) {
+            if (clearing != null) {
+                clearedSomething |= clearing.getOwnCleared() > 0;
+                clearing.stop();
+            }
+            leaveClearing();
+            return;
+        }
+        if ((clearing == null || clearing.getWork() != shared.getClearing()) && !prepareClearing()) {
+            return;
+        }
+        ClearingTask.Status status = clearing.tick();
+        if (status != ClearingTask.Status.IDLE && status != ClearingTask.Status.NEEDS_TOOL) {
+            idle = false;
+            idleSince = -1;
+        }
+        switch (status) {
             case WORKING -> {
             }
             case NEEDS_DUMP -> startDump();
             case NEEDS_TOOL -> startFetch(clearing.getNeededTool(), clearing.getNeededToolDescription());
             case BLOCKED -> pauseJob(clearing.getBlockedReason());
+            case IDLE -> waitForCrew(false);
             case DONE -> finishClearing();
         }
     }
@@ -806,16 +998,24 @@ public class BuilderEntity extends PathfinderMob {
         if (job.getSchematic() == null) {
             return false;
         }
-        BuildPlan plan = job.getPlan();
-        if (plan == null) {
-            if (!BuildPlan.isLoaded((ServerLevel) level(), job.getArea())) {
-                pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
-                return false;
+        CrewWork shared = job.getCrewWork();
+        if (shared.getClearing() == null) {
+            BuildPlan plan = job.getPlan();
+            if (plan == null) {
+                if (!BuildPlan.isLoaded((ServerLevel) level(), job.getArea())) {
+                    pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
+                    return false;
+                }
+                plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
+                job.setPlan(plan);
             }
-            plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
-            job.setPlan(plan);
+            shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition()));
         }
-        clearing = new ClearingTask(this, job, plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition());
+        if (clearing != null) {
+            clearedSomething |= clearing.getOwnCleared() > 0;
+            clearing.stop();
+        }
+        clearing = new ClearingTask(this, job, shared.getClearing());
         if (!toolsFetched) {
             queueToolFetch(clearing::isUsefulTool);
         }
@@ -823,36 +1023,52 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void finishClearing() {
-        clearedSomething |= clearing.getCleared() > 0;
-        List<BlockPos> skipped = clearing.getSkipped();
+        clearedSomething |= clearing.getOwnCleared() > 0;
+        ClearingWork done = clearing.getWork();
         clearing = null;
-        BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
-        job.setPlan(plan);
-        List<BlockPos> leftover = new ArrayList<>();
-        for (BlockPos pos : plan.getToClear()) {
-            if (job.getRedoCounts().merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
-                leftover.add(pos);
-            } else if (!job.getUnclearable().contains(pos)) {
-                job.getUnclearable().add(pos);
+        CrewWork shared = job.getCrewWork();
+        if (shared.getClearing() == done) {
+            List<BlockPos> skipped = done.getSkipped();
+            shared.noteCleared(done.getCleared() > 0);
+            BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
+            job.setPlan(plan);
+            List<BlockPos> leftover = new ArrayList<>();
+            for (BlockPos pos : plan.getToClear()) {
+                if (job.getRedoCounts().merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
+                    leftover.add(pos);
+                } else if (!job.getUnclearable().contains(pos)) {
+                    job.getUnclearable().add(pos);
+                }
+            }
+            if (!leftover.isEmpty() || !plan.getFluidsInTheWay().isEmpty()) {
+                shared.setClearing(new ClearingWork((ServerLevel) level(), leftover, plan.getFluidsInTheWay(), plan.targetsByPosition()));
+                clearing = new ClearingTask(this, job, shared.getClearing());
+                return;
+            }
+            showInHand(ItemStack.EMPTY);
+            if (!job.getUnclearable().isEmpty() || !skipped.isEmpty()) {
+                BlockPos example = !job.getUnclearable().isEmpty() ? job.getUnclearable().get(0) : skipped.get(0);
+                notifyOwner("I couldn't clear " + Math.max(job.getUnclearable().size(), skipped.size()) + " block(s) of the site, e.g. at "
+                        + example.toShortString() + ".");
+            }
+            boolean anyCleared = shared.takeClearedAny();
+            shared.finishClearing();
+            if (anyCleared) {
+                notifyOwner("The site of " + job.getFile() + " is clear.");
             }
         }
-        if (!leftover.isEmpty() || !plan.getFluidsInTheWay().isEmpty()) {
-            clearing = new ClearingTask(this, job, leftover, plan.getFluidsInTheWay(), plan.targetsByPosition());
-            return;
-        }
+        leaveClearing();
+    }
+
+    private void leaveClearing() {
+        clearing = null;
         showInHand(ItemStack.EMPTY);
-        if (!job.getUnclearable().isEmpty() || !skipped.isEmpty()) {
-            BlockPos example = !job.getUnclearable().isEmpty() ? job.getUnclearable().get(0) : skipped.get(0);
-            notifyOwner("I couldn't clear " + Math.max(job.getUnclearable().size(), skipped.size()) + " block(s) of the site, e.g. at "
-                    + example.toShortString() + ".");
-        }
         boolean collected = clearedSomething;
         clearedSomething = false;
         if (!collected) {
             work.setPhase(BuildJob.Phase.PLACING);
             return;
         }
-        notifyOwner("The site of " + job.getFile() + " is clear.");
         emptyingOut = true;
         resetDumpTries();
         queueEmptyingOut();
@@ -884,19 +1100,49 @@ public class BuilderEntity extends PathfinderMob {
             startDump();
             return;
         }
-        if (placing == null && !preparePlacing()) {
+        if (tickCount < crewWaitUntil || tickCount < stepAsideUntil) {
+            return;
+        }
+        CrewWork shared = job.getCrewWork();
+        if (!shared.isClearingDone() && shared.getClearing() != null) {
+            if (placing != null) {
+                placing.stop();
+                placing = null;
+            }
+            work.setPhase(BuildJob.Phase.CLEARING);
+            return;
+        }
+        if ((placing == null || placing.getWork() != shared.getPlacing()) && !preparePlacing()) {
             return;
         }
         PlacingTask.Status status = placing.tick();
         if (status != PlacingTask.Status.WAITING) {
             waitTicks = 0;
         }
+        if (status != PlacingTask.Status.IDLE) {
+            idle = false;
+            idleSince = -1;
+        }
+        boolean crew = inCrewMode();
+        if (crew && placing.takeNewBatch() && job.getCrewWork().othersStarving(getUUID()) && tickCount >= storeBlockedUntil
+                && hasSpareItems(placing.batchNeeds())) {
+            queueUnload(placing.batchNeeds());
+        }
         switch (status) {
             case WORKING -> {
             }
-            case NEEDS_ITEMS -> fetchMaterials(placing.getNeededItems());
+            case NEEDS_ITEMS -> {
+                if (crew) {
+                    fetchCrewMaterials(placing.getNeededItems());
+                } else {
+                    fetchMaterials(placing.getNeededItems());
+                }
+            }
             case NEEDS_TOOL -> startFetch(placing.getNeededTool(), placing.getNeededToolDescription());
+            case NEEDS_ROOM -> makeRoom(new ItemCounter());
+            case MISSING -> pauseForMaterials();
             case BLOCKED -> pauseJob(placing.getBlockedReason());
+            case IDLE -> waitForCrew(true);
             case WAITING -> {
                 int reportTicks = JourneymenConfig.WAIT_REPORT_SECONDS.get() * 20;
                 int reminderTicks = JourneymenConfig.REMINDER_INTERVAL_SECONDS.get() * 20;
@@ -915,17 +1161,109 @@ public class BuilderEntity extends PathfinderMob {
         if (job.getSchematic() == null) {
             return false;
         }
-        BuildPlan plan = job.getPlan();
-        if (plan == null) {
-            if (!BuildPlan.isLoaded((ServerLevel) level(), job.getArea())) {
-                pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
-                return false;
+        CrewWork shared = job.getCrewWork();
+        if (shared.getPlacing() == null) {
+            BuildPlan plan = job.getPlan();
+            if (plan == null) {
+                if (!BuildPlan.isLoaded((ServerLevel) level(), job.getArea())) {
+                    pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
+                    return false;
+                }
+                plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
+                job.setPlan(plan);
             }
-            plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
-            job.setPlan(plan);
+            shared.setPlacing(new PlacingWork((ServerLevel) level(), plan, this::withinRedoLimit, PlacingTask.rampStart(this)));
         }
-        placing = new PlacingTask(this, plan, this::withinRedoLimit);
+        if (placing != null) {
+            placing.stop();
+        }
+        placing = new PlacingTask(this, job, shared.getPlacing());
         return true;
+    }
+
+    private void fetchCrewMaterials(@Nullable List<ItemStack> immediate) {
+        ItemCounter inInventory = inventoryCounter();
+        ItemCounter needs = placing.batchNeeds();
+        ItemCounter wanted = missingFrom(needs, inInventory);
+        ItemCounter fetchable = fetchableStock();
+        ItemCounter take = new ItemCounter();
+        for (Map.Entry<ItemStack, Long> entry : wanted.entries()) {
+            take.add(entry.getKey(), Math.min(entry.getValue(), fetchable.count(entry.getKey())));
+        }
+        if (immediate != null) {
+            ItemCounter held = heldByOtherMembers();
+            for (ItemStack stack : immediate) {
+                if (inInventory.count(stack) + take.count(stack) >= stack.getCount()) {
+                    continue;
+                }
+                if (inInventory.count(stack) + fetchable.count(stack) + held.count(stack) >= stack.getCount()) {
+                    placing.releaseClaims();
+                    waitForCrew(true);
+                } else if (job.getOptions().skipMissing()) {
+                    placing.skipCurrent();
+                } else {
+                    pauseForMaterials();
+                }
+                return;
+            }
+        }
+        int freeSlots = freeSlots();
+        if (take.slotsBeyond(inInventory) > freeSlots) {
+            makeRoom(needs);
+            return;
+        }
+        job.getCrewWork().reserve(getUUID(), take.copy());
+        ItemCounter carried = inInventory.copy();
+        take.entries().forEach(entry -> carried.add(entry.getKey(), entry.getValue()));
+        int members = activeCrew().size();
+        ItemCounter upcoming = placing.upcomingUnclaimed(Math.max(0, freeSlots - take.slotsBeyond(inInventory)) * members, carried);
+        for (Map.Entry<ItemStack, Long> entry : upcoming.entries()) {
+            long share = (entry.getValue() + members - 1) / members;
+            long room = fetchable.count(entry.getKey()) - take.count(entry.getKey());
+            take.add(entry.getKey(), Math.min(share, room));
+        }
+        while (take.slotsBeyond(inInventory) > freeSlots && !take.isEmpty()) {
+            Map.Entry<ItemStack, Long> last = take.entries().get(take.entries().size() - 1);
+            take.remove(last.getKey(), Math.min(last.getValue(), last.getKey().getMaxStackSize()));
+        }
+        for (BlockRequirements.ToolUse use : placing.batchToolUses()) {
+            Predicate<ItemStack> usable = PlacingTask.toolFor(use, job.getOptions().allowBreakingEnchanted());
+            if (findSlot(usable) < 0) {
+                for (AssignedChest chest : jobChests()) {
+                    if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
+                        continue;
+                    }
+                    ItemStore store = ItemStores.at(level(), chest.pos());
+                    if (store != null && containsMatching(store, usable)) {
+                        queueVisit(ChestVisit.fetchOneEach(chest.pos(), usable));
+                        break;
+                    }
+                }
+            }
+        }
+        if (take.isEmpty()) {
+            return;
+        }
+        for (AssignedChest chest : jobChests()) {
+            if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
+                continue;
+            }
+            ItemStore store = ItemStores.at(level(), chest.pos());
+            if (store != null && containsMatching(store, stack -> take.count(stack) > 0)) {
+                queueVisit(ChestVisit.fetchAmounts(chest.pos(), take));
+            }
+        }
+    }
+
+    private void makeRoom(ItemCounter keep) {
+        if (queueUnload(keep)) {
+            return;
+        }
+        if (hasDumpableItems()) {
+            startDump();
+        } else {
+            pauseJob("My inventory is full of things I still need, so I can't carry the next materials. Please take out what I don't need.");
+        }
     }
 
     private boolean withinRedoLimit(BlockPos pos) {
@@ -1087,7 +1425,7 @@ public class BuilderEntity extends PathfinderMob {
     private void pauseForMaterials() {
         ItemCounter available = new ItemCounter();
         List<Component> ignored = new ArrayList<>();
-        collectStock(ignored).forEach(stack -> available.add(stack, stack.getCount()));
+        (inCrewMode() ? Crew.stock(Crew.of(this), ignored) : collectStock(ignored)).forEach(stack -> available.add(stack, stack.getCount()));
         List<String> missing = new ArrayList<>();
         for (Map.Entry<ItemStack, Long> entry : placing.remainingNeeds().sorted()) {
             long shortfall = entry.getValue() - available.count(entry.getKey());
@@ -1105,9 +1443,14 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void finishPlacing() {
-        job.getSkippedPositions().addAll(placing.getSkipped());
+        PlacingWork done = placing.getWork();
         placing.stop();
         placing = null;
+        CrewWork shared = job.getCrewWork();
+        if (shared.getPlacing() != done) {
+            return;
+        }
+        job.getSkippedPositions().addAll(done.getSkipped());
         BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
         job.setPlan(plan);
         Set<BlockPos> leftover = new LinkedHashSet<>(plan.getToClear());
@@ -1130,11 +1473,13 @@ public class BuilderEntity extends PathfinderMob {
         }
         List<BlockPos> toClear = plan.getToClear().stream().filter(this::withinRedoLimit).toList();
         if (!toClear.isEmpty() || !plan.getFluidsInTheWay().isEmpty()) {
-            clearing = new ClearingTask(this, job, toClear, plan.getFluidsInTheWay(), plan.targetsByPosition());
+            shared.setClearing(new ClearingWork((ServerLevel) level(), toClear, plan.getFluidsInTheWay(), plan.targetsByPosition()));
+            clearing = new ClearingTask(this, job, shared.getClearing());
             work.setPhase(BuildJob.Phase.CLEARING);
             return;
         }
-        placing = new PlacingTask(this, plan, this::withinRedoLimit);
+        shared.setPlacing(new PlacingWork((ServerLevel) level(), plan, this::withinRedoLimit, PlacingTask.rampStart(this)));
+        placing = new PlacingTask(this, job, shared.getPlacing());
     }
 
     private void finishJob() {
@@ -1235,15 +1580,21 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void startFetch(Predicate<ItemStack> wanted, String description) {
+        boolean crew = inCrewMode();
         for (AssignedChest chest : jobChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
             ItemStore store = ItemStores.at(level(), chest.pos());
             if (store != null && containsMatching(store, wanted)) {
-                queueVisit(ChestVisit.fetch(chest.pos(), wanted));
+                queueVisit(crew ? ChestVisit.fetchOneEach(chest.pos(), wanted) : ChestVisit.fetch(chest.pos(), wanted));
                 return;
             }
+        }
+        if (crew && crewHolds(wanted)) {
+            releaseClaims();
+            waitForCrew(false);
+            return;
         }
         pauseJob("I need " + description + "." + supplyChestProblems());
     }
@@ -1309,15 +1660,15 @@ public class BuilderEntity extends PathfinderMob {
         if (waitTicks > 0 && work.getPhase() == BuildJob.Phase.PLACING) {
             phase = "waiting for someone to move";
         }
-        if (!isWorker() && (work.getPhase() == BuildJob.Phase.CLEARING || work.getPhase() == BuildJob.Phase.PLACING)) {
-            phase = "waiting to help";
+        if (idle && (work.getPhase() == BuildJob.Phase.CLEARING || work.getPhase() == BuildJob.Phase.PLACING)) {
+            phase = "waiting for the rest of the crew";
         }
         return new Progress(phase, fraction, doneCount, allCount);
     }
 
     private void updateProgressBar() {
         ServerPlayer ownerPlayer = getOwnerPlayer();
-        boolean show = job != null && isAlive() && isWorker() && ownerPlayer != null && ownerPlayer.level() == level()
+        boolean show = job != null && isAlive() && isCrewSpeaker() && ownerPlayer != null && ownerPlayer.level() == level()
                 && ownerPlayer.distanceToSqr(this) <= PROGRESS_BAR_RANGE * PROGRESS_BAR_RANGE;
         if (!show) {
             removeProgressBar();
@@ -1361,20 +1712,8 @@ public class BuilderEntity extends PathfinderMob {
                     walkToSite();
                 }
             }
-            case CLEARING -> {
-                if (isWorker()) {
-                    tickClearing();
-                } else {
-                    handleVisits();
-                }
-            }
-            case PLACING -> {
-                if (isWorker()) {
-                    tickPlacing();
-                } else {
-                    handleVisits();
-                }
-            }
+            case CLEARING -> tickClearing();
+            case PLACING -> tickPlacing();
             case PAUSED -> {
                 if (++pausedTicks >= PAUSE_RETRY_TICKS) {
                     pausedTicks = 0;
@@ -1440,7 +1779,8 @@ public class BuilderEntity extends PathfinderMob {
         if (distance <= Reach.HORIZONTAL || stuckNearby) {
             getNavigation().stop();
             BuildPlan plan = job.getPlan();
-            boolean nothingToClear = plan != null && plan.getToClear().isEmpty() && plan.getFluidsInTheWay().isEmpty();
+            boolean nothingToClear = plan != null && plan.getToClear().isEmpty() && plan.getFluidsInTheWay().isEmpty()
+                    || job.getCrewWork().isClearingDone();
             work.setPhase(nothingToClear ? BuildJob.Phase.PLACING : BuildJob.Phase.CLEARING);
             return;
         }
@@ -1540,7 +1880,7 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private int workDone() {
-        return visitsDone + (clearing == null ? 0 : clearing.getCleared()) + (placing == null ? 0 : placing.getPlaced());
+        return visitsDone + (clearing == null ? 0 : clearing.getOwnCleared()) + (placing == null ? 0 : placing.getOwnPlaced());
     }
 
     @Nullable
@@ -1733,6 +2073,9 @@ public class BuilderEntity extends PathfinderMob {
     public void remove(RemovalReason reason) {
         removeProgressBar();
         MinecraftServer server = level().getServer();
+        if (job != null) {
+            releaseClaims();
+        }
         if (server != null && reason.shouldDestroy()) {
             leaveJob();
             BuilderRegistry.get(server).remove(getUUID());

@@ -1,6 +1,8 @@
 package io.github.apperk274.journeymen.build;
 
 import io.github.apperk274.journeymen.Constants;
+import io.github.apperk274.journeymen.build.PlacingWork.Entry;
+import io.github.apperk274.journeymen.build.PlacingWork.Kind;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.platform.Services;
@@ -31,70 +33,58 @@ import net.minecraft.world.level.block.entity.JukeboxBlockEntity;
 import net.minecraft.world.level.block.entity.LecternBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.level.block.piston.MovingPistonBlock;
-import net.minecraft.world.level.block.piston.PistonHeadBlock;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.function.Predicate;
 
 public final class PlacingTask {
 
     private static final int PLACE_DELAY = 4;
     private static final int MAX_INTERACTIONS = 32;
+    private static final int MIN_BATCH = 8;
+    private static final int DEFER_TICKS = 40;
+
     public enum Status {
         WORKING,
         NEEDS_ITEMS,
         NEEDS_TOOL,
+        NEEDS_ROOM,
+        MISSING,
         BLOCKED,
         WAITING,
+        IDLE,
         DONE
     }
 
-    private enum Kind {
-        PLACE,
-        FIX,
-        FLUID,
-        WATERLOG
-    }
-
-    private record Entry(BuildPlan.Placement placement, Kind kind, int key) {
-
-        Entry(BuildPlan.Placement placement, Kind kind) {
-            this(placement, kind, placement.pos().getY());
-        }
-
-        BlockPos pos() {
-            return placement.pos();
-        }
-    }
-
     private final BuilderEntity builder;
+    private final BuildJob job;
     private final ServerLevel level;
     private final HolderLookup.Provider registries;
-    private final TreeMap<Integer, List<Entry>> supports = new TreeMap<>();
-    private final TreeMap<Integer, List<Entry>> ramp = new TreeMap<>();
-    private final TreeMap<Integer, List<Entry>> dependents = new TreeMap<>();
-    private final TreeMap<Integer, List<Entry>> fluids = new TreeMap<>();
+    private final PlacingWork work;
     private final Reach reach;
-    private final List<BlockPos> skipped = new ArrayList<>();
-    private final int total;
+    private final List<Entry> batch = new ArrayList<>();
+    private final Map<Entry, Integer> deferred = new HashMap<>();
+    private boolean newBatch;
+    @Nullable
+    private TreeMap<Integer, List<Entry>> batchGroup;
     private int placed;
 
     @Nullable
@@ -104,6 +94,8 @@ public final class PlacingTask {
     @Nullable
     private Entry plantNext;
     private float cooldown;
+    @Nullable
+    private Status idleStatus;
     @Nullable
     private List<ItemStack> neededItems;
     @Nullable
@@ -115,88 +107,27 @@ public final class PlacingTask {
     @Nullable
     private BlockPos waitingAt;
 
-    public PlacingTask(BuilderEntity builder, BuildPlan plan, Predicate<BlockPos> include) {
+    public PlacingTask(BuilderEntity builder, BuildJob job, PlacingWork work) {
         this.builder = builder;
+        this.job = job;
         this.level = (ServerLevel) builder.level();
         this.registries = level.registryAccess();
-        this.reach = new Reach(plan.getArea());
-        Map<Long, int[]> rampColumns = AccessRamp.columns(level, plan, rampStart(builder));
-        Set<BlockPos> hanging = new HashSet<>();
-        int count = 0;
-        for (BuildPlan.Placement placement : plan.getToPlace()) {
-            if (!include.test(placement.pos()) || placedWithOtherPart(placement.target())) {
-                continue;
-            }
-            BlockState target = placement.target();
-            if (target.getBlock() instanceof LiquidBlock) {
-                if (target.getFluidState().isSource()) {
-                    add(fluids, new Entry(placement, Kind.FLUID));
-                    count++;
-                }
-                continue;
-            }
-            int[] rampStep = rampColumns.get(ChunkPos.asLong(placement.pos().getX(), placement.pos().getZ()));
-            if (hangsOnSomething(placement.pos(), target, hanging)) {
-                hanging.add(placement.pos());
-                add(dependents, new Entry(placement, Kind.PLACE));
-            } else if (rampStep != null && placement.pos().getY() >= rampStep[1]) {
-                add(ramp, new Entry(placement, Kind.PLACE, -rampStep[0] * AccessRamp.ORDER_STRIDE + placement.pos().getY()));
-            } else {
-                add(supports, new Entry(placement, Kind.PLACE));
-            }
-            count++;
-            if (target.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false)) {
-                add(fluids, new Entry(placement, Kind.WATERLOG));
-                count++;
-            }
-        }
-        for (BuildPlan.Placement placement : plan.getToFix()) {
-            if (include.test(placement.pos())) {
-                add(dependents, new Entry(placement, Kind.FIX));
-                count++;
-            }
-        }
-        for (BuildPlan.Placement placement : plan.getToWaterlog()) {
-            if (include.test(placement.pos())) {
-                add(fluids, new Entry(placement, Kind.WATERLOG));
-                count++;
-            }
-        }
-        this.total = count;
+        this.work = work;
+        this.reach = new Reach(job.getArea());
     }
 
-    private static boolean placedWithOtherPart(BlockState target) {
-        return target.getOptionalValue(BlockStateProperties.DOUBLE_BLOCK_HALF).orElse(null) == DoubleBlockHalf.UPPER
-                || target.getOptionalValue(BlockStateProperties.BED_PART).orElse(null) == BedPart.HEAD
-                || target.getBlock() instanceof PistonHeadBlock
-                || target.getBlock() instanceof MovingPistonBlock;
-    }
-
-    private boolean hangsOnSomething(BlockPos pos, BlockState target, Set<BlockPos> hanging) {
-        BlockState placeState = StateRules.forPlacement(target);
-        if (placeState.getBlock() instanceof FallingBlock && hanging.contains(pos.below())) {
-            return true;
-        }
-        return !SandboxLevel.survivesAlone(level, pos, placeState)
-                || !hasTwoParts(placeState) && SandboxLevel.shapedAlone(level, pos, placeState).isAir();
-    }
-
-    private static boolean hasTwoParts(BlockState state) {
-        return state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) || state.hasProperty(BlockStateProperties.BED_PART);
+    public PlacingWork getWork() {
+        return work;
     }
 
     @Nullable
-    private static BlockPos rampStart(BuilderEntity builder) {
+    public static BlockPos rampStart(BuilderEntity builder) {
         for (AssignedChest chest : builder.jobChests()) {
             if (chest.role() == AssignedChest.Role.SUPPLY) {
                 return chest.pos();
             }
         }
         return builder.blockPosition();
-    }
-
-    private static void add(TreeMap<Integer, List<Entry>> layers, Entry entry) {
-        layers.computeIfAbsent(entry.key(), key -> new ArrayList<>()).add(entry);
     }
 
     public Status tick() {
@@ -206,11 +137,16 @@ public final class PlacingTask {
         }
         if (current == null) {
             reach.reset();
+            idleStatus = null;
             current = pickNext();
             if (current == null) {
                 builder.showInHand(ItemStack.EMPTY);
-                return Status.DONE;
+                if (work.isEmpty()) {
+                    return Status.DONE;
+                }
+                return idleStatus != null ? idleStatus : Status.IDLE;
             }
+            job.getCrewWork().claim(current.pos(), builder.getUUID());
         }
         return switch (current.kind()) {
             case PLACE -> tickPlace(current);
@@ -237,14 +173,19 @@ public final class PlacingTask {
         if (!reach.approach(builder, pos)) {
             return Status.WORKING;
         }
-        if (currentGroup == dependents && !canGoInNow(entry)) {
+        if (currentGroup == work.dependents && !canGoInNow(entry)) {
             return putBack();
         }
         BlockState placeState = StateRules.forPlacement(target);
         if (!placeState.getCollisionShape(level, pos).isEmpty() && !level.isUnobstructed(placeState, pos, CollisionContext.empty())) {
-            if (placeState.getCollisionShape(level, pos).bounds().move(pos).intersects(builder.getBoundingBox())) {
+            AABB box = placeState.getCollisionShape(level, pos).bounds().move(pos);
+            if (box.intersects(builder.getBoundingBox())) {
                 builder.stepAwayFrom(pos);
                 return Status.WORKING;
+            }
+            if (builder.inCrewMode() && builder.makeRoomAmongCrew(box)) {
+                deferred.put(entry, builder.tickCount + DEFER_TICKS);
+                return putBack();
             }
             waitingAt = pos;
             return Status.WAITING;
@@ -252,7 +193,7 @@ public final class PlacingTask {
         waitingAt = null;
         BlockRequirements.Requirement requirement = BlockRequirements.of(placeState, entry.placement().blockEntity(), registries);
         if (!requirement.obtainable()) {
-            skipped.add(pos);
+            work.skipped.add(pos);
             return finish(false);
         }
         if (!builder.hasItems(requirement.items())) {
@@ -261,8 +202,7 @@ public final class PlacingTask {
         }
         int toolSlot = -1;
         if (requirement.toolUse() != null) {
-            Predicate<ItemStack> usable = toolFor(requirement.toolUse(),
-                    builder.getJob() != null && builder.getJob().getOptions().allowBreakingEnchanted());
+            Predicate<ItemStack> usable = toolFor(requirement.toolUse(), job.getOptions().allowBreakingEnchanted());
             toolSlot = builder.findSlot(usable);
             if (toolSlot < 0) {
                 neededTool = usable;
@@ -273,7 +213,7 @@ public final class PlacingTask {
         }
         ServerPlayer actor = builder.actor();
         if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayPlace(actor, pos, placeState)) {
-            skipped.add(pos);
+            work.skipped.add(pos);
             return finish(false);
         }
         List<ItemStack> taken = builder.takeItems(requirement.items());
@@ -284,14 +224,18 @@ public final class PlacingTask {
     private void place(BuildPlan.Placement placement, BlockState placeState, List<ItemStack> taken, ServerPlayer actor, int toolSlot,
                        BlockRequirements.Requirement requirement) {
         BlockPos pos = placement.pos();
+        if (job.getCrewWork().claimedByOther(pos, builder.getUUID())) {
+            Constants.LOG.warn("[crew] {}.{} places at {}, which another builder claimed", builder.getOwnerName(), builder.getBuilderName(),
+                    pos.toShortString());
+        }
         BlockRequirements.ToolUse toolUse = requirement.toolUse();
         BlockState state = requirement.madeFrom() != null ? requirement.madeFrom() : placeState;
-        if (!hasTwoParts(state)) {
+        if (!PlacingWork.hasTwoParts(state)) {
             state = Block.updateFromNeighbourShapes(state, level, pos);
         }
         if (state.isAir()) {
             taken.forEach(builder::giveItem);
-            skipped.add(pos);
+            work.skipped.add(pos);
             return;
         }
         ItemStack base = taken.isEmpty() ? ItemStack.EMPTY : taken.get(0);
@@ -323,11 +267,12 @@ public final class PlacingTask {
             level.playSound(null, pos, toolUse == BlockRequirements.ToolUse.HOE ? SoundEvents.HOE_TILL : SoundEvents.SHOVEL_FLATTEN,
                     SoundSource.BLOCKS, 1.0F, 1.0F);
             if (toolUse == BlockRequirements.ToolUse.HOE) {
-                plantNext = findEntry(dependents, pos.above());
+                plantNext = findEntry(work.dependents, pos.above());
             }
         }
         builder.swing(InteractionHand.MAIN_HAND);
         placed++;
+        work.placed++;
     }
 
     private void applyContents(BlockPos pos, CompoundTag tag, List<ItemStack> extras) {
@@ -385,7 +330,7 @@ public final class PlacingTask {
         }
         ServerPlayer actor = builder.actor();
         if (!level.mayInteract(actor, pos)) {
-            skipped.add(pos);
+            work.skipped.add(pos);
             return finish(false);
         }
         builder.showInHand(ItemStack.EMPTY);
@@ -397,6 +342,7 @@ public final class PlacingTask {
         }
         builder.swing(InteractionHand.MAIN_HAND);
         placed++;
+        work.placed++;
         return finish(true);
     }
 
@@ -412,7 +358,7 @@ public final class PlacingTask {
         }
         boolean water = target.getFluidState().is(FluidTags.WATER);
         if (water && level.dimensionType().ultraWarm()) {
-            skipped.add(pos);
+            work.skipped.add(pos);
             return finish(false);
         }
         if (!reach.approach(builder, pos)) {
@@ -425,7 +371,7 @@ public final class PlacingTask {
         }
         ServerPlayer actor = builder.actor();
         if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayPlace(actor, pos, target)) {
-            skipped.add(pos);
+            work.skipped.add(pos);
             return finish(false);
         }
         ItemStack container = builder.takeItems(List.of(bucket)).get(0);
@@ -437,6 +383,7 @@ public final class PlacingTask {
         builder.giveItem(emptied(container, target.getFluidState().getType()));
         builder.swing(InteractionHand.MAIN_HAND);
         placed++;
+        work.placed++;
         return finish(true);
     }
 
@@ -449,7 +396,7 @@ public final class PlacingTask {
             return finish(false);
         }
         if (level.dimensionType().ultraWarm()) {
-            skipped.add(pos);
+            work.skipped.add(pos);
             return finish(false);
         }
         if (!reach.approach(builder, pos)) {
@@ -462,7 +409,7 @@ public final class PlacingTask {
         }
         ServerPlayer actor = builder.actor();
         if (!level.mayInteract(actor, pos)) {
-            skipped.add(pos);
+            work.skipped.add(pos);
             return finish(false);
         }
         ItemStack container = builder.takeItems(List.of(bucket)).get(0);
@@ -475,6 +422,7 @@ public final class PlacingTask {
         builder.giveItem(emptied(container, Fluids.WATER));
         builder.swing(InteractionHand.MAIN_HAND);
         placed++;
+        work.placed++;
         return finish(true);
     }
 
@@ -486,12 +434,15 @@ public final class PlacingTask {
 
     public void skipCurrent() {
         if (current != null) {
-            skipped.add(current.pos());
+            work.skipped.add(current.pos());
             finish(false);
         }
     }
 
     private Status putBack() {
+        if (current != null && !batch.contains(current)) {
+            job.getCrewWork().unclaim(current.pos(), builder.getUUID());
+        }
         current = null;
         currentGroup = null;
         waitingAt = null;
@@ -501,13 +452,11 @@ public final class PlacingTask {
 
     private Status finish(boolean acted) {
         if (current != null && currentGroup != null) {
-            List<Entry> layer = currentGroup.get(current.key());
-            if (layer != null) {
-                layer.remove(current);
-                if (layer.isEmpty()) {
-                    currentGroup.remove(current.key());
-                }
-            }
+            PlacingWork.remove(currentGroup, current);
+        }
+        if (current != null) {
+            batch.remove(current);
+            job.getCrewWork().unclaim(current.pos(), builder.getUUID());
         }
         current = null;
         currentGroup = null;
@@ -537,40 +486,304 @@ public final class PlacingTask {
         if (plantNext != null) {
             Entry entry = plantNext;
             plantNext = null;
-            List<Entry> layer = dependents.get(entry.pos().getY());
-            if (layer != null && layer.contains(entry) && canGoInNow(entry)) {
-                currentGroup = dependents;
+            List<Entry> layer = work.dependents.get(entry.pos().getY());
+            if (layer != null && layer.contains(entry) && canGoInNow(entry)
+                    && !job.getCrewWork().claimedByOther(entry.pos(), builder.getUUID())) {
+                currentGroup = work.dependents;
                 return entry;
             }
         }
-        for (TreeMap<Integer, List<Entry>> group : List.of(supports, ramp)) {
+        if (builder.inCrewMode()) {
+            return crewPick();
+        }
+        batch.clear();
+        batchGroup = null;
+        for (TreeMap<Integer, List<Entry>> group : List.of(work.supports, work.ramp)) {
             if (!group.isEmpty()) {
                 currentGroup = group;
                 return reach.choose(builder, group.firstEntry().getValue(), Entry::pos);
             }
         }
-        if (!dependents.isEmpty()) {
-            for (List<Entry> layer : dependents.values()) {
+        if (!work.dependents.isEmpty()) {
+            for (List<Entry> layer : work.dependents.values()) {
                 List<Entry> ready = layer.stream().filter(this::canGoInNow).toList();
                 if (!ready.isEmpty()) {
-                    currentGroup = dependents;
+                    currentGroup = work.dependents;
                     return reach.choose(builder, ready, Entry::pos);
                 }
             }
-            for (List<Entry> layer : dependents.values()) {
-                for (Entry entry : layer) {
-                    if (!StateRules.matches(entry.placement().target(), level.getBlockState(entry.pos()))) {
-                        skipped.add(entry.pos());
-                    }
-                }
-            }
-            dependents.clear();
+            skipStrandedDependents();
         }
-        if (!fluids.isEmpty()) {
-            currentGroup = fluids;
-            return reach.choose(builder, fluids.firstEntry().getValue(), Entry::pos);
+        if (!work.fluids.isEmpty()) {
+            currentGroup = work.fluids;
+            return reach.choose(builder, work.fluids.firstEntry().getValue(), Entry::pos);
         }
         return null;
+    }
+
+    private void skipStrandedDependents() {
+        for (List<Entry> layer : work.dependents.values()) {
+            for (Entry entry : layer) {
+                if (!StateRules.matches(entry.placement().target(), level.getBlockState(entry.pos()))) {
+                    work.skipped.add(entry.pos());
+                }
+            }
+        }
+        work.dependents.clear();
+    }
+
+    @Nullable
+    private Entry crewPick() {
+        CrewWork crew = job.getCrewWork();
+        UUID me = builder.getUUID();
+        if (batchGroup != null) {
+            TreeMap<Integer, List<Entry>> group = batchGroup;
+            batch.removeIf(entry -> {
+                List<Entry> layer = group.get(entry.key());
+                return layer == null || !layer.contains(entry);
+            });
+            deferred.values().removeIf(until -> until <= builder.tickCount);
+            List<Entry> ready = batch.stream().filter(entry -> !deferred.containsKey(entry)
+                    && (group != work.dependents || canGoInNow(entry))).toList();
+            if (!ready.isEmpty()) {
+                currentGroup = group;
+                return reach.choose(builder, ready, Entry::pos);
+            }
+            if (batch.stream().anyMatch(deferred::containsKey)) {
+                return null;
+            }
+        }
+        batch.clear();
+        batchGroup = null;
+        crew.keepOnly(builder.activeCrew());
+        crew.release(me);
+        for (TreeMap<Integer, List<Entry>> group : List.of(work.supports, work.ramp)) {
+            if (!group.isEmpty()) {
+                return claim(group, columnFirst(group, crew, me));
+            }
+        }
+        if (!work.dependents.isEmpty()) {
+            boolean othersHold = false;
+            for (List<Entry> layer : work.dependents.values()) {
+                List<Entry> ready = new ArrayList<>();
+                for (Entry entry : layer) {
+                    if (crew.claimedByOther(entry.pos(), me)) {
+                        othersHold = true;
+                    } else if (canGoInNow(entry)) {
+                        ready.add(entry);
+                    }
+                }
+                if (!ready.isEmpty()) {
+                    return claim(work.dependents, ready);
+                }
+            }
+            if (othersHold) {
+                return null;
+            }
+            skipStrandedDependents();
+        }
+        for (List<Entry> layer : work.fluids.values()) {
+            List<Entry> free = layer.stream().filter(entry -> !crew.claimedByOther(entry.pos(), me)).toList();
+            if (!free.isEmpty()) {
+                return claim(work.fluids, free);
+            }
+        }
+        return null;
+    }
+
+    private static List<Entry> columnFirst(TreeMap<Integer, List<Entry>> group, CrewWork crew, UUID me) {
+        Map<Long, Integer> first = new HashMap<>();
+        for (List<Entry> layer : group.values()) {
+            for (Entry entry : layer) {
+                first.putIfAbsent(ChunkPos.asLong(entry.pos().getX(), entry.pos().getZ()), entry.key());
+            }
+        }
+        for (List<Entry> layer : group.values()) {
+            List<Entry> eligible = new ArrayList<>();
+            for (Entry entry : layer) {
+                if (!crew.claimedByOther(entry.pos(), me) && first.get(ChunkPos.asLong(entry.pos().getX(), entry.pos().getZ())) == entry.key()) {
+                    eligible.add(entry);
+                }
+            }
+            if (!eligible.isEmpty()) {
+                return eligible;
+            }
+        }
+        return List.of();
+    }
+
+    @Nullable
+    private Entry claim(TreeMap<Integer, List<Entry>> group, List<Entry> candidates) {
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        CrewWork crew = job.getCrewWork();
+        UUID me = builder.getUUID();
+        ItemCounter carried = builder.countInventory();
+        ItemCounter fetchable = builder.fetchableStock();
+        ItemCounter othersHold = builder.heldByOtherMembers();
+        List<Entry> suppliable = new ArrayList<>();
+        List<Entry> preferred = new ArrayList<>();
+        Entry missing = null;
+        for (Entry entry : candidates) {
+            List<ItemStack> items = itemsFor(entry);
+            if (covers(items, carried)) {
+                if (toolReady(entry)) {
+                    preferred.add(entry);
+                    suppliable.add(entry);
+                }
+            } else if (covers(items, carried, fetchable)) {
+                if (toolReady(entry)) {
+                    suppliable.add(entry);
+                }
+            } else if (!covers(items, carried, fetchable, othersHold) && missing == null) {
+                missing = entry;
+            }
+        }
+        if (suppliable.isEmpty()) {
+            if (missing != null) {
+                if (job.getOptions().skipMissing()) {
+                    work.skipped.add(missing.pos());
+                    PlacingWork.remove(group, missing);
+                    idleStatus = Status.WORKING;
+                } else {
+                    neededItems = itemsFor(missing);
+                    idleStatus = Status.MISSING;
+                }
+            } else {
+                crew.setStarving(me, true);
+            }
+            return null;
+        }
+        crew.setStarving(me, false);
+        Entry first = reach.choose(builder, preferred.isEmpty() ? suppliable : preferred, Entry::pos);
+        if (first == null) {
+            return null;
+        }
+        ItemCounter need = new ItemCounter();
+        itemsFor(first).forEach(stack -> need.add(stack, stack.getCount()));
+        int freeSlots = builder.freeSlots();
+        if (need.slotsBeyond(carried) > freeSlots) {
+            idleStatus = Status.NEEDS_ROOM;
+            return null;
+        }
+        batch.add(first);
+        List<Entry> rest = new ArrayList<>(suppliable);
+        rest.remove(first);
+        rest.sort(Comparator.comparingDouble(entry -> entry.pos().distSqr(first.pos())));
+        ItemCounter total = need;
+        int members = builder.activeCrew().size();
+        List<Entry> layer = group.get(first.key());
+        int share = layer == null ? candidates.size() : layer.size();
+        int cap = Math.max(MIN_BATCH, (share + members - 1) / members);
+        for (Entry entry : rest) {
+            if (batch.size() >= cap) {
+                break;
+            }
+            ItemCounter more = total.copy();
+            itemsFor(entry).forEach(stack -> more.add(stack, stack.getCount()));
+            if (more.slotsBeyond(carried) > freeSlots || !covers(more, carried, fetchable)) {
+                continue;
+            }
+            total = more;
+            batch.add(entry);
+        }
+        batch.forEach(entry -> crew.claim(entry.pos(), me));
+        ItemCounter reserved = shortfall(total, carried);
+        crew.reserve(me, reserved);
+        if (Services.PLATFORM.isDevelopmentEnvironment()) {
+            Constants.LOG.info("[crew] {}.{} claims {} blocks and reserves {}", builder.getOwnerName(), builder.getBuilderName(), batch.size(),
+                    describe(reserved));
+        }
+        batchGroup = group;
+        currentGroup = group;
+        newBatch = true;
+        return first;
+    }
+
+    private boolean toolReady(Entry entry) {
+        if (entry.kind() != Kind.PLACE) {
+            return true;
+        }
+        BlockDrops.Made made = BlockDrops.made(entry.placement().target().getBlock());
+        if (made == null || StateRules.matches(entry.placement().target(), level.getBlockState(entry.pos()))) {
+            return true;
+        }
+        Predicate<ItemStack> usable = toolFor(made.toolUse(), job.getOptions().allowBreakingEnchanted());
+        return builder.findSlot(usable) >= 0 || builder.supplyHas(usable) || !builder.crewHolds(usable);
+    }
+
+    private static boolean covers(List<ItemStack> items, ItemCounter... stocks) {
+        ItemCounter need = new ItemCounter();
+        items.forEach(stack -> need.add(stack, stack.getCount()));
+        return covers(need, stocks);
+    }
+
+    private static boolean covers(ItemCounter need, ItemCounter... stocks) {
+        for (Map.Entry<ItemStack, Long> entry : need.entries()) {
+            long have = 0;
+            for (ItemCounter stock : stocks) {
+                have += stock.count(entry.getKey());
+            }
+            if (have < entry.getValue()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String describe(ItemCounter items) {
+        List<String> parts = new ArrayList<>();
+        for (Map.Entry<ItemStack, Long> entry : items.sorted()) {
+            parts.add(entry.getValue() + " " + ItemMatch.name(entry.getKey()).getString());
+        }
+        return parts.isEmpty() ? "nothing" : String.join(", ", parts);
+    }
+
+    private static ItemCounter shortfall(ItemCounter need, ItemCounter carried) {
+        ItemCounter missing = new ItemCounter();
+        for (Map.Entry<ItemStack, Long> entry : need.entries()) {
+            missing.add(entry.getKey(), entry.getValue() - carried.count(entry.getKey()));
+        }
+        return missing;
+    }
+
+    public ItemCounter batchNeeds() {
+        ItemCounter needs = new ItemCounter();
+        if (current != null && !batch.contains(current)) {
+            itemsFor(current).forEach(stack -> needs.add(stack, stack.getCount()));
+        }
+        for (Entry entry : batch) {
+            itemsFor(entry).forEach(stack -> needs.add(stack, stack.getCount()));
+        }
+        return needs;
+    }
+
+    public Set<BlockRequirements.ToolUse> batchToolUses() {
+        Set<BlockRequirements.ToolUse> uses = EnumSet.noneOf(BlockRequirements.ToolUse.class);
+        for (Entry entry : batch) {
+            BlockDrops.Made made = entry.kind() == Kind.PLACE ? BlockDrops.made(entry.placement().target().getBlock()) : null;
+            if (made != null) {
+                uses.add(made.toolUse());
+            }
+        }
+        return uses;
+    }
+
+    public boolean takeNewBatch() {
+        boolean claimed = newBatch;
+        newBatch = false;
+        return claimed;
+    }
+
+    public void releaseClaims() {
+        current = null;
+        currentGroup = null;
+        waitingAt = null;
+        batch.clear();
+        batchGroup = null;
+        reach.reset();
+        job.getCrewWork().release(builder.getUUID());
     }
 
     private boolean canGoInNow(Entry entry) {
@@ -579,18 +792,30 @@ public final class PlacingTask {
         }
         BlockState placeState = StateRules.forPlacement(entry.placement().target());
         if (!placeState.canSurvive(level, entry.pos())
-                || !hasTwoParts(placeState) && SandboxLevel.shapedHere(level, entry.pos(), placeState).isAir()) {
+                || !PlacingWork.hasTwoParts(placeState) && SandboxLevel.shapedHere(level, entry.pos(), placeState).isAir()) {
             return false;
         }
         return !(placeState.getBlock() instanceof FallingBlock) || !FallingBlock.isFree(level.getBlockState(entry.pos().below()));
     }
 
     public ItemCounter upcomingNeeds(int slots, ItemCounter carried) {
+        return upcomingNeeds(slots, carried, false);
+    }
+
+    public ItemCounter upcomingUnclaimed(int slots, ItemCounter carried) {
+        return upcomingNeeds(slots, carried, true);
+    }
+
+    private ItemCounter upcomingNeeds(int slots, ItemCounter carried, boolean unclaimedOnly) {
         ItemCounter needs = new ItemCounter();
         int usedSlots = 0;
-        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, ramp, dependents, fluids)) {
+        CrewWork crew = job.getCrewWork();
+        for (TreeMap<Integer, List<Entry>> layers : work.groups()) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
+                    if (unclaimedOnly && (batch.contains(entry) || crew.claimedByOther(entry.pos(), builder.getUUID()))) {
+                        continue;
+                    }
                     for (ItemStack stack : itemsFor(entry)) {
                         long before = needs.count(stack);
                         int carriedSlots = ItemCounter.slotsFor(stack, carried.count(stack));
@@ -613,7 +838,7 @@ public final class PlacingTask {
 
     public Set<BlockRequirements.ToolUse> remainingToolUses() {
         Set<BlockRequirements.ToolUse> uses = EnumSet.noneOf(BlockRequirements.ToolUse.class);
-        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, ramp, dependents)) {
+        for (TreeMap<Integer, List<Entry>> layers : List.of(work.supports, work.ramp, work.dependents)) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
                     BlockDrops.Made made = entry.kind() == Kind.PLACE ? BlockDrops.made(entry.placement().target().getBlock()) : null;
@@ -628,7 +853,7 @@ public final class PlacingTask {
 
     public ItemCounter remainingNeeds() {
         ItemCounter needs = new ItemCounter();
-        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, ramp, dependents, fluids)) {
+        for (TreeMap<Integer, List<Entry>> layers : work.groups()) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
                     itemsFor(entry).forEach(stack -> needs.add(stack, stack.getCount()));
@@ -666,25 +891,23 @@ public final class PlacingTask {
     }
 
     public int getTotal() {
-        return total;
+        return work.getTotal();
     }
 
     public int getPlaced() {
+        return work.getPlaced();
+    }
+
+    public int getOwnPlaced() {
         return placed;
     }
 
     public int getRemaining() {
-        int count = 0;
-        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, ramp, dependents, fluids)) {
-            for (List<Entry> layer : layers.values()) {
-                count += layer.size();
-            }
-        }
-        return count;
+        return work.getRemaining();
     }
 
     public List<BlockPos> getSkipped() {
-        return skipped;
+        return work.getSkipped();
     }
 
     @Nullable

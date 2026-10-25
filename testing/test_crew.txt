@@ -35,7 +35,6 @@ journeymen debug as Steve 0 1305 100 1305 journeymen builder chest Cid add 1346 
 journeymen debug as Steve 0 1305 100 1305 journeymen builder chest Dan add 1346 100 1308 supply
 summon item 1317 100 1305 {Item:{id:'minecraft:stone',count:2}}
 ticks 10
-# pooled stock in the pre-check: planks in Cid's chest, the pickaxe in Dan's chest, stone in Eva's inventory
 mark
 journeymen debug as Steve 0 1305 100 1305 journeymen builder check Cid test_skip.schem 1350 100 1310 none corner skip-unplaceable
 waitlog No tool that can mine 1 Obsidian
@@ -52,7 +51,6 @@ journeymen debug as Steve 0 1305 100 1305 journeymen builder check Bob,Bob test_
 waitlog Bob is named twice
 journeymen debug as Steve 0 1305 100 1305 journeymen builder check Bob,Ann,Cid,Dan,Eva,Fay,Gus,Hal,Ivy test_skip.schem 1350 100 1310 none corner
 waitlog A crew can have at most 8 builders
-# a crew started by command, using Bob's supply chests
 journeymen debug as Steve 2 1305 100 1305 journeymen builder supply Bob test_solid.schem 1340 100 1340 none corner
 waitlog \] Supplied \d+ items
 mark
@@ -62,7 +60,6 @@ mark
 journeymen debug as Steve 0 1305 100 1305 journeymen builder build Ann,Bob test_solid.schem 1340 100 1340 none corner
 waitlog Ann and Bob are on the way !!
 waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Bob =~ Crew of 2
-# refusals
 journeymen debug as Steve 0 1305 100 1305 journeymen builder build Cid test_box.schem 1345 100 1345 none corner
 waitlog The site overlaps the job of Steve\.Ann, Steve\.Bob
 journeymen debug as Steve 0 1305 100 1305 journeymen builder join Bob Ann
@@ -79,7 +76,6 @@ journeymen debug as Steve 0 1305 100 1305 journeymen builder join Cid Ann
 waitlog Cid is busy with test_skip\.schem
 journeymen debug as Steve 0 1305 100 1305 journeymen builder cancel Cid
 waitlog Cid stopped working on test_skip\.schem
-# an op may mix owners; joins fill the crew up to max_crew_size
 journeymen debug as Steve 2 1305 100 1305 journeymen builder join Alex.Zed Ann
 waitlog Zed joins the crew of test_solid\.schem \(Steve\.Ann, Steve\.Bob, Alex\.Zed\)
 journeymen debug as Steve 0 1305 100 1305 journeymen builder join Cid Ann
@@ -99,15 +95,12 @@ journeymen debug as Steve 0 1305 100 1305 journeymen builder leave Fay
 journeymen debug as Steve 0 1305 100 1305 journeymen builder leave Gus
 waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Gus =~ Job: none
 waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Ann =~ Crew of 3
-# a dead builder drops out, the rest carry on
 kill @e[type=journeymen:builder,name=Cid]
 waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Ann =~ Crew of 2
-# the crew survives its chunks unloading and loading again
 forceload remove 1300 1300 1380 1380
 waitfor 30 execute if entity @e[type=journeymen:builder,name=Bob] =~ failed
 forceload add 1300 1300 1380 1380
 waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Bob =~ Crew of 2
-# cancel through any member stops the whole job; the same job again continues from the world
 journeymen debug as Steve 0 1305 100 1305 journeymen builder cancel Bob
 waitlog The crew of Steve\.Ann, Steve\.Bob stopped working on test_solid\.schem
 waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Ann =~ Job: none
@@ -118,6 +111,5 @@ waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder 
 mark
 journeymen debug as Steve 0 1305 100 1305 journeymen builder check Bob test_solid.schem 1340 100 1340 none corner
 waitlog 10 0 to clear, 0 to place
-# a builder saved before crews existed, with its job inside it, moves the job into a shared one
 summon journeymen:builder 1355 100 1326 {CustomName:'"Old"',Owner:[I;1445453208,-423740383,-1196889821,1142437441],OwnerName:"Steve",Job:{File:"test_skip.schem",Origin:[I;1360,100,1330],Rotation:"NONE",Options:{Corner:1b,SkipUnplaceable:1b,SkipMissing:1b},Area:[I;1360,100,1330,1364,100,1330],Phase:"PLACING",ResumePhase:"PLACING"}}
 waitlog \[Steve\.Old\] I finished building test_skip\.schem !!

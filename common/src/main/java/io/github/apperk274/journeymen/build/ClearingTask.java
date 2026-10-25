@@ -1,7 +1,9 @@
 package io.github.apperk274.journeymen.build;
 
+import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
@@ -10,6 +12,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -23,30 +26,28 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.function.Predicate;
 
 public final class ClearingTask {
 
     private static final int BREAK_DELAY = 5;
+    private static final int MIN_BATCH = 4;
+    private static final int MAX_BATCH = 64;
 
     public enum Status {
         WORKING,
         NEEDS_DUMP,
         NEEDS_TOOL,
         BLOCKED,
+        IDLE,
         DONE
     }
 
     private final BuilderEntity builder;
     private final BuildJob job;
     private final ServerLevel level;
-    private final TreeMap<Integer, List<BlockPos>> remaining = new TreeMap<>(Comparator.reverseOrder());
-    private final Map<BlockPos, BlockState> targets;
-    private final Map<BlockState, Integer> requiredRemaining = new HashMap<>();
-    private final Set<BlockState> statesToClear = new HashSet<>();
-    private final List<BlockPos> skipped = new ArrayList<>();
-    private final int total;
+    private final ClearingWork work;
+    private final List<BlockPos> batch = new ArrayList<>();
     private int cleared;
 
     @Nullable
@@ -63,24 +64,16 @@ public final class ClearingTask {
     @Nullable
     private String neededToolDescription;
 
-    public ClearingTask(BuilderEntity builder, BuildJob job, List<BlockPos> toClear, List<BlockPos> fluids, Map<BlockPos, BlockState> targets) {
+    public ClearingTask(BuilderEntity builder, BuildJob job, ClearingWork work) {
         this.builder = builder;
         this.job = job;
         this.level = (ServerLevel) builder.level();
-        this.targets = targets;
+        this.work = work;
         this.reach = new Reach(job.getArea());
-        for (BlockPos pos : fluids) {
-            remaining.computeIfAbsent(pos.getY(), y -> new ArrayList<>()).add(pos);
-        }
-        for (BlockPos pos : toClear) {
-            remaining.computeIfAbsent(pos.getY(), y -> new ArrayList<>()).add(pos);
-            BlockState state = level.getBlockState(pos);
-            statesToClear.add(state);
-            if (ToolChoice.needsTool(state, level, pos)) {
-                requiredRemaining.merge(state, 1, Integer::sum);
-            }
-        }
-        this.total = toClear.size();
+    }
+
+    public ClearingWork getWork() {
+        return work;
     }
 
     public Status tick() {
@@ -89,14 +82,19 @@ public final class ClearingTask {
             return Status.WORKING;
         }
         if (target == null) {
+            neededTool = null;
             target = pickNext();
             if (target == null) {
                 builder.showInHand(ItemStack.EMPTY);
-                return Status.DONE;
+                if (work.isEmpty()) {
+                    return Status.DONE;
+                }
+                return neededTool != null ? Status.NEEDS_TOOL : Status.IDLE;
             }
+            job.getCrewWork().claim(target, builder.getUUID());
         }
         BlockState state = level.getBlockState(target);
-        BlockState wanted = targets.get(target);
+        BlockState wanted = work.targets.get(target);
         if (state.isAir() || wanted != null && StateRules.matches(wanted, state) && !(state.getBlock() instanceof LiquidBlock)) {
             finishTarget();
             return Status.WORKING;
@@ -107,7 +105,7 @@ public final class ClearingTask {
             return Status.BLOCKED;
         }
         if (state.getDestroySpeed(level, target) < 0.0F) {
-            skipped.add(target);
+            work.skipped.add(target);
             finishTarget();
             return Status.WORKING;
         }
@@ -117,14 +115,16 @@ public final class ClearingTask {
         builder.getNavigation().stop();
 
         Container inventory = builder.getInventory();
-        int slot = ToolChoice.choose(inventory, state, level, target, job.getOptions().allowBreakingEnchanted(), requiredRemaining);
+        int slot = ToolChoice.choose(inventory, state, level, target, job.getOptions().allowBreakingEnchanted(), work.requiredRemaining);
         if (slot == ToolChoice.NONE) {
-            BlockState needing = state;
-            BlockPos pos = target;
-            neededTool = stack -> stack.isCorrectToolForDrops(needing)
-                    && ToolCheck.usableDurability(stack, job.getOptions().allowBreakingEnchanted()) >= ToolCheck.damagePerBlock(stack, needing, level, pos);
-            neededToolDescription = "a tool that can mine " + state.getBlock().getName().getString() + " at " + target.toShortString();
+            needToolFor(state, target);
             resetProgress();
+            if (builder.inCrewMode()) {
+                job.getCrewWork().unclaim(target, builder.getUUID());
+                batch.remove(target);
+                target = null;
+                reach.reset();
+            }
             return Status.NEEDS_TOOL;
         }
         if (progress == 0.0F && !hasFreeSlot(inventory)) {
@@ -153,6 +153,12 @@ public final class ClearingTask {
         return Status.WORKING;
     }
 
+    private void needToolFor(BlockState state, BlockPos pos) {
+        neededTool = stack -> stack.isCorrectToolForDrops(state)
+                && ToolCheck.usableDurability(stack, job.getOptions().allowBreakingEnchanted()) >= ToolCheck.damagePerBlock(stack, state, level, pos);
+        neededToolDescription = "a tool that can mine " + state.getBlock().getName().getString() + " at " + pos.toShortString();
+    }
+
     private void breakTarget(BlockState state, int slot) {
         Container inventory = builder.getInventory();
         ItemStack tool = slot == ToolChoice.HAND ? ItemStack.EMPTY : inventory.getItem(slot);
@@ -169,10 +175,11 @@ public final class ClearingTask {
         builder.captureDrops(target);
         if (broken) {
             cleared++;
-            requiredRemaining.computeIfPresent(state, (key, count) -> count > 1 ? count - 1 : null);
+            work.cleared++;
+            work.requiredRemaining.computeIfPresent(state, (key, count) -> count > 1 ? count - 1 : null);
             builder.showInHand(slot == ToolChoice.HAND ? ItemStack.EMPTY : inventory.getItem(slot));
         } else {
-            skipped.add(target);
+            work.skipped.add(target);
         }
         finishTarget();
         cooldown = BREAK_DELAY;
@@ -180,10 +187,14 @@ public final class ClearingTask {
 
     @Nullable
     private BlockPos pickNext() {
-        while (!remaining.isEmpty()) {
-            List<BlockPos> layer = remaining.firstEntry().getValue();
+        if (builder.inCrewMode()) {
+            return crewPick();
+        }
+        batch.clear();
+        while (!work.remaining.isEmpty()) {
+            List<BlockPos> layer = work.remaining.firstEntry().getValue();
             if (layer.isEmpty()) {
-                remaining.pollFirstEntry();
+                work.remaining.pollFirstEntry();
                 continue;
             }
             return reach.choose(builder, layer, pos -> pos);
@@ -191,12 +202,77 @@ public final class ClearingTask {
         return null;
     }
 
+    @Nullable
+    private BlockPos crewPick() {
+        batch.removeIf(pos -> !work.contains(pos));
+        if (!batch.isEmpty()) {
+            return reach.choose(builder, batch, pos -> pos);
+        }
+        CrewWork crew = job.getCrewWork();
+        crew.keepOnly(builder.activeCrew());
+        crew.release(builder.getUUID());
+        Map<Long, Integer> top = new HashMap<>();
+        for (List<BlockPos> layer : work.remaining.values()) {
+            for (BlockPos pos : layer) {
+                top.putIfAbsent(ChunkPos.asLong(pos.getX(), pos.getZ()), pos.getY());
+            }
+        }
+        Map<BlockState, Boolean> breakable = new HashMap<>();
+        Set<Long> blocked = new HashSet<>();
+        for (List<BlockPos> layer : work.remaining.values()) {
+            List<BlockPos> candidates = new ArrayList<>();
+            for (BlockPos pos : layer) {
+                long column = ChunkPos.asLong(pos.getX(), pos.getZ());
+                if (crew.claimedByOther(pos, builder.getUUID()) || top.get(column) != pos.getY() || blocked.contains(column)) {
+                    continue;
+                }
+                if (canBreak(pos, breakable)) {
+                    candidates.add(pos);
+                } else if (neededTool == null) {
+                    needToolFor(level.getBlockState(pos), pos);
+                }
+            }
+            if (!candidates.isEmpty()) {
+                neededTool = null;
+                BlockPos first = reach.choose(builder, candidates, pos -> pos);
+                if (first == null) {
+                    return null;
+                }
+                candidates.remove(first);
+                candidates.sort(Comparator.comparingDouble(pos -> pos.distSqr(first)));
+                batch.add(first);
+                int members = builder.activeCrew().size();
+                int cap = Math.min(MAX_BATCH, Math.max(MIN_BATCH, (layer.size() + members - 1) / members));
+                for (BlockPos pos : candidates) {
+                    if (batch.size() >= cap) {
+                        break;
+                    }
+                    batch.add(pos);
+                }
+                batch.forEach(pos -> crew.claim(pos, builder.getUUID()));
+                if (Services.PLATFORM.isDevelopmentEnvironment()) {
+                    Constants.LOG.info("[crew] {}.{} claims {} blocks to clear", builder.getOwnerName(), builder.getBuilderName(), batch.size());
+                }
+                return first;
+            }
+        }
+        return null;
+    }
+
+    private boolean canBreak(BlockPos pos, Map<BlockState, Boolean> cache) {
+        BlockState state = level.getBlockState(pos);
+        if (state.isAir() || state.getBlock() instanceof LiquidBlock || state.getDestroySpeed(level, pos) < 0.0F) {
+            return true;
+        }
+        return cache.computeIfAbsent(state, key -> ToolChoice.choose(builder.getInventory(), key, level, pos,
+                job.getOptions().allowBreakingEnchanted(), work.requiredRemaining) != ToolChoice.NONE);
+    }
+
     private void finishTarget() {
         if (target != null) {
-            List<BlockPos> layer = remaining.get(target.getY());
-            if (layer != null) {
-                layer.remove(target);
-            }
+            work.remove(target);
+            batch.remove(target);
+            job.getCrewWork().unclaim(target, builder.getUUID());
         }
         target = null;
         resetProgress();
@@ -214,6 +290,14 @@ public final class ClearingTask {
     public void stop() {
         resetProgress();
         builder.showInHand(ItemStack.EMPTY);
+    }
+
+    public void releaseClaims() {
+        resetProgress();
+        target = null;
+        batch.clear();
+        reach.reset();
+        job.getCrewWork().release(builder.getUUID());
     }
 
     private static boolean hasFreeSlot(Container inventory) {
@@ -234,23 +318,23 @@ public final class ClearingTask {
     }
 
     public int getTotal() {
-        return total;
+        return work.getTotal();
     }
 
     public int getCleared() {
+        return work.getCleared();
+    }
+
+    public int getOwnCleared() {
         return cleared;
     }
 
     public int getRemaining() {
-        int count = 0;
-        for (List<BlockPos> layer : remaining.values()) {
-            count += layer.size();
-        }
-        return count;
+        return work.getRemaining();
     }
 
     public List<BlockPos> getSkipped() {
-        return skipped;
+        return work.getSkipped();
     }
 
     @Nullable
@@ -269,7 +353,7 @@ public final class ClearingTask {
     }
 
     public boolean isUsefulTool(ItemStack stack) {
-        return isUsefulTool(stack, statesToClear);
+        return isUsefulTool(stack, work.statesToClear);
     }
 
     public static Predicate<ItemStack> usefulTools(ServerLevel level, List<BlockPos> toClear) {

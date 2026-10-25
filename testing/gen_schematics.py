@@ -64,6 +64,10 @@ def tfc_shelf():
     return blocks
 
 
+def row():
+    return {(x, 0, 0): state("oak_planks") for x in range(60)}
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -72,6 +76,7 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_skip.schem"), (5, 1, 1), skip())
     write_sponge_v3(os.path.join(out, "test_hang.schem"), (3, 3, 3), hang())
     write_sponge_v3(os.path.join(out, "test_missing.schem"), (4, 2, 4), missing())
+    write_sponge_v3(os.path.join(out, "test_row.schem"), (60, 1, 1), row())
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
 

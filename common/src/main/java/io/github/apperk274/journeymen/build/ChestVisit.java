@@ -44,6 +44,7 @@ public final class ChestVisit {
     private final Predicate<ItemStack> wanted;
     @Nullable
     private final ItemCounter amounts;
+    private final boolean oneEach;
     private boolean open;
     private int timer;
     private int walkTicks;
@@ -53,27 +54,32 @@ public final class ChestVisit {
     @Nullable
     private Problem problem;
 
-    private ChestVisit(Kind kind, BlockPos chest, Predicate<ItemStack> wanted, @Nullable ItemCounter amounts) {
+    private ChestVisit(Kind kind, BlockPos chest, Predicate<ItemStack> wanted, @Nullable ItemCounter amounts, boolean oneEach) {
         this.kind = kind;
         this.chest = chest;
         this.wanted = wanted;
         this.amounts = amounts;
+        this.oneEach = oneEach;
     }
 
     public static ChestVisit dump(BlockPos chest) {
-        return new ChestVisit(Kind.DUMP, chest, stack -> true, null);
+        return new ChestVisit(Kind.DUMP, chest, stack -> true, null, false);
     }
 
     public static ChestVisit fetch(BlockPos chest, Predicate<ItemStack> wanted) {
-        return new ChestVisit(Kind.FETCH, chest, wanted, null);
+        return new ChestVisit(Kind.FETCH, chest, wanted, null, false);
+    }
+
+    public static ChestVisit fetchOneEach(BlockPos chest, Predicate<ItemStack> wanted) {
+        return new ChestVisit(Kind.FETCH, chest, wanted, null, true);
     }
 
     public static ChestVisit store(BlockPos chest, ItemCounter keep) {
-        return new ChestVisit(Kind.STORE, chest, stack -> true, keep);
+        return new ChestVisit(Kind.STORE, chest, stack -> true, keep, false);
     }
 
     public static ChestVisit fetchAmounts(BlockPos chest, ItemCounter amounts) {
-        return new ChestVisit(Kind.FETCH, chest, stack -> amounts.count(stack) > 0, amounts);
+        return new ChestVisit(Kind.FETCH, chest, stack -> amounts.count(stack) > 0, amounts, false);
     }
 
     public Kind getKind() {
@@ -141,7 +147,7 @@ public final class ChestVisit {
         } else if (amounts != null) {
             builder.fetchAmounts(store, amounts);
         } else {
-            builder.fetchFrom(store, wanted);
+            builder.fetchFrom(store, wanted, oneEach);
         }
         store.setChanged();
         setOpen(level, false);

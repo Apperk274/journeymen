@@ -60,6 +60,7 @@ public final class BuildJob {
     private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
     private final List<BlockPos> unclearable = new ArrayList<>();
     private final Set<BlockPos> skippedPositions = new LinkedHashSet<>();
+    private final CrewWork crewWork = new CrewWork();
 
     public BuildJob(UUID id, ResourceKey<Level> dimension, String file, BlockPos origin, Rotation rotation, BuildOptions options, BoundingBox area) {
         this.id = id;
@@ -165,6 +166,10 @@ public final class BuildJob {
 
     public Set<BlockPos> getSkippedPositions() {
         return skippedPositions;
+    }
+
+    public CrewWork getCrewWork() {
+        return crewWork;
     }
 
     public PlacementTransform transform() {

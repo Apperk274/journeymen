@@ -1,0 +1,126 @@
+forceload add 1600 1600 1710 1710
+kill @e[type=journeymen:builder]
+ticks 40
+fill 1600 99 1600 1710 99 1710 minecraft:grass_block
+fill 1600 100 1600 1710 101 1710 minecraft:air
+fill 1600 102 1600 1710 103 1710 minecraft:air
+fill 1600 104 1600 1710 105 1710 minecraft:air
+fill 1600 106 1600 1710 108 1710 minecraft:air
+kill @e[type=item]
+setblock 1620 100 1617 minecraft:chest[facing=north,type=right]
+setblock 1621 100 1617 minecraft:chest[facing=north,type=left]
+setblock 1636 100 1637 minecraft:chest[facing=north,type=right]
+setblock 1637 100 1637 minecraft:chest[facing=north,type=left]
+setblock 1660 100 1656 minecraft:chest[facing=north,type=right]
+setblock 1661 100 1656 minecraft:chest[facing=north,type=left]
+setblock 1664 100 1656 minecraft:chest[facing=north,type=right]
+setblock 1665 100 1656 minecraft:chest[facing=north,type=left]
+setblock 1668 100 1656 minecraft:chest
+fill 1610 100 1660 1618 102 1668 minecraft:stone
+setblock 1614 102 1664 minecraft:obsidian
+setblock 1606 100 1662 minecraft:chest
+setblock 1606 100 1666 minecraft:chest
+journeymen debug as Steve 2 1624 100 1617 journeymen builder summon Cole
+journeymen debug as Steve 2 1622 100 1616 journeymen builder summon Cora
+journeymen debug as Steve 2 1638 100 1638 journeymen builder summon Fay
+journeymen debug as Steve 2 1639 100 1636 journeymen builder summon Fin
+journeymen debug as Steve 2 1641 100 1637 journeymen builder summon Flo
+journeymen debug as Steve 2 1662 100 1657 journeymen builder summon Sol
+journeymen debug as Steve 2 1664 100 1658 journeymen builder summon Sam
+journeymen debug as Steve 2 1666 100 1657 journeymen builder summon Sid
+journeymen debug as Steve 2 1668 100 1658 journeymen builder summon Sue
+journeymen debug as Steve 2 1604 100 1664 journeymen builder summon Cal
+journeymen debug as Steve 2 1604 100 1667 journeymen builder summon Cam
+journeymen debug as Steve 2 1603 100 1661 journeymen builder summon Cat
+journeymen debug as Steve 0 1624 100 1617 journeymen builder chest Cole add 1620 100 1617 supply
+journeymen debug as Steve 0 1638 100 1638 journeymen builder chest Fay add 1636 100 1637 supply
+journeymen debug as Steve 0 1662 100 1657 journeymen builder chest Sol add 1660 100 1656 supply
+journeymen debug as Steve 0 1662 100 1657 journeymen builder chest Sol add 1664 100 1656 supply
+journeymen debug as Steve 0 1662 100 1657 journeymen builder chest Sue add 1668 100 1656 dump
+journeymen debug as Steve 0 1604 100 1664 journeymen builder chest Cal add 1606 100 1662 supply
+journeymen debug as Steve 0 1604 100 1664 journeymen builder chest Cam add 1606 100 1666 dump
+journeymen debug as Steve 2 1624 100 1617 journeymen builder supply Cole cottage.schem 1625 100 1620
+journeymen debug as Steve 2 1638 100 1638 journeymen builder supply Fay wheat_farm.nbt 1640 100 1640
+journeymen debug as Steve 2 1662 100 1657 journeymen builder supply Sol test_solid.schem 1660 100 1660 none corner
+journeymen debug as Steve 2 1604 100 1664 journeymen builder supply Cal clear_area.schem 1610 100 1660 none corner
+waitlog x4 \] Supplied \d+ items
+journeymen debug as Steve 0 1624 100 1617 journeymen builder build Cole,Cora cottage.schem 1625 100 1620
+journeymen debug as Steve 0 1638 100 1638 journeymen builder build Fay,Fin,Flo wheat_farm.nbt 1640 100 1640
+journeymen debug as Steve 0 1662 100 1657 journeymen builder build Sol,Sam,Sid,Sue test_solid.schem 1660 100 1660 none corner
+journeymen debug as Steve 0 1604 100 1664 journeymen builder build Cal,Cam,Cat clear_area.schem 1610 100 1660 none corner
+waitlog x4 are on the way !!
+waitlog 30 x4 \[Steve\.\w+\] I finished building (cottage\.schem|wheat_farm\.nbt|test_solid\.schem|clear_area\.schem) !! \] I'm missing |\] I need |can't start this job|Exception|which another builder claimed
+waitlog x1 \[crew\] Steve\.(Cal|Cam|Cat) claims \d+ blocks to clear
+mark
+journeymen debug as Steve 0 1624 100 1617 journeymen builder check Cole cottage.schem 1625 100 1620
+journeymen debug as Steve 0 1638 100 1638 journeymen builder check Fay wheat_farm.nbt 1640 100 1640
+journeymen debug as Steve 0 1662 100 1657 journeymen builder check Sol test_solid.schem 1660 100 1660 none corner
+journeymen debug as Steve 0 1604 100 1664 journeymen builder check Cal clear_area.schem 1610 100 1660 none corner
+waitlog 10 x4 0 to clear, 0 to place, 0 to adjust
+setblock 1608 100 1692 minecraft:chest
+item replace block 1608 100 1692 container.0 with minecraft:oak_planks 50
+journeymen debug as Steve 2 1606 100 1690 journeymen builder summon Rae
+journeymen debug as Steve 2 1606 100 1694 journeymen builder summon Ray
+journeymen debug as Steve 0 1606 100 1690 journeymen builder chest Rae add 1608 100 1692 supply
+mark
+journeymen debug as Steve 0 1606 100 1690 journeymen builder build Rae,Ray test_row.schem 1610 100 1690 none corner skip-missing
+waitlog Rae and Ray are on the way !!
+waitlog \[crew\] Steve\.(Rae|Ray) claims 30 blocks and reserves 30 Oak Planks
+waitlog \[crew\] Steve\.(Rae|Ray) claims 20 blocks and reserves 20 Oak Planks
+waitlog 20 \[Steve\.(Rae|Ray)\] I couldn't build 10 block\(s\) of test_row\.schem !! Exception|which another builder claimed
+waitlog \[Steve\.(Rae|Ray)\] I finished building test_row\.schem
+execute if block 1660 100 1690 minecraft:air
+execute if block 1659 100 1690 minecraft:oak_planks
+setblock 1675 100 1606 minecraft:chest[facing=north,type=right]
+setblock 1676 100 1606 minecraft:chest[facing=north,type=left]
+setblock 1678 100 1606 minecraft:chest[facing=north,type=right]
+setblock 1679 100 1606 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 1677 100 1608 journeymen builder summon Lea
+journeymen debug as Steve 2 1679 100 1608 journeymen builder summon Lou
+journeymen debug as Steve 2 1681 100 1608 journeymen builder summon Lux
+journeymen debug as Steve 0 1677 100 1608 journeymen builder chest Lea add 1675 100 1606 supply
+journeymen debug as Steve 0 1677 100 1608 journeymen builder chest Lea add 1678 100 1606 supply
+journeymen debug as Steve 2 1677 100 1608 journeymen builder supply Lea test_box.schem 1680 100 1610 none corner
+journeymen debug as Steve 2 1677 100 1608 journeymen builder supply Lea test_box.schem 1680 100 1610 none corner
+waitlog x2 \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 1677 100 1608 journeymen builder build Lea,Lou,Lux test_box.schem 1680 100 1610 none corner
+waitlog Lea, Lou and Lux are on the way !!
+waitfor 10 journeymen builder status Steve.Lea =~ placing ([4-9]\d|\d{3})/
+journeymen debug as Steve 0 1677 100 1608 journeymen builder leave Lou
+journeymen debug as Steve 0 1700 100 1600 journeymen builder come Lou
+kill @e[type=journeymen:builder,name=Lux]
+waitlog 20 \[Steve\.Lea\] I finished building test_box\.schem !!
+mark
+journeymen debug as Steve 0 1677 100 1608 journeymen builder check Lea test_box.schem 1680 100 1610 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+fill 1680 100 1610 1692 104 1622 minecraft:air
+setblock 1675 100 1606 minecraft:chest[facing=north,type=right]
+setblock 1676 100 1606 minecraft:chest[facing=north,type=left]
+setblock 1678 100 1606 minecraft:chest[facing=north,type=right]
+setblock 1679 100 1606 minecraft:chest[facing=north,type=left]
+data modify block 1675 100 1606 Items set value []
+data modify block 1676 100 1606 Items set value []
+data modify block 1678 100 1606 Items set value []
+data modify block 1679 100 1606 Items set value []
+kill @e[type=item]
+journeymen debug as Steve 2 1677 100 1608 journeymen builder summon Mia
+journeymen debug as Steve 0 1677 100 1608 journeymen builder chest Mia add 1675 100 1606 supply
+journeymen debug as Steve 0 1677 100 1608 journeymen builder chest Mia add 1678 100 1606 supply
+journeymen debug as Steve 2 1677 100 1608 journeymen builder supply Mia test_box.schem 1680 100 1610 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 1677 100 1608 journeymen builder build Mia,Lea test_box.schem 1680 100 1610 none corner
+waitlog Mia and Lea are on the way !!
+waitfor 10 journeymen builder status Steve.Mia =~ placing ([4-9]\d|\d{3})/
+data modify block 1675 100 1606 Items set value []
+data modify block 1676 100 1606 Items set value []
+data modify block 1678 100 1606 Items set value []
+data modify block 1679 100 1606 Items set value []
+waitlog 20 \[Steve\.(Mia|Lea)\] I'm missing \d+
+journeymen debug as Steve 2 1677 100 1608 journeymen builder supply Mia missing-only
+waitlog \] Supplied \d+ missing items
+waitlog 20 \[Steve\.(Mia|Lea)\] I finished building test_box\.schem !! Exception|which another builder claimed
+mark
+journeymen debug as Steve 0 1677 100 1608 journeymen builder check Mia test_box.schem 1680 100 1610 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust

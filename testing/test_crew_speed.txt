@@ -1,0 +1,207 @@
+forceload add 1990 2010 2030 2060
+forceload add 2100 2100 2145 2145
+forceload add 2200 2200 2230 2230
+kill @e[type=journeymen:builder]
+ticks 20
+fill 2200 99 2200 2230 99 2230 minecraft:grass_block
+fill 2200 100 2200 2230 106 2230 minecraft:air
+kill @e[type=item]
+setblock 2205 100 2204 minecraft:chest[facing=north,type=right]
+setblock 2206 100 2204 minecraft:chest[facing=north,type=left]
+setblock 2208 100 2204 minecraft:chest[facing=north,type=right]
+setblock 2209 100 2204 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2207 100 2206 journeymen builder summon Pia
+journeymen debug as Steve 0 2207 100 2206 journeymen builder chest Pia add 2205 100 2204 supply
+journeymen debug as Steve 0 2207 100 2206 journeymen builder chest Pia add 2208 100 2204 supply
+mark
+journeymen debug as Steve 2 2207 100 2206 journeymen builder supply Pia test_box.schem 2210 100 2210 none corner
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2207 100 2206 journeymen builder build Pia test_box.schem 2210 100 2210 none corner
+waitlog 120 \[Steve\.\w+\] I finished building test_box !!
+mark
+journeymen debug as Steve 0 2207 100 2206 journeymen builder check Pia test_box.schem 2210 100 2210 none corner
+waitlog 10 0 to clear, 0 to place
+kill @e[type=journeymen:builder]
+ticks 20
+fill 2200 99 2200 2230 99 2230 minecraft:grass_block
+fill 2200 100 2200 2230 106 2230 minecraft:air
+kill @e[type=item]
+setblock 2205 100 2204 minecraft:chest[facing=north,type=right]
+setblock 2206 100 2204 minecraft:chest[facing=north,type=left]
+setblock 2208 100 2204 minecraft:chest[facing=north,type=right]
+setblock 2209 100 2204 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2207 100 2206 journeymen builder summon Pia
+journeymen debug as Steve 2 2208 100 2206 journeymen builder summon Pat
+journeymen debug as Steve 0 2207 100 2206 journeymen builder chest Pia add 2205 100 2204 supply
+journeymen debug as Steve 0 2207 100 2206 journeymen builder chest Pia add 2208 100 2204 supply
+mark
+journeymen debug as Steve 2 2207 100 2206 journeymen builder supply Pia test_box.schem 2210 100 2210 none corner
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2207 100 2206 journeymen builder build Pia,Pat test_box.schem 2210 100 2210 none corner
+waitlog 120 \[Steve\.\w+\] I finished building test_box !!
+mark
+journeymen debug as Steve 0 2207 100 2206 journeymen builder check Pia test_box.schem 2210 100 2210 none corner
+waitlog 10 0 to clear, 0 to place
+kill @e[type=journeymen:builder]
+ticks 20
+fill 2200 99 2200 2230 99 2230 minecraft:grass_block
+fill 2200 100 2200 2230 106 2230 minecraft:air
+kill @e[type=item]
+setblock 2205 100 2204 minecraft:chest[facing=north,type=right]
+setblock 2206 100 2204 minecraft:chest[facing=north,type=left]
+setblock 2208 100 2204 minecraft:chest[facing=north,type=right]
+setblock 2209 100 2204 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2207 100 2206 journeymen builder summon Pia
+journeymen debug as Steve 2 2208 100 2206 journeymen builder summon Pat
+journeymen debug as Steve 2 2209 100 2206 journeymen builder summon Pen
+journeymen debug as Steve 2 2210 100 2206 journeymen builder summon Pip
+journeymen debug as Steve 0 2207 100 2206 journeymen builder chest Pia add 2205 100 2204 supply
+journeymen debug as Steve 0 2207 100 2206 journeymen builder chest Pia add 2208 100 2204 supply
+mark
+journeymen debug as Steve 2 2207 100 2206 journeymen builder supply Pia test_box.schem 2210 100 2210 none corner
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2207 100 2206 journeymen builder build Pia,Pat,Pen,Pip test_box.schem 2210 100 2210 none corner
+waitlog 120 \[Steve\.\w+\] I finished building test_box !!
+mark
+journeymen debug as Steve 0 2207 100 2206 journeymen builder check Pia test_box.schem 2210 100 2210 none corner
+waitlog 10 0 to clear, 0 to place
+kill @e[type=journeymen:builder]
+ticks 20
+fill 2100 99 2100 2145 99 2145 minecraft:grass_block
+fill 2100 100 2100 2145 106 2145 minecraft:air
+kill @e[type=item]
+setblock 2110 100 2106 minecraft:chest[facing=north,type=right]
+setblock 2111 100 2106 minecraft:chest[facing=north,type=left]
+setblock 2114 100 2106 minecraft:chest[facing=north,type=right]
+setblock 2115 100 2106 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2112 100 2107 journeymen builder summon Pia
+journeymen debug as Steve 0 2112 100 2107 journeymen builder chest Pia add 2110 100 2106 supply
+journeymen debug as Steve 0 2112 100 2107 journeymen builder chest Pia add 2114 100 2106 supply
+mark
+journeymen debug as Steve 2 2112 100 2107 journeymen builder supply Pia test_solid.schem 2110 100 2110 none corner
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2112 100 2107 journeymen builder build Pia test_solid.schem 2110 100 2110 none corner
+waitlog 120 \[Steve\.\w+\] I finished building test_solid !!
+mark
+journeymen debug as Steve 0 2112 100 2107 journeymen builder check Pia test_solid.schem 2110 100 2110 none corner
+waitlog 10 0 to clear, 0 to place
+kill @e[type=journeymen:builder]
+ticks 20
+fill 2100 99 2100 2145 99 2145 minecraft:grass_block
+fill 2100 100 2100 2145 106 2145 minecraft:air
+kill @e[type=item]
+setblock 2110 100 2106 minecraft:chest[facing=north,type=right]
+setblock 2111 100 2106 minecraft:chest[facing=north,type=left]
+setblock 2114 100 2106 minecraft:chest[facing=north,type=right]
+setblock 2115 100 2106 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2112 100 2107 journeymen builder summon Pia
+journeymen debug as Steve 2 2113 100 2107 journeymen builder summon Pat
+journeymen debug as Steve 0 2112 100 2107 journeymen builder chest Pia add 2110 100 2106 supply
+journeymen debug as Steve 0 2112 100 2107 journeymen builder chest Pia add 2114 100 2106 supply
+mark
+journeymen debug as Steve 2 2112 100 2107 journeymen builder supply Pia test_solid.schem 2110 100 2110 none corner
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2112 100 2107 journeymen builder build Pia,Pat test_solid.schem 2110 100 2110 none corner
+waitlog 120 \[Steve\.\w+\] I finished building test_solid !!
+mark
+journeymen debug as Steve 0 2112 100 2107 journeymen builder check Pia test_solid.schem 2110 100 2110 none corner
+waitlog 10 0 to clear, 0 to place
+kill @e[type=journeymen:builder]
+ticks 20
+fill 2100 99 2100 2145 99 2145 minecraft:grass_block
+fill 2100 100 2100 2145 106 2145 minecraft:air
+kill @e[type=item]
+setblock 2110 100 2106 minecraft:chest[facing=north,type=right]
+setblock 2111 100 2106 minecraft:chest[facing=north,type=left]
+setblock 2114 100 2106 minecraft:chest[facing=north,type=right]
+setblock 2115 100 2106 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2112 100 2107 journeymen builder summon Pia
+journeymen debug as Steve 2 2113 100 2107 journeymen builder summon Pat
+journeymen debug as Steve 2 2114 100 2107 journeymen builder summon Pen
+journeymen debug as Steve 2 2115 100 2107 journeymen builder summon Pip
+journeymen debug as Steve 0 2112 100 2107 journeymen builder chest Pia add 2110 100 2106 supply
+journeymen debug as Steve 0 2112 100 2107 journeymen builder chest Pia add 2114 100 2106 supply
+mark
+journeymen debug as Steve 2 2112 100 2107 journeymen builder supply Pia test_solid.schem 2110 100 2110 none corner
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2112 100 2107 journeymen builder build Pia,Pat,Pen,Pip test_solid.schem 2110 100 2110 none corner
+waitlog 120 \[Steve\.\w+\] I finished building test_solid !!
+mark
+journeymen debug as Steve 0 2112 100 2107 journeymen builder check Pia test_solid.schem 2110 100 2110 none corner
+waitlog 10 0 to clear, 0 to place
+kill @e[type=journeymen:builder]
+ticks 20
+fill 1996 99 2016 2025 99 2058 minecraft:grass_block
+fill 1996 100 2016 2025 116 2040 minecraft:air
+fill 1996 100 2041 2025 116 2058 minecraft:air
+kill @e[type=item]
+setblock 1998 100 2018 minecraft:chest[facing=north,type=right]
+setblock 1999 100 2018 minecraft:chest[facing=north,type=left]
+setblock 2002 100 2018 minecraft:chest[facing=north,type=right]
+setblock 2003 100 2018 minecraft:chest[facing=north,type=left]
+setblock 2006 100 2018 minecraft:chest[facing=north,type=right]
+setblock 2007 100 2018 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2000 100 2017 journeymen builder summon Pia
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 1998 100 2018 supply
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 2002 100 2018 supply
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 2006 100 2018 supply
+mark
+journeymen debug as Steve 2 2000 100 2017 journeymen builder supply Pia Blacksmith_1339748.schematic 2000 100 2020
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2000 100 2017 journeymen builder build Pia Blacksmith_1339748.schematic 2000 100 2020
+waitlog 120 \[Steve\.\w+\] I finished building Blacksmith !!
+mark
+journeymen debug as Steve 0 2000 100 2017 journeymen builder check Pia Blacksmith_1339748.schematic 2000 100 2020
+waitlog 10 \d+ to clear, \d+ to place
+kill @e[type=journeymen:builder]
+ticks 20
+fill 1996 99 2016 2025 99 2058 minecraft:grass_block
+fill 1996 100 2016 2025 116 2040 minecraft:air
+fill 1996 100 2041 2025 116 2058 minecraft:air
+kill @e[type=item]
+setblock 1998 100 2018 minecraft:chest[facing=north,type=right]
+setblock 1999 100 2018 minecraft:chest[facing=north,type=left]
+setblock 2002 100 2018 minecraft:chest[facing=north,type=right]
+setblock 2003 100 2018 minecraft:chest[facing=north,type=left]
+setblock 2006 100 2018 minecraft:chest[facing=north,type=right]
+setblock 2007 100 2018 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2000 100 2017 journeymen builder summon Pia
+journeymen debug as Steve 2 2001 100 2017 journeymen builder summon Pat
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 1998 100 2018 supply
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 2002 100 2018 supply
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 2006 100 2018 supply
+mark
+journeymen debug as Steve 2 2000 100 2017 journeymen builder supply Pia Blacksmith_1339748.schematic 2000 100 2020
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2000 100 2017 journeymen builder build Pia,Pat Blacksmith_1339748.schematic 2000 100 2020
+waitlog 120 \[Steve\.\w+\] I finished building Blacksmith !!
+mark
+journeymen debug as Steve 0 2000 100 2017 journeymen builder check Pia Blacksmith_1339748.schematic 2000 100 2020
+waitlog 10 \d+ to clear, \d+ to place
+kill @e[type=journeymen:builder]
+ticks 20
+fill 1996 99 2016 2025 99 2058 minecraft:grass_block
+fill 1996 100 2016 2025 116 2040 minecraft:air
+fill 1996 100 2041 2025 116 2058 minecraft:air
+kill @e[type=item]
+setblock 1998 100 2018 minecraft:chest[facing=north,type=right]
+setblock 1999 100 2018 minecraft:chest[facing=north,type=left]
+setblock 2002 100 2018 minecraft:chest[facing=north,type=right]
+setblock 2003 100 2018 minecraft:chest[facing=north,type=left]
+setblock 2006 100 2018 minecraft:chest[facing=north,type=right]
+setblock 2007 100 2018 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2000 100 2017 journeymen builder summon Pia
+journeymen debug as Steve 2 2001 100 2017 journeymen builder summon Pat
+journeymen debug as Steve 2 2002 100 2017 journeymen builder summon Pen
+journeymen debug as Steve 2 2003 100 2017 journeymen builder summon Pip
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 1998 100 2018 supply
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 2002 100 2018 supply
+journeymen debug as Steve 0 2000 100 2017 journeymen builder chest Pia add 2006 100 2018 supply
+mark
+journeymen debug as Steve 2 2000 100 2017 journeymen builder supply Pia Blacksmith_1339748.schematic 2000 100 2020
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 2000 100 2017 journeymen builder build Pia,Pat,Pen,Pip Blacksmith_1339748.schematic 2000 100 2020
+waitlog 120 \[Steve\.\w+\] I finished building Blacksmith !!
+mark
+journeymen debug as Steve 0 2000 100 2017 journeymen builder check Pia Blacksmith_1339748.schematic 2000 100 2020
+waitlog 10 \d+ to clear, \d+ to place
