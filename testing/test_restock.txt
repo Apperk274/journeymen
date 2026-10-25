@@ -53,7 +53,7 @@ ticks 60
 journeymen debug as Steve 0 497 100 497 journeymen builder chest Rex add 495 100 495 supply
 journeymen debug as Steve 0 497 100 497 journeymen builder chest Rex add 492 100 495 dump
 journeymen debug as Steve 0 497 100 497 journeymen builder build Rex test_restock.schem 500 100 500 none corner
-waitlog 30 nosprint Rex is on the way !!
+waitlog nosprint Rex is on the way !!
 ticks 1800
 journeymen debug as Steve 0 497 100 497 journeymen builder status Rex
 data get block 492 100 495 Items

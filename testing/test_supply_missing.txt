@@ -16,7 +16,7 @@ journeymen debug as Steve 2 1106 100 1106 journeymen builder summon Supi
 journeymen debug as Steve 2 1106 100 1106 journeymen builder chest Supi add 1104 100 1104 supply
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen builder supply Supi test_missing.schem 1110 100 1110 none corner missing-only
-waitlog 30 nosprint Supplied 23 missing items for test_missing.schem: 23 into Supi's supply chests\.$ !! Not enough room|Could not load
+waitlog nosprint Supplied 23 missing items for test_missing.schem: 23 into Supi's supply chests\.$ !! Not enough room|Could not load
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[{Slot:0b,id:"minecraft:stone_bricks",count:16}] =~ passed
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[{id:"minecraft:oak_planks",count:15}] =~ passed
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[{id:"minecraft:diamond_pickaxe"}] =~ passed
@@ -25,10 +25,10 @@ waitfor 5 nosprint execute if data block 1104 100 1104 Items[5] =~ passed
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[6] =~ failed
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen builder check Supi test_missing.schem 1110 100 1110 none corner
-waitlog 30 nosprint Everything is ready !! \] ✗
+waitlog nosprint Everything is ready !! \] ✗
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen builder supply Supi test_missing.schem 1110 100 1110 none corner missing-only
-waitlog 30 nosprint Nothing is missing for test_missing.schem !! Supplied|Not enough room
+waitlog nosprint Nothing is missing for test_missing.schem !! Supplied|Not enough room
 setblock 1104 100 1104 minecraft:air
 setblock 1104 100 1104 minecraft:chest
 item replace block 1104 100 1104 container.1 with minecraft:cobblestone 64
@@ -60,7 +60,7 @@ item replace block 1104 100 1104 container.26 with minecraft:cobblestone 64
 journeymen debug as Steve 2 1106 100 1106 give @s minecraft:cobblestone 2304
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen builder supply Supi test_missing.schem 1110 100 1110 none corner missing-only
-waitlog 30 nosprint Not enough room: 18 of 34 items don't fit \(they don't fit in Supi's supply chests or your inventory\)\. Nothing was given\. !! Supplied
+waitlog nosprint Not enough room: 18 of 34 items don't fit \(they don't fit in Supi's supply chests or your inventory\)\. Nothing was given\. !! Supplied
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[{Slot:0b}] =~ failed
 journeymen debug as Steve 2 1106 100 1106 clear @s
 setblock 1104 100 1104 minecraft:air
@@ -74,16 +74,16 @@ journeymen debug as Steve 2 1106 100 1106 journeymen builder supply Supi missing
 tick freeze
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen builder build Supi test_missing.schem 1110 100 1110 none corner skip-missing
-waitlog 30 nosprint Supi is on the way !!
+waitlog nosprint Supi is on the way !!
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen builder supply Supi missing-only
-waitlog 30 nosprint Supplied 27 missing items for test_missing.schem: 27 into Supi's supply chests\.$ !! Not enough room|Could not load
+waitlog nosprint Supplied 27 missing items for test_missing.schem: 27 into Supi's supply chests\.$ !! Not enough room|Could not load
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[{Slot:0b,id:"minecraft:stone_bricks",count:16}] =~ passed
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[{id:"minecraft:oak_planks",count:15}] =~ passed
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[6] =~ failed
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen builder supply Supi missing-only
-waitlog 30 nosprint Nothing is missing for test_missing.schem !! Supplied|Not enough room
+waitlog nosprint Nothing is missing for test_missing.schem !! Supplied|Not enough room
 journeymen debug as Steve 2 1106 100 1106 journeymen builder cancel Supi
 tick unfreeze
 setblock 1104 100 1104 minecraft:air
@@ -98,10 +98,10 @@ waitfor 5 nosprint execute if data block 1104 100 1104 Items[3] =~ failed
 journeymen debug gamemode Steve creative
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen debug action @e[type=journeymen:builder,name=Supi,limit=1] supply_missing 1110 100 1110 test_missing.schem|none|corner
-waitlog 30 nosprint \[supply\] Steve for Supi: Supplied 23 missing items for test_missing.schem: 23 into Supi's supply chests\. The check passes now\. !! \[supply\]
+waitlog nosprint \[supply\] Steve for Supi: Supplied 23 missing items for test_missing.schem: 23 into Supi's supply chests\. The check passes now\. !! \[supply\]
 journeymen debug gamemode Steve survival
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[5] =~ passed
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[6] =~ failed
 mark
 journeymen debug as Steve 2 1106 100 1106 journeymen builder check Supi test_missing.schem 1110 100 1110 none corner
-waitlog 30 nosprint Everything is ready !! \] ✗
+waitlog nosprint Everything is ready !! \] ✗

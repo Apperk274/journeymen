@@ -33,7 +33,7 @@ journeymen debug as Steve 2 811.5 100 830.5 journeymen builder summon Box
 journeymen debug as Steve 0 811 100 830 journeymen builder chest Box add 800 100 832 supply
 journeymen debug as Steve 0 811 100 830 journeymen builder chest Box add 803 100 832 dump
 journeymen debug as Steve 2 811 100 830 journeymen builder supply Box test_box.schem 805 100 835 none corner
-waitlog 60 x3 \] Supplied \d+ items
+waitlog x3 \] Supplied \d+ items
 journeymen debug as Steve 0 820 100 820 journeymen builder build Ann cottage.schem 830 100 805
 journeymen debug as Steve 0 860 96 860 journeymen builder build Ben clear_area.schem 830 100 850
 journeymen debug as Steve 0 870 96 820 journeymen builder build Cal redstone_demo.nbt 850 100 820
@@ -48,7 +48,7 @@ journeymen builder status Steve.Dot
 ticks 600
 journeymen builder list all
 journeymen builder status Steve.Ann
-waitlog 120 x3 \[Steve\.(Ann|Ben|Cal)\] I finished building !!
+waitlog x3 \[Steve\.(Ann|Ben|Cal)\] I finished building !!
 journeymen builder list all
 journeymen builder status Steve.Ann
 journeymen builder status Steve.Ben
@@ -61,4 +61,4 @@ journeymen debug as Steve 0 820 100 820 journeymen builder check Ann cottage.sch
 journeymen debug as Steve 0 860 96 860 journeymen builder check Ben clear_area.schem 830 100 850
 journeymen debug as Steve 0 870 96 820 journeymen builder check Cal redstone_demo.nbt 850 100 820
 journeymen debug as Steve 0 811 100 830 journeymen builder check Box test_box.schem 805 100 835 none corner
-waitlog 60 x4 \d+ to clear, \d+ to place
+waitlog x4 \d+ to clear, \d+ to place

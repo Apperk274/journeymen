@@ -25,12 +25,12 @@ journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 211 20
 journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 214 200 2 supply
 journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 217 200 2 supply
 journeymen debug as Steve 2 207 200 5 journeymen builder supply Smitty TFC_Smithy_Complex.schem 210 200 20 none corner
-waitlog 60 \] Supplied \d+ items
+waitlog \] Supplied \d+ items
 journeymen debug as Steve 0 207 200 5 journeymen builder build Smitty TFC_Smithy_Complex.schem 210 200 20 none corner skip-unplaceable
-waitlog 30 \[Steve\.Smitty\] I finished building !!
+waitlog 20 \[Steve\.Smitty\] I finished building !!
 journeymen builder status Steve.Smitty
 execute if block 247 203 46 tfc:fire_brick_shelf[facing=north]
 execute if block 250 203 46 tfc:fire_brick_shelf[facing=north]
 mark
 journeymen debug as Steve 0 207 200 5 journeymen builder check Smitty TFC_Smithy_Complex.schem 210 200 20 none corner skip-unplaceable
-waitlog 60 \d+ to clear, \d+ to place
+waitlog \d+ to clear, \d+ to place

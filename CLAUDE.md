@@ -23,7 +23,7 @@ testing\run_regress.ps1 -Loaders neoforge                                       
 testing\smoke.ps1 -Loader fabric                                                      # dev client starts without crashing
 ```
 
-- Never use real-time `sleep` in test or investigation command files. Use the harness's sprinting waits (`ticks`, `waitlog`, `waitfor`) so the server runs as fast as it can; use `nosprint` only when real time is genuinely needed, and say why in your report.
+- Never use real-time `sleep` in test or investigation command files (the harness rejects it). Use the sprinting waits (`ticks`, `waitlog`, `waitfor`) so the server runs as fast as it can; use `nosprint` or `realsleep` only when real time is genuinely needed, and say why in your report.
 - While working on a change, run only the relevant suite on one loader. Run the full regression on all loaders (NeoForge, Fabric, TFC) once at the end.
 - Never chain several server runs in one shell command that could exceed the tool's 10-minute limit; run them as separate commands (e.g. `run_regress.ps1` once per loader).
 - Stop every background process, watcher, server and client you start before finishing, kill leftover dev `java.exe`, and leave RCON off. `server_test.ps1` turns RCON on and restores `server.properties` itself.

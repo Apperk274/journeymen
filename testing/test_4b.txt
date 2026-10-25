@@ -29,12 +29,12 @@ journeymen debug as Alex 2 302 100 302 journeymen debug use 302 100 305
 journeymen debug as Alex 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] follow ~ ~ ~ -
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] remove_chest 305 100 305 -
 journeymen debug as Steve 2 302 100 302 journeymen builder supply Gustav wheat_farm.nbt 310 100 310
-waitlog 60 \] Supplied \d+ items
+waitlog \] Supplied \d+ items
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] check 310 100 310 wheat_farm.nbt|none|
 ticks 40
 journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] start 310 100 310 wheat_farm.nbt|clockwise_90|corner
-waitfor 60 journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav =~ Job: wheat_farm
+waitfor journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav =~ Job: wheat_farm
 journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] follow ~ ~ ~ -
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] cancel_job ~ ~ ~ -

@@ -9,6 +9,14 @@ import time
 SENTINEL_TYPE = 100
 SPRINT_TICKS = 10_000_000
 DEFAULT_FAIL = r"can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception"
+DEFAULT_WAIT = 10.0
+FORCELOAD_WAIT = 30.0
+SLEEP_REJECTED = ("real-time 'sleep' runs at normal speed: use 'ticks', 'waitlog' or 'waitfor' "
+                  "(or 'realsleep <seconds>' where real time is genuinely needed)")
+
+
+class Abort(Exception):
+    pass
 
 
 class Rcon:
@@ -92,6 +100,7 @@ class Runner:
         self.failures = []
         self.command_offset = 0
         self.file = ""
+        self.lineno = 0
         self.has_gametime = True
 
     def out(self, text):
@@ -114,20 +123,32 @@ class Runner:
         ticks = self.gametime() - tick0
         return f"{seconds:.1f} s, {ticks} ticks, {ticks / max(seconds, 0.001):.0f} ticks/s"
 
+    def where(self):
+        return f"{self.file}:{self.lineno}"
+
     def timeout(self, what, detail):
         message = f"TIMEOUT waiting for {what}"
-        self.timeouts.append(f"{self.file}: {message}")
+        self.timeouts.append(f"{self.where()}: {message}")
         self.out("!" * 70)
-        self.out(f"{message} ({detail})")
+        self.out(f"{message} ({detail}, line {self.lineno})")
         self.out("!" * 70)
+        raise Abort()
 
     def fail(self, what, pattern, line):
         message = f"FAIL waiting for {what}: /{pattern}/ matched"
-        self.failures.append(f"{self.file}: {message}: {line.strip()}")
+        self.failures.append(f"{self.where()}: {message}: {line.strip()}")
         self.out("!" * 70)
-        self.out(message)
+        self.out(f"{message} (line {self.lineno})")
         self.out(line.strip())
         self.out("!" * 70)
+        raise Abort()
+
+    def error(self, message):
+        self.failures.append(f"{self.where()}: FAIL: {message}")
+        self.out("!" * 70)
+        self.out(f"FAIL in line {self.lineno}: {message}")
+        self.out("!" * 70)
+        raise Abort()
 
     def split_fail(self, rest):
         rest, sep, fail = rest.partition(" !!")
@@ -137,13 +158,12 @@ class Runner:
 
     def failed(self, fail, offset, what):
         if fail is None:
-            return offset, False
+            return offset
         lines, offset = self.log.read(offset)
         for line in lines:
             if fail.search(line):
                 self.fail(what, fail.pattern, line)
-                return offset, True
-        return offset, False
+        return offset
 
     def run_command(self, command):
         command = command.replace("{q}", "\"")
@@ -152,36 +172,46 @@ class Runner:
         self.out(f"> {command}")
         self.out(body or "(no output)")
 
-    def ticks(self, args):
+    def ticks_args(self, args):
         parts = args.split()
+        if len(parts) not in (1, 2):
+            raise ValueError(f"ticks needs '<n> [timeout]': ticks {args}")
         count = int(parts[0])
-        limit = float(parts[1]) if len(parts) > 1 else max(60.0, count / 50.0)
+        return count, float(parts[1]) if len(parts) > 1 else max(DEFAULT_WAIT, count / 100.0)
+
+    def ticks(self, args):
+        count, limit = self.ticks_args(args)
         self.out(f"> ticks {count}")
         start, tick0 = time.time(), self.gametime()
         self.rcon.command(f"tick sprint {count}")
         while "sprinting" in self.rcon.command("tick query"):
             if time.time() - start > limit:
                 self.rcon.command("tick sprint stop")
-                self.timeout(f"{count} ticks to pass", f"{limit:.0f} s")
-                return
+                self.timeout(f"{count} ticks to pass", f"{limit:g} s")
             time.sleep(0.02)
         self.out(f"(waited {self.waited(start, tick0)})")
 
     def wait_args(self, args):
-        limit, rest = args.split(" ", 1)
-        if rest.startswith("nosprint "):
-            return float(limit), False, rest[len("nosprint "):]
-        return float(limit), True, rest
+        limit = DEFAULT_WAIT
+        match = re.match(r"(\d+(?:\.\d+)?) (.*)", args)
+        if match:
+            limit, args = float(match.group(1)), match.group(2)
+        if args.startswith("nosprint "):
+            return limit, False, args[len("nosprint "):]
+        return limit, True, args
 
-    def waitfor(self, args):
+    def waitfor_args(self, args):
         limit, sprint, rest = self.wait_args(args)
         rest, fail = self.split_fail(rest)
-        fail_offset = self.command_offset
         match = re.match(r"(.*?) (=~|!~) (.*)", rest)
         if not match:
-            raise ValueError(f"waitfor needs '<command> =~ <regex>' or '<command> !~ <regex>': {args}")
-        command, op, regex = match.group(1).replace("{q}", "\""), match.group(2), match.group(3)
-        pattern = re.compile(regex)
+            raise ValueError(f"waitfor needs '[timeout] [nosprint] <command> =~ <regex>' (or '!~'): waitfor {args}")
+        return limit, sprint, fail, match.group(1).replace("{q}", "\""), match.group(2), re.compile(match.group(3))
+
+    def waitfor(self, args):
+        limit, sprint, fail, command, op, pattern = self.waitfor_args(args)
+        regex = pattern.pattern
+        fail_offset = self.command_offset
         start, tick0 = time.time(), self.gametime()
         if sprint:
             self.rcon.command(f"tick sprint {SPRINT_TICKS}")
@@ -190,14 +220,11 @@ class Runner:
                 body = self.rcon.command(command)
                 if (pattern.search(body) is not None) == (op == "=~"):
                     break
-                fail_offset, failed = self.failed(fail, fail_offset, f"output of '{command}' {op} /{regex}/")
-                if failed:
-                    return
+                fail_offset = self.failed(fail, fail_offset, f"output of '{command}' {op} /{regex}/")
                 if time.time() - start > limit:
                     self.out(f"> {command}")
                     self.out(body or "(no output)")
-                    self.timeout(f"output of '{command}' {op} /{regex}/", f"{limit:.0f} s")
-                    return
+                    self.timeout(f"output of '{command}' {op} /{regex}/", f"{limit:g} s")
                 time.sleep(self.poll)
         finally:
             self.rcon.command("tick sprint stop")
@@ -219,23 +246,29 @@ class Runner:
                 chunks = [(cx, cz) for cx, cz in chunks if "passed" not in self.rcon.command(f"execute if loaded {cx * 16} 0 {cz * 16}")]
                 if not chunks:
                     break
-                if time.time() - start > 60:
-                    self.timeout("the force-loaded area to load", f"{len(chunks)} chunk(s) still not loaded with their entities after 60 s")
-                    return
+                if time.time() - start > FORCELOAD_WAIT:
+                    self.timeout("the force-loaded area to load",
+                                 f"{len(chunks)} chunk(s) still not loaded with their entities after {FORCELOAD_WAIT:g} s")
                 time.sleep(self.poll)
         finally:
             self.rcon.command("tick sprint stop")
         self.out(f"(area loaded with its entities after {self.waited(start, tick0)})")
 
-    def waitlog(self, args):
+    def waitlog_args(self, args):
         limit, sprint, rest = self.wait_args(args)
         count = 1
         match = re.match(r"x(\d+) (.*)", rest)
         if match:
             count, rest = int(match.group(1)), match.group(2)
         rest, fail = self.split_fail(rest)
+        if not rest.strip():
+            raise ValueError(f"waitlog needs '[timeout] [nosprint] [x<count>] <regex>': waitlog {args}")
+        return limit, sprint, count, re.compile(rest), fail
+
+    def waitlog(self, args):
+        limit, sprint, count, pattern, fail = self.waitlog_args(args)
+        rest = pattern.pattern
         fail_offset = self.command_offset
-        pattern = re.compile(rest)
         self.out(f"> waitlog {'x%d ' % count if count > 1 else ''}{rest}")
         start, tick0 = time.time(), self.gametime()
         offset, hits = self.log.mark, []
@@ -247,57 +280,107 @@ class Runner:
                 hits += [line for line in lines if pattern.search(line)]
                 if len(hits) >= count:
                     break
-                fail_offset, failed = self.failed(fail, fail_offset, f"{count} server log line(s) matching /{rest}/")
-                if failed:
-                    return
+                fail_offset = self.failed(fail, fail_offset, f"{count} server log line(s) matching /{rest}/")
                 if time.time() - start > limit:
-                    self.timeout(f"{count} server log line(s) matching /{rest}/", f"found {len(hits)} in {limit:.0f} s")
-                    return
+                    self.timeout(f"{count} server log line(s) matching /{rest}/", f"found {len(hits)} in {limit:g} s")
                 time.sleep(self.poll)
         finally:
             self.rcon.command("tick sprint stop")
         self.out(hits[count - 1].strip())
         self.out(f"(waited {self.waited(start, tick0)})")
 
+    def check(self, word, args):
+        if word == "sleep":
+            raise ValueError(SLEEP_REJECTED)
+        if word == "realsleep":
+            float(args)
+        elif word == "ticks":
+            self.ticks_args(args)
+        elif word == "waitfor":
+            self.waitfor_args(args)
+        elif word == "waitlog":
+            self.waitlog_args(args)
+
+    def run_line(self, line):
+        word, _, args = line.partition(" ")
+        if word == "realsleep":
+            self.out(f"> realsleep {args}")
+            time.sleep(float(args))
+        elif word == "ticks":
+            self.ticks(args)
+        elif word == "waitfor":
+            self.waitfor(args)
+        elif word == "waitlog":
+            self.waitlog(args)
+        elif line.startswith("forceload add "):
+            self.forceload(line)
+        elif word == "mark":
+            self.log.mark = self.log.size()
+        else:
+            self.run_command(line)
+
+    def guarded(self, action, *args):
+        try:
+            return action(*args)
+        except (ValueError, re.error) as e:
+            self.error(str(e))
+
+    def reset(self, players):
+        commands = ["tick sprint stop", "tick unfreeze", "kill @e[type=journeymen:builder]"]
+        commands += [f"journeymen debug gamemode {player} survival" for player in sorted(players)]
+        for command in commands:
+            self.out(f"> {command}")
+            self.out(self.rcon.command(command) or "(no output)")
+
     def run_file(self, path, rate):
         self.file = os.path.basename(path)
+        self.lineno = 0
         self.log.mark = file_mark = self.log.size()
         self.out("=" * 70)
         self.out(f"=== {self.file}")
         self.out("=" * 70)
-        file_start, file_tick = time.time(), self.gametime()
-        self.rcon.command(f"tick rate {rate}")
         with open(path, encoding="utf-8") as f:
-            lines = [line.strip() for line in f]
-        for line in lines:
-            if not line or line.startswith("#"):
-                continue
-            word, _, args = line.partition(" ")
-            if word == "sleep":
-                time.sleep(float(args))
-            elif word == "ticks":
-                self.ticks(args)
-            elif word == "waitfor":
-                self.waitfor(args)
-            elif word == "waitlog":
-                self.waitlog(args)
-            elif line.startswith("forceload add "):
-                self.forceload(line)
-            elif word == "mark":
-                self.log.mark = self.log.size()
-            else:
-                self.run_command(line)
+            lines = [(n, line.strip()) for n, line in enumerate(f, 1)]
+        lines = [(n, line) for n, line in lines if line and not line.startswith("#")]
+        file_start, file_tick = time.time(), self.gametime()
+        stopped = not_run = False
+        try:
+            for self.lineno, line in lines:
+                word, _, args = line.partition(" ")
+                self.guarded(self.check, word, args)
+        except Abort:
+            stopped = not_run = True
+            self.out(f"!!! NOT RUN: {self.file} has an error in line {self.lineno}")
+        if not stopped:
+            self.rcon.command(f"tick rate {rate}")
+            players = set()
+            remaining = len(lines)
+            try:
+                for self.lineno, line in lines:
+                    remaining -= 1
+                    match = re.match(r"journeymen debug gamemode (\S+) ", line)
+                    if match:
+                        players.add(match.group(1))
+                    self.guarded(self.run_line, line)
+            except Abort:
+                stopped = True
+                self.out(f"!!! STOPPED {self.file} at line {self.lineno}, skipping its {remaining} remaining line(s)")
+                self.reset(players)
         self.rcon.command("tick sprint stop")
         self.rcon.command("tick rate 20")
         elapsed, ticks = time.time() - file_start, self.gametime() - file_tick
         time.sleep(0.5)
         if self.pattern:
             self.out(f"--- server log ({self.file}) ---")
-            lines, _ = self.log.read(file_mark)
-            for line in lines:
+            log_lines, _ = self.log.read(file_mark)
+            for line in log_lines:
                 if self.pattern.search(line):
                     self.out(line)
         summary = f"{self.file}: {elapsed:.0f} s" + (f", {ticks} ticks" if self.has_gametime else "")
+        if not_run:
+            summary += f", NOT RUN (error in line {self.lineno})"
+        elif stopped:
+            summary += f", STOPPED at line {self.lineno}"
         self.out(f"=== {summary}")
         return summary
 

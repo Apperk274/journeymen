@@ -12,7 +12,7 @@ testing\smoke.ps1 -Loader fabric
 
 ## Rules
 
-- **No real-time `sleep`** in test or investigation command files. Use the sprinting waits (`ticks`, `waitlog`, `waitfor`) so the server runs as fast as it can. Use `nosprint` only where real time is genuinely needed (see below), and say why in your report.
+- **No real-time `sleep`** in test or investigation command files: a `sleep` line fails the file before it runs. Use the sprinting waits (`ticks`, `waitlog`, `waitfor`) so the server runs as fast as it can. Use `nosprint` or `realsleep` only where real time is genuinely needed (see below), and say why in your report.
 - **While working on a change**, run only the relevant suite(s) on one loader. **Once at the end**, run the full regression on all loaders.
 - **Never chain several server runs in one shell command** that could exceed the tool's 10-minute limit. Run them as separate commands, e.g. `run_regress.ps1 -Loaders neoforge`, then `-Loaders fabric`, then `-Loaders tfc`.
 - **Clean up:** stop every background process, watcher, server and client you start before finishing, kill leftover dev `java.exe`, and leave RCON off. The scripts do this themselves; if you start something by hand, it's yours to stop.
@@ -29,7 +29,8 @@ server_test.ps1 -Loader neoforge|fabric|tfc -CommandsFile a.txt[,b.txt …] [-Ra
 Starts the dev server through Gradle (`:neoforge:runServer`, `:fabric:runServer` or `:neoforge:runTfcServer`), turns RCON on in its `server.properties` (port 25575, password `journeymen-dev`), waits for `RCON running`, runs the command files one after another against that one server with `rcon.py`, stops the server, restores `server.properties` and kills leftover dev `java.exe`.
 
 - Startup takes about 20 seconds, so put several files in one run.
-- After each file it prints that file's server log lines (default `-LogPattern`: the mod's `[...]` lines, exceptions and journeymen errors), its wall time and game ticks. At the end it lists every timeout and failure and exits non-zero if there were any.
+- A file stops at its first timeout or failure (see Output); the next file still runs.
+- After each file it prints that file's server log lines (default `-LogPattern`: the mod's `[...]` lines, exceptions and journeymen errors), its wall time and game ticks. At the end it lists every timeout and failure (with file and line) and exits non-zero if there were any.
 - Server log: `build/testing/<loader>-server.log`.
 - If the server isn't ready (crash, `BUILD FAILED`, exited), it prints the tail of the log instead.
 
@@ -41,7 +42,7 @@ run_regress.ps1 [-Loaders neoforge,fabric,tfc] [-Suites …] [-TfcSuites …]
 
 Regenerates the test schematics (`gen_schematics.py`), then runs every suite on each loader through `server_test.ps1` and prints a summary per loader (suite times, timeouts, failures). Full output: `build/testing/regress-<loader>.txt`. NeoForge and Fabric run the general suites; TFC runs `test_tfc_farm`, `test_tfc_shelf` and `test_tfc_collapse`. `test_tfc_smithy` needs the owner's schematic, so run it by hand with `server_test.ps1 -Loader tfc`.
 
-The whole regression took about 3 minutes (NeoForge and Fabric about 50 seconds each, TFC under a minute, server startups included). Gradle compiling first adds to that, which is why each loader should be its own command.
+The whole regression takes about 2½ minutes (NeoForge about 55 s, Fabric about 50 s, TFC about 40 s, server startups included). Gradle compiling first adds to that, which is why each loader should be its own command.
 
 ### `smoke.ps1`
 
@@ -73,15 +74,15 @@ Each line is a server command, or one of the harness commands below. `#` lines a
 
 Game logic, including the mod's timers (stuck teleport, link mode timeout, reminders, waiting for entities), runs on game ticks, so the waits use `/tick sprint`: the server runs as fast as the machine can and gives the same results per tick as at 20 ticks per second (checked against a real-time run; measured 1000–3000 ticks per second with builders working, 50–150× real time). Async work (schematic loading, pre-checks, supplies) and chunk loading take wall-clock time, not ticks, so wait for their result rather than counting ticks.
 
-- `ticks <n> [timeout]`: lets exactly `n` game ticks pass at sprint speed. Use it where the test measures something at a point in game time (e.g. `test_restock` counts blocks placed after 1800 ticks). Default timeout: `max(60, n / 50)` seconds.
-- `waitlog <timeout> [nosprint] [x<count>] <regex>`: sprints until `count` (default 1) server log lines since the file started (or since the last `mark`) match. This is how to wait for async output: `debug as` results, supplies (`\] Supplied \d+ items`), pre-checks (`\d+ to clear, \d+ to place`) and builder notices. Example: `waitlog 300 \[Steve\.Sol\] I finished building`.
-- `waitfor <timeout> [nosprint] <command> =~ <regex>` (or `!~`): sprints and repeats the command until its output matches (or stops matching). Example: `waitfor 5 nosprint execute if block 5 200 2 tfc:ceramic/large_vessel =~ passed`.
+- `ticks <n> [timeout]`: lets exactly `n` game ticks pass at sprint speed. Use it where the test measures something at a point in game time (e.g. `test_restock` counts blocks placed after 1800 ticks). Default timeout: `max(10, n / 100)` seconds.
+- `waitlog [timeout] [nosprint] [x<count>] <regex>`: sprints until `count` (default 1) server log lines since the file started (or since the last `mark`) match. This is how to wait for async output: `debug as` results, supplies (`\] Supplied \d+ items`), pre-checks (`\d+ to clear, \d+ to place`) and builder notices. Example: `waitlog 20 \[Steve\.Sol\] I finished building`.
+- `waitfor [timeout] [nosprint] <command> =~ <regex>` (or `!~`): sprints and repeats the command until its output matches (or stops matching). Example: `waitfor 5 nosprint execute if block 5 200 2 tfc:ceramic/large_vessel =~ passed`.
 - `mark`: later `waitlog`s only look at log lines from here on (e.g. before a final `check`, so the build's own pre-check line doesn't count).
 - `nosprint`: keeps the file's normal rate while waiting. Use it only for a short async wait right before a `ticks` measurement, so the measurement starts at the right game time (e.g. `waitlog 30 nosprint Rex is on the way` before `ticks 1800`), or for a quick check of state that must not move on in the meantime.
-- `sleep <seconds>`: real time. Don't use it.
-- `forceload add …` lines also wait (sprinting, up to 60 s) until every chunk of the area is loaded with its entities (`execute if loaded`), so a following `kill` sees builders left from an earlier run.
+- `realsleep <seconds>`: waits in real time at the file's normal rate. Plain `sleep` is rejected: the file fails before its first line runs, with a message pointing to `ticks`, `waitlog` and `waitfor`.
+- `forceload add …` lines also wait (sprinting, up to 30 s) until every chunk of the area is loaded with its entities (`execute if loaded`), so a following `kill` sees builders left from an earlier run.
 
-Timeouts are wall-clock seconds. Sprinting builds finish in seconds, so give waits realistic timeouts: 120 s at most for a build (the TFC smithy, about 6 s, gets 30 s), 30 s for async results, 5 s for a `waitfor` on state that should already be there.
+Timeouts are wall-clock seconds. A `waitlog` or `waitfor` without one waits up to 10 s; a leading number is always read as the timeout, so a regex that starts with a number word needs an explicit timeout in front. Sprinting builds and async results take well under a second to a few seconds, so the default fits almost every wait. Give an explicit timeout only where a wait takes longer (the biggest builds, `test_solid` and `test_bs_full` at about 4 s and the TFC smithy at about 4–6 s, get 20 s) or should be shorter (5 s for a `waitfor` on state that should already be there). Keep timeouts at a few times what the wait takes: a wrong wait then costs seconds, not minutes.
 
 ### Fail patterns
 
@@ -95,7 +96,7 @@ When a server log line since the command before the wait matches, the wait stops
 
 ### Output
 
-A timeout prints `TIMEOUT waiting for …` and a failure `FAIL waiting for …` between `!!!` lines; the file goes on, and the run ends with the lists of timeouts and failures and a non-zero exit code. Each wait prints how long it took in seconds and ticks.
+A timeout prints `TIMEOUT waiting for …` and a failure `FAIL waiting for …` between `!!!` lines, with the line number. The file **stops there**: its remaining lines are skipped (`!!! STOPPED <file> at line <n>`), because later waits in the wrong state would only sit out their timeouts. Before the next file the harness stops any sprint, unfreezes the game (`tick unfreeze`), kills all builders and sets every fake player the file switched with `debug gamemode` back to `survival`. The next file in the same server start runs as usual. A file with a syntax error (a `sleep` line, a bad regex, a `waitfor` without `=~`/`!~`) fails before any of its lines run (`NOT RUN`). The run ends with the lists of timeouts and failures (`file:line`) and a non-zero exit code; stopped files are marked in the per-file summary. Each wait prints how long it took in seconds and ticks.
 
 - RCON only returns output produced while the command runs. Async `debug as` output that arrives later is appended by the server to the RCON reply of the next command, which may be one of the harness's own (`tick query`, `time query gametime`). It is always in the server log, so check results there (with `waitlog`).
 - Under TFC, `/time query gametime` doesn't exist, so tick counts are left out of the output.

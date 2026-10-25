@@ -16,6 +16,6 @@ foreach ($loader in $Loaders) {
     $t = Get-Date
     & (Join-Path $PSScriptRoot "server_test.ps1") -Loader $loader -CommandsFile $files *> $out
     "{0}: {1:N0} s -> {2}" -f $loader, ((Get-Date) - $t).TotalSeconds, $out
-    Get-Content $out | Where-Object { $_ -match "^test_.*: \d+ s|TIMEOUT|FAIL waiting|FAILURE|no timeouts|no failures|not ready" }
+    Get-Content $out | Where-Object { $_ -cmatch "^test_.*: \d+ s|TIMEOUT|FAIL|STOPPED|NOT RUN|no timeouts|no failures|not ready" }
 }
 "all: {0:N0} s" -f ((Get-Date) - $started).TotalSeconds

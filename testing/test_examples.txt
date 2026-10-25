@@ -25,7 +25,7 @@ journeymen debug as Steve 2 198 100 198 journeymen builder supply Fay wheat_farm
 journeymen debug as Steve 2 224 100 197 journeymen builder supply Cole cottage.schem 225 100 200
 journeymen debug as Steve 2 200 100 212 journeymen builder supply Dee decor_corner.nbt 200 100 215
 journeymen debug as Steve 2 210 100 212 journeymen builder supply Red redstone_demo.nbt 210 100 215
-waitlog 60 x4 \] Supplied \d+ items
+waitlog x4 \] Supplied \d+ items
 journeymen debug as Steve 0 198 100 198 journeymen builder build Fay wheat_farm.nbt 200 100 200
 journeymen debug as Steve 0 224 100 197 journeymen builder build Cole cottage.schem 225 100 200
 journeymen debug as Steve 0 200 100 212 journeymen builder build Dee decor_corner.nbt 200 100 215
@@ -33,14 +33,14 @@ journeymen debug as Steve 0 210 100 212 journeymen builder build Red redstone_de
 journeymen debug as Steve 0 210 100 212 journeymen builder check Red test_nether_portal.nbt 230 100 220
 journeymen debug as Steve 0 210 100 212 journeymen builder check Red test_old_version_and_missing_mod.schem 230 100 225
 journeymen schematic materials test_broken.schem
-waitlog 120 x4 \[Steve\.(Fay|Cole|Dee|Red)\] I finished building !!
+waitlog x4 \[Steve\.(Fay|Cole|Dee|Red)\] I finished building !!
 journeymen builder list
 mark
 journeymen debug as Steve 0 198 100 198 journeymen builder check Fay wheat_farm.nbt 200 100 200
 journeymen debug as Steve 0 224 100 197 journeymen builder check Cole cottage.schem 225 100 200
 journeymen debug as Steve 0 200 100 212 journeymen builder check Dee decor_corner.nbt 200 100 215
 journeymen debug as Steve 0 210 100 212 journeymen builder check Red redstone_demo.nbt 210 100 215
-waitlog 60 x4 \d+ to clear, \d+ to place
+waitlog x4 \d+ to clear, \d+ to place
 data get block 200 101 216 Book
 data get block 201 101 216 RecordItem
 data get block 202 101 216 Items

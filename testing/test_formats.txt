@@ -26,18 +26,18 @@ journeymen debug as Steve 2 318 100 306 journeymen schematic materials 'uploaded
 journeymen debug as Steve 2 318 100 306 journeymen builder supply Gil garden_shed.litematic 310 100 310
 journeymen debug as Steve 2 336 100 306 journeymen builder supply Hal old_hut.schematic 330 100 310
 journeymen debug as Steve 2 350 100 306 journeymen builder supply Ike 'uploaded/Steve/watchtower.nbt' 345 100 310
-waitlog 60 x3 \] Supplied \d+ items
+waitlog x3 \] Supplied \d+ items
 journeymen debug as Steve 0 318 100 306 journeymen builder build Gil garden_shed.litematic 310 100 310
 journeymen debug as Steve 0 336 100 306 journeymen builder build Hal old_hut.schematic 330 100 310
 journeymen debug as Steve 0 350 100 306 journeymen builder build Ike {q}uploaded/Steve/watchtower.nbt{q} 345 100 310
 journeymen debug as Steve 0 336 100 306 journeymen builder check Hal Blacksmith_1339748.schematic 300 100 320
-waitlog 120 x3 \[Steve\.(Gil|Hal|Ike)\] I finished building !!
+waitlog x3 \[Steve\.(Gil|Hal|Ike)\] I finished building !!
 journeymen builder list
 mark
 journeymen debug as Steve 0 318 100 306 journeymen builder check Gil garden_shed.litematic 310 100 310
 journeymen debug as Steve 0 336 100 306 journeymen builder check Hal old_hut.schematic 330 100 310
 journeymen debug as Steve 0 350 100 306 journeymen builder check Ike 'uploaded/Steve/watchtower.nbt' 345 100 310
-waitlog 60 x3 \d+ to clear, \d+ to place
+waitlog x3 \d+ to clear, \d+ to place
 execute if block 310 100 310 minecraft:cobblestone
 execute if block 312 101 310 minecraft:spruce_door[half=lower,facing=north]
 execute if block 312 102 310 minecraft:spruce_door[half=upper,facing=north]

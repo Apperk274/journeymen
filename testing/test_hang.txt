@@ -9,13 +9,13 @@ setblock 1003 100 1002 minecraft:chest[facing=south,type=right]
 journeymen debug as Steve 2 1004 100 1004 journeymen builder summon Hang
 journeymen debug as Steve 0 1004 100 1004 journeymen builder chest Hang add 1002 100 1002 supply
 journeymen debug as Steve 2 1004 100 1004 journeymen builder supply Hang test_hang.schem 1010 100 1010 none corner
-waitlog 60 \] Supplied \d+ items
+waitlog \] Supplied \d+ items
 journeymen debug as Steve 0 1004 100 1004 journeymen builder build Hang test_hang.schem 1010 100 1010 none corner
-waitlog 60 \[Steve\.Hang\] I finished building !!
+waitlog \[Steve\.Hang\] I finished building !!
 execute if block 1011 101 1011 minecraft:wall_torch[facing=south]
 execute if block 1010 100 1012 minecraft:scaffolding
 execute if block 1010 101 1012 minecraft:sand
 execute if block 1012 101 1012 minecraft:air
 mark
 journeymen debug as Steve 0 1004 100 1004 journeymen builder check Hang test_hang.schem 1010 100 1010 none corner
-waitlog 60 \d+ to clear, \d+ to place
+waitlog \d+ to clear, \d+ to place

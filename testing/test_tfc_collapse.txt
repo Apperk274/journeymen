@@ -16,13 +16,13 @@ journeymen debug as Steve 2 161 200 14 journeymen builder summon Rocky
 journeymen debug as Steve 0 161 200 14 journeymen builder chest Rocky add 158 200 12 supply
 journeymen debug as Steve 0 161 200 14 journeymen builder chest Rocky add 163 200 12 dump
 journeymen debug as Steve 0 161 200 14 journeymen builder build Rocky clear_area.schem 159 200 19 none corner
-waitlog 30 nosprint Rocky is on the way !!
-waitlog 120 \[Steve\.Rocky\] I finished building !!
+waitlog nosprint Rocky is on the way !!
+waitlog \[Steve\.Rocky\] I finished building !!
 journeymen debug as Steve 0 161 200 14 journeymen builder status Rocky
 journeymen debug as Steve 0 161 200 14 journeymen builder notices
 mark
 journeymen debug as Steve 0 161 200 14 journeymen builder check Rocky clear_area.schem 159 200 19 none corner
-waitlog 60 \] 0 to clear, 0 to place !! \] [1-9]\d* to clear|, [1-9]\d* to place
+waitlog \] 0 to clear, 0 to place !! \] [1-9]\d* to clear|, [1-9]\d* to place
 waitfor 5 nosprint execute if blocks 141 199 0 185 199 45 141 199 50 all =~ passed
 waitfor 5 nosprint execute if block 163 200 12 tfc:ceramic/large_vessel =~ passed
 data get block 163 200 12
