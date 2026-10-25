@@ -54,7 +54,7 @@ public final class ClearingTask {
     private float progress;
     private int lastStage = -1;
     private float cooldown;
-    private final Reach reach = new Reach();
+    private final Reach reach;
 
     @Nullable
     private String blockedReason;
@@ -68,6 +68,7 @@ public final class ClearingTask {
         this.job = job;
         this.level = (ServerLevel) builder.level();
         this.targets = targets;
+        this.reach = new Reach(job.getArea());
         for (BlockPos pos : fluids) {
             remaining.computeIfAbsent(pos.getY(), y -> new ArrayList<>()).add(pos);
         }
@@ -185,16 +186,7 @@ public final class ClearingTask {
                 remaining.pollFirstEntry();
                 continue;
             }
-            BlockPos nearest = null;
-            double nearestDistance = Double.MAX_VALUE;
-            for (BlockPos pos : layer) {
-                double distance = Reach.horizontalDistanceSqr(builder, pos);
-                if (distance < nearestDistance) {
-                    nearest = pos;
-                    nearestDistance = distance;
-                }
-            }
-            return nearest;
+            return reach.choose(builder, layer, pos -> pos);
         }
         return null;
     }

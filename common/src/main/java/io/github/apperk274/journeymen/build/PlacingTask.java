@@ -18,6 +18,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.AbstractBannerBlock;
 import net.minecraft.world.level.block.AmethystClusterBlock;
 import net.minecraft.world.level.block.BambooSaplingBlock;
@@ -81,6 +82,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Predicate;
@@ -114,7 +116,11 @@ public final class PlacingTask {
         WATERLOG
     }
 
-    private record Entry(BuildPlan.Placement placement, Kind kind) {
+    private record Entry(BuildPlan.Placement placement, Kind kind, int key) {
+
+        Entry(BuildPlan.Placement placement, Kind kind) {
+            this(placement, kind, placement.pos().getY());
+        }
 
         BlockPos pos() {
             return placement.pos();
@@ -125,9 +131,10 @@ public final class PlacingTask {
     private final ServerLevel level;
     private final HolderLookup.Provider registries;
     private final TreeMap<Integer, List<Entry>> supports = new TreeMap<>();
+    private final TreeMap<Integer, List<Entry>> ramp = new TreeMap<>();
     private final TreeMap<Integer, List<Entry>> dependents = new TreeMap<>();
     private final TreeMap<Integer, List<Entry>> fluids = new TreeMap<>();
-    private final Reach reach = new Reach();
+    private final Reach reach;
     private final List<BlockPos> skipped = new ArrayList<>();
     private final int total;
     private int placed;
@@ -154,6 +161,8 @@ public final class PlacingTask {
         this.builder = builder;
         this.level = (ServerLevel) builder.level();
         this.registries = level.registryAccess();
+        this.reach = new Reach(plan.getArea());
+        Map<Long, int[]> rampColumns = AccessRamp.columns(level, plan, rampStart(builder));
         int count = 0;
         for (BuildPlan.Placement placement : plan.getToPlace()) {
             if (!include.test(placement.pos()) || placedWithOtherPart(placement.target())) {
@@ -167,7 +176,14 @@ public final class PlacingTask {
                 }
                 continue;
             }
-            add(needsSupport(target) ? dependents : supports, new Entry(placement, Kind.PLACE));
+            int[] rampStep = rampColumns.get(ChunkPos.asLong(placement.pos().getX(), placement.pos().getZ()));
+            if (needsSupport(target)) {
+                add(dependents, new Entry(placement, Kind.PLACE));
+            } else if (rampStep != null && placement.pos().getY() >= rampStep[1]) {
+                add(ramp, new Entry(placement, Kind.PLACE, -rampStep[0] * AccessRamp.ORDER_STRIDE + placement.pos().getY()));
+            } else {
+                add(supports, new Entry(placement, Kind.PLACE));
+            }
             count++;
             if (target.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false)) {
                 add(fluids, new Entry(placement, Kind.WATERLOG));
@@ -206,8 +222,18 @@ public final class PlacingTask {
         return false;
     }
 
+    @Nullable
+    private static BlockPos rampStart(BuilderEntity builder) {
+        for (AssignedChest chest : builder.getChests()) {
+            if (chest.role() == AssignedChest.Role.SUPPLY) {
+                return chest.pos();
+            }
+        }
+        return builder.blockPosition();
+    }
+
     private static void add(TreeMap<Integer, List<Entry>> layers, Entry entry) {
-        layers.computeIfAbsent(entry.pos().getY(), y -> new ArrayList<>()).add(entry);
+        layers.computeIfAbsent(entry.key(), key -> new ArrayList<>()).add(entry);
     }
 
     public Status tick() {
@@ -216,8 +242,8 @@ public final class PlacingTask {
             return Status.WORKING;
         }
         if (current == null) {
-            current = pickNext();
             reach.reset();
+            current = pickNext();
             if (current == null) {
                 builder.showInHand(ItemStack.EMPTY);
                 return Status.DONE;
@@ -502,11 +528,11 @@ public final class PlacingTask {
 
     private Status finish(boolean acted) {
         if (current != null && currentGroup != null) {
-            List<Entry> layer = currentGroup.get(current.pos().getY());
+            List<Entry> layer = currentGroup.get(current.key());
             if (layer != null) {
                 layer.remove(current);
                 if (layer.isEmpty()) {
-                    currentGroup.remove(current.pos().getY());
+                    currentGroup.remove(current.key());
                 }
             }
         }
@@ -544,23 +570,25 @@ public final class PlacingTask {
                 return entry;
             }
         }
-        if (!supports.isEmpty()) {
-            currentGroup = supports;
-            return nearest(supports.firstEntry().getValue(), entry -> true);
+        for (TreeMap<Integer, List<Entry>> group : List.of(supports, ramp)) {
+            if (!group.isEmpty()) {
+                currentGroup = group;
+                return reach.choose(builder, group.firstEntry().getValue(), Entry::pos);
+            }
         }
         if (!dependents.isEmpty()) {
             currentGroup = dependents;
             for (List<Entry> layer : dependents.values()) {
-                Entry entry = nearest(layer, this::canGoInNow);
-                if (entry != null) {
-                    return entry;
+                List<Entry> ready = layer.stream().filter(this::canGoInNow).toList();
+                if (!ready.isEmpty()) {
+                    return reach.choose(builder, ready, Entry::pos);
                 }
             }
             return dependents.firstEntry().getValue().get(0);
         }
         if (!fluids.isEmpty()) {
             currentGroup = fluids;
-            return nearest(fluids.firstEntry().getValue(), entry -> true);
+            return reach.choose(builder, fluids.firstEntry().getValue(), Entry::pos);
         }
         return null;
     }
@@ -569,27 +597,10 @@ public final class PlacingTask {
         return entry.kind() == Kind.FIX || StateRules.forPlacement(entry.placement().target()).canSurvive(level, entry.pos());
     }
 
-    @Nullable
-    private Entry nearest(List<Entry> layer, Predicate<Entry> allowed) {
-        Entry nearest = null;
-        double nearestDistance = Double.MAX_VALUE;
-        for (Entry entry : layer) {
-            if (!allowed.test(entry)) {
-                continue;
-            }
-            double distance = Reach.horizontalDistanceSqr(builder, entry.pos());
-            if (distance < nearestDistance) {
-                nearest = entry;
-                nearestDistance = distance;
-            }
-        }
-        return nearest;
-    }
-
     public ItemCounter upcomingNeeds(int slots, ItemCounter carried) {
         ItemCounter needs = new ItemCounter();
         int usedSlots = 0;
-        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, dependents, fluids)) {
+        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, ramp, dependents, fluids)) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
                     for (ItemStack stack : itemsFor(entry)) {
@@ -614,7 +625,7 @@ public final class PlacingTask {
 
     public Set<BlockRequirements.ToolUse> remainingToolUses() {
         Set<BlockRequirements.ToolUse> uses = EnumSet.noneOf(BlockRequirements.ToolUse.class);
-        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, dependents)) {
+        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, ramp, dependents)) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
                     BlockDrops.Made made = entry.kind() == Kind.PLACE ? BlockDrops.made(entry.placement().target().getBlock()) : null;
@@ -629,7 +640,7 @@ public final class PlacingTask {
 
     public ItemCounter remainingNeeds() {
         ItemCounter needs = new ItemCounter();
-        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, dependents, fluids)) {
+        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, ramp, dependents, fluids)) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
                     itemsFor(entry).forEach(stack -> needs.add(stack, stack.getCount()));
@@ -672,7 +683,7 @@ public final class PlacingTask {
 
     public int getRemaining() {
         int count = 0;
-        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, dependents, fluids)) {
+        for (TreeMap<Integer, List<Entry>> layers : List.of(supports, ramp, dependents, fluids)) {
             for (List<Entry> layer : layers.values()) {
                 count += layer.size();
             }
