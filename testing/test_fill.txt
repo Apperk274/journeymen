@@ -56,7 +56,7 @@ ticks 60
 journeymen debug as Steve 0 627 100 628 journeymen builder chest Pip add 625 100 625 supply
 journeymen debug as Steve 0 627 100 628 journeymen builder chest Pip add 622 100 625 dump
 journeymen debug as Steve 0 627 100 628 journeymen builder build Pip test_fill.schem 630 100 630 none corner
-waitlog 30 nosprint Pip is on the way
+waitlog 30 nosprint Pip is on the way !!
 ticks 400
 journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
 ticks 400

@@ -13,14 +13,17 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class PreCheck {
@@ -110,16 +113,19 @@ public final class PreCheck {
         }
 
         ServerPlayer actor = Services.PLATFORM.getFakePlayer(level, new GameProfile(owner, builder.getOwnerName()));
+        Set<BlockPos> positions = new LinkedHashSet<>(plan.getToClear());
+        plan.getToPlace().forEach(placement -> positions.add(placement.pos()));
         List<BlockPos> denied = new ArrayList<>();
-        for (BlockPos pos : plan.getToClear()) {
-            if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayBreak(actor, pos, level.getBlockState(pos))) {
-                denied.add(pos);
+        ItemStack held = actor.getMainHandItem();
+        actor.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        try {
+            for (BlockPos pos : positions) {
+                if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayStartBreaking(actor, pos)) {
+                    denied.add(pos);
+                }
             }
-        }
-        for (BuildPlan.Placement placement : plan.getToPlace()) {
-            if (!level.mayInteract(actor, placement.pos()) || !Services.PLATFORM.mayPlace(actor, placement.pos(), placement.target())) {
-                denied.add(placement.pos());
-            }
+        } finally {
+            actor.setItemInHand(InteractionHand.MAIN_HAND, held);
         }
         if (!denied.isEmpty()) {
             check.problem(builder.getOwnerName() + " isn't allowed to build at " + denied.size() + " position(s) of the site (spawn protection or a claim), e.g. "

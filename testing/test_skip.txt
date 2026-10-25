@@ -14,7 +14,7 @@ waitlog 60 x1 \d+ to clear, \d+ to place
 journeymen debug as Steve 0 406 100 406 journeymen builder check Skip test_skip.schem 410 100 410 none corner skip-unplaceable
 waitlog 60 x2 \d+ to clear, \d+ to place
 journeymen debug as Steve 0 406 100 406 journeymen builder build Skip test_skip.schem 410 100 410 none corner skip-unplaceable skip-missing
-waitlog 60 \[Steve\.Skip\] I finished building
+waitlog 60 \[Steve\.Skip\] I finished building !!
 journeymen debug as Steve 0 406 100 406 journeymen builder notices
 journeymen debug as Steve 0 406 100 406 journeymen builder check Skip test_skip.schem 410 100 410 none corner skip-unplaceable skip-missing
 waitlog 60 x4 \d+ to clear, \d+ to place

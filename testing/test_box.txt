@@ -17,7 +17,7 @@ journeymen debug as Steve 0 811 100 830 journeymen builder chest Box add 806 100
 journeymen debug as Steve 2 811 100 830 journeymen builder supply Box test_box.schem 805 100 835 none corner
 waitlog 60 \] Supplied \d+ items
 journeymen debug as Steve 0 811 100 830 journeymen builder build Box test_box.schem 805 100 835 none corner
-waitlog 120 \[Steve\.Box\] I finished building
+waitlog 120 \[Steve\.Box\] I finished building !!
 journeymen builder status Steve.Box
 mark
 journeymen debug as Steve 0 811 100 830 journeymen builder check Box test_box.schem 805 100 835 none corner

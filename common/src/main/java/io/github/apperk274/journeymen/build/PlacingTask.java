@@ -19,45 +19,11 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.block.AbstractBannerBlock;
-import net.minecraft.world.level.block.AmethystClusterBlock;
-import net.minecraft.world.level.block.BambooSaplingBlock;
-import net.minecraft.world.level.block.BambooStalkBlock;
-import net.minecraft.world.level.block.BaseRailBlock;
-import net.minecraft.world.level.block.BasePressurePlateBlock;
-import net.minecraft.world.level.block.BaseTorchBlock;
-import net.minecraft.world.level.block.BellBlock;
-import net.minecraft.world.level.block.BigDripleafBlock;
-import net.minecraft.world.level.block.BigDripleafStemBlock;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.BushBlock;
-import net.minecraft.world.level.block.CactusBlock;
-import net.minecraft.world.level.block.CandleBlock;
-import net.minecraft.world.level.block.CarpetBlock;
-import net.minecraft.world.level.block.ChorusFlowerBlock;
-import net.minecraft.world.level.block.ChorusPlantBlock;
-import net.minecraft.world.level.block.CocoaBlock;
-import net.minecraft.world.level.block.DiodeBlock;
-import net.minecraft.world.level.block.DoorBlock;
-import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock;
-import net.minecraft.world.level.block.GrowingPlantBlock;
-import net.minecraft.world.level.block.HangingRootsBlock;
-import net.minecraft.world.level.block.LadderBlock;
-import net.minecraft.world.level.block.LanternBlock;
+import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.LecternBlock;
 import net.minecraft.world.level.block.LiquidBlock;
-import net.minecraft.world.level.block.MultifaceBlock;
-import net.minecraft.world.level.block.PointedDripstoneBlock;
-import net.minecraft.world.level.block.RedStoneWireBlock;
-import net.minecraft.world.level.block.ScaffoldingBlock;
-import net.minecraft.world.level.block.SignBlock;
-import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.block.SporeBlossomBlock;
-import net.minecraft.world.level.block.SugarCaneBlock;
-import net.minecraft.world.level.block.TripWireBlock;
-import net.minecraft.world.level.block.TripWireHookBlock;
-import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity;
 import net.minecraft.world.level.block.entity.DecoratedPotBlockEntity;
@@ -81,6 +47,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -91,15 +58,6 @@ public final class PlacingTask {
 
     private static final int PLACE_DELAY = 4;
     private static final int MAX_INTERACTIONS = 32;
-    private static final List<Class<?>> NEEDS_SUPPORT = List.of(
-            FaceAttachedHorizontalDirectionalBlock.class, BaseTorchBlock.class, BaseRailBlock.class, RedStoneWireBlock.class,
-            DiodeBlock.class, CarpetBlock.class, BasePressurePlateBlock.class, LadderBlock.class, VineBlock.class, SignBlock.class,
-            AbstractBannerBlock.class, LanternBlock.class, BushBlock.class, DoorBlock.class, TripWireBlock.class,
-            TripWireHookBlock.class, SnowLayerBlock.class, CocoaBlock.class, MultifaceBlock.class, PointedDripstoneBlock.class,
-            AmethystClusterBlock.class, CandleBlock.class, HangingRootsBlock.class, SporeBlossomBlock.class, GrowingPlantBlock.class,
-            CactusBlock.class, SugarCaneBlock.class, BambooStalkBlock.class, BambooSaplingBlock.class, ChorusPlantBlock.class,
-            ChorusFlowerBlock.class, BigDripleafBlock.class, BigDripleafStemBlock.class, BellBlock.class, ScaffoldingBlock.class);
-
     public enum Status {
         WORKING,
         NEEDS_ITEMS,
@@ -163,6 +121,7 @@ public final class PlacingTask {
         this.registries = level.registryAccess();
         this.reach = new Reach(plan.getArea());
         Map<Long, int[]> rampColumns = AccessRamp.columns(level, plan, rampStart(builder));
+        Set<BlockPos> hanging = new HashSet<>();
         int count = 0;
         for (BuildPlan.Placement placement : plan.getToPlace()) {
             if (!include.test(placement.pos()) || placedWithOtherPart(placement.target())) {
@@ -177,7 +136,8 @@ public final class PlacingTask {
                 continue;
             }
             int[] rampStep = rampColumns.get(ChunkPos.asLong(placement.pos().getX(), placement.pos().getZ()));
-            if (needsSupport(target)) {
+            if (hangsOnSomething(placement.pos(), target, hanging)) {
+                hanging.add(placement.pos());
                 add(dependents, new Entry(placement, Kind.PLACE));
             } else if (rampStep != null && placement.pos().getY() >= rampStep[1]) {
                 add(ramp, new Entry(placement, Kind.PLACE, -rampStep[0] * AccessRamp.ORDER_STRIDE + placement.pos().getY()));
@@ -212,14 +172,17 @@ public final class PlacingTask {
                 || target.getBlock() instanceof MovingPistonBlock;
     }
 
-    private static boolean needsSupport(BlockState state) {
-        Block block = state.getBlock();
-        for (Class<?> type : NEEDS_SUPPORT) {
-            if (type.isInstance(block)) {
-                return true;
-            }
+    private boolean hangsOnSomething(BlockPos pos, BlockState target, Set<BlockPos> hanging) {
+        BlockState placeState = StateRules.forPlacement(target);
+        if (placeState.getBlock() instanceof FallingBlock && hanging.contains(pos.below())) {
+            return true;
         }
-        return false;
+        return !SandboxLevel.survivesAlone(level, pos, placeState)
+                || !hasTwoParts(placeState) && SandboxLevel.shapedAlone(level, pos, placeState).isAir();
+    }
+
+    private static boolean hasTwoParts(BlockState state) {
+        return state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) || state.hasProperty(BlockStateProperties.BED_PART);
     }
 
     @Nullable
@@ -274,6 +237,9 @@ public final class PlacingTask {
         if (!reach.approach(builder, pos)) {
             return Status.WORKING;
         }
+        if (currentGroup == dependents && !canGoInNow(entry)) {
+            return putBack();
+        }
         BlockState placeState = StateRules.forPlacement(target);
         if (!placeState.getCollisionShape(level, pos).isEmpty() && !level.isUnobstructed(placeState, pos, CollisionContext.empty())) {
             if (placeState.getCollisionShape(level, pos).bounds().move(pos).intersects(builder.getBoundingBox())) {
@@ -320,8 +286,7 @@ public final class PlacingTask {
         BlockPos pos = placement.pos();
         BlockRequirements.ToolUse toolUse = requirement.toolUse();
         BlockState state = requirement.madeFrom() != null ? requirement.madeFrom() : placeState;
-        boolean twoParts = state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) || state.hasProperty(BlockStateProperties.BED_PART);
-        if (!twoParts) {
+        if (!hasTwoParts(state)) {
             state = Block.updateFromNeighbourShapes(state, level, pos);
         }
         if (state.isAir()) {
@@ -526,6 +491,14 @@ public final class PlacingTask {
         }
     }
 
+    private Status putBack() {
+        current = null;
+        currentGroup = null;
+        waitingAt = null;
+        reach.reset();
+        return Status.WORKING;
+    }
+
     private Status finish(boolean acted) {
         if (current != null && currentGroup != null) {
             List<Entry> layer = currentGroup.get(current.key());
@@ -565,7 +538,7 @@ public final class PlacingTask {
             Entry entry = plantNext;
             plantNext = null;
             List<Entry> layer = dependents.get(entry.pos().getY());
-            if (layer != null && layer.contains(entry)) {
+            if (layer != null && layer.contains(entry) && canGoInNow(entry)) {
                 currentGroup = dependents;
                 return entry;
             }
@@ -577,14 +550,21 @@ public final class PlacingTask {
             }
         }
         if (!dependents.isEmpty()) {
-            currentGroup = dependents;
             for (List<Entry> layer : dependents.values()) {
                 List<Entry> ready = layer.stream().filter(this::canGoInNow).toList();
                 if (!ready.isEmpty()) {
+                    currentGroup = dependents;
                     return reach.choose(builder, ready, Entry::pos);
                 }
             }
-            return dependents.firstEntry().getValue().get(0);
+            for (List<Entry> layer : dependents.values()) {
+                for (Entry entry : layer) {
+                    if (!StateRules.matches(entry.placement().target(), level.getBlockState(entry.pos()))) {
+                        skipped.add(entry.pos());
+                    }
+                }
+            }
+            dependents.clear();
         }
         if (!fluids.isEmpty()) {
             currentGroup = fluids;
@@ -594,7 +574,15 @@ public final class PlacingTask {
     }
 
     private boolean canGoInNow(Entry entry) {
-        return entry.kind() == Kind.FIX || StateRules.forPlacement(entry.placement().target()).canSurvive(level, entry.pos());
+        if (entry.kind() == Kind.FIX) {
+            return true;
+        }
+        BlockState placeState = StateRules.forPlacement(entry.placement().target());
+        if (!placeState.canSurvive(level, entry.pos())
+                || !hasTwoParts(placeState) && SandboxLevel.shapedHere(level, entry.pos(), placeState).isAir()) {
+            return false;
+        }
+        return !(placeState.getBlock() instanceof FallingBlock) || !FallingBlock.isFree(level.getBlockState(entry.pos().below()));
     }
 
     public ItemCounter upcomingNeeds(int slots, ItemCounter carried) {

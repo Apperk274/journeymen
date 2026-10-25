@@ -8,6 +8,7 @@ import time
 
 SENTINEL_TYPE = 100
 SPRINT_TICKS = 10_000_000
+DEFAULT_FAIL = r"can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception"
 
 
 class Rcon:
@@ -88,6 +89,8 @@ class Runner:
         self.pattern = re.compile(pattern) if pattern else None
         self.poll = poll
         self.timeouts = []
+        self.failures = []
+        self.command_offset = 0
         self.file = ""
         self.has_gametime = True
 
@@ -118,8 +121,33 @@ class Runner:
         self.out(f"{message} ({detail})")
         self.out("!" * 70)
 
+    def fail(self, what, pattern, line):
+        message = f"FAIL waiting for {what}: /{pattern}/ matched"
+        self.failures.append(f"{self.file}: {message}: {line.strip()}")
+        self.out("!" * 70)
+        self.out(message)
+        self.out(line.strip())
+        self.out("!" * 70)
+
+    def split_fail(self, rest):
+        rest, sep, fail = rest.partition(" !!")
+        if not sep:
+            return rest, None
+        return rest, re.compile(fail.strip() or DEFAULT_FAIL)
+
+    def failed(self, fail, offset, what):
+        if fail is None:
+            return offset, False
+        lines, offset = self.log.read(offset)
+        for line in lines:
+            if fail.search(line):
+                self.fail(what, fail.pattern, line)
+                return offset, True
+        return offset, False
+
     def run_command(self, command):
         command = command.replace("{q}", "\"")
+        self.command_offset = self.log.size()
         body = self.rcon.command(command)
         self.out(f"> {command}")
         self.out(body or "(no output)")
@@ -147,6 +175,8 @@ class Runner:
 
     def waitfor(self, args):
         limit, sprint, rest = self.wait_args(args)
+        rest, fail = self.split_fail(rest)
+        fail_offset = self.command_offset
         match = re.match(r"(.*?) (=~|!~) (.*)", rest)
         if not match:
             raise ValueError(f"waitfor needs '<command> =~ <regex>' or '<command> !~ <regex>': {args}")
@@ -160,6 +190,9 @@ class Runner:
                 body = self.rcon.command(command)
                 if (pattern.search(body) is not None) == (op == "=~"):
                     break
+                fail_offset, failed = self.failed(fail, fail_offset, f"output of '{command}' {op} /{regex}/")
+                if failed:
+                    return
                 if time.time() - start > limit:
                     self.out(f"> {command}")
                     self.out(body or "(no output)")
@@ -200,6 +233,8 @@ class Runner:
         match = re.match(r"x(\d+) (.*)", rest)
         if match:
             count, rest = int(match.group(1)), match.group(2)
+        rest, fail = self.split_fail(rest)
+        fail_offset = self.command_offset
         pattern = re.compile(rest)
         self.out(f"> waitlog {'x%d ' % count if count > 1 else ''}{rest}")
         start, tick0 = time.time(), self.gametime()
@@ -212,6 +247,9 @@ class Runner:
                 hits += [line for line in lines if pattern.search(line)]
                 if len(hits) >= count:
                     break
+                fail_offset, failed = self.failed(fail, fail_offset, f"{count} server log line(s) matching /{rest}/")
+                if failed:
+                    return
                 if time.time() - start > limit:
                     self.timeout(f"{count} server log line(s) matching /{rest}/", f"found {len(hits)} in {limit:.0f} s")
                     return
@@ -294,13 +332,19 @@ def main():
             print("  " + line)
     else:
         print("no timeouts")
+    if runner.failures:
+        print(f"{len(runner.failures)} FAILURE(S):")
+        for line in runner.failures:
+            print("  " + line)
+    else:
+        print("no failures")
     if args.stop:
         try:
             rcon.command("stop", timeout=10)
         except (OSError, ConnectionError):
             pass
     rcon.close()
-    sys.exit(1 if runner.timeouts else 0)
+    sys.exit(1 if runner.timeouts or runner.failures else 0)
 
 
 main()

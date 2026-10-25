@@ -42,12 +42,31 @@ def skip():
     return {(x, 0, 0): kind for x, kind in enumerate(kinds)}
 
 
+def hang():
+    blocks = {(x, y, 0): state("bricks") for x in range(3) for y in range(3)}
+    blocks[(1, 1, 1)] = state("wall_torch", facing="south")
+    blocks[(0, 0, 2)] = state("scaffolding", bottom=False, distance=0, waterlogged=False)
+    blocks[(0, 1, 2)] = state("sand")
+    blocks[(2, 1, 2)] = state("wall_torch", facing="south")
+    return blocks
+
+
+def tfc_shelf():
+    blocks = {(x, y, 0): state("bricks") for x in range(3) for y in range(3)}
+    blocks[(1, 1, 1)] = "tfc:fire_brick_shelf[facing=north]"
+    blocks[(2, 1, 2)] = "tfc:fire_brick_shelf[facing=south]"
+    return blocks
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
     write_sponge_v3(os.path.join(out, "test_box.schem"), (13, 5, 13), box())
     write_sponge_v3(os.path.join(out, "test_restock.schem"), (32, 2, 32), restock())
     write_sponge_v3(os.path.join(out, "test_skip.schem"), (5, 1, 1), skip())
+    write_sponge_v3(os.path.join(out, "test_hang.schem"), (3, 3, 3), hang())
+    if "run-tfc" in out.replace("\\", "/"):
+        write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
 
 
 targets = sys.argv[1:] or [os.path.join(REPO, d, "schematics") for d in ("neoforge/run", "neoforge/run-tfc", "fabric/runs/server")

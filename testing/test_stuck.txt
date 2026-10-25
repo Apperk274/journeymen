@@ -48,7 +48,7 @@ journeymen builder status Steve.Dot
 ticks 600
 journeymen builder list all
 journeymen builder status Steve.Ann
-waitlog 120 x3 \[Steve\.(Ann|Ben|Cal)\] I finished building
+waitlog 120 x3 \[Steve\.(Ann|Ben|Cal)\] I finished building !!
 journeymen builder list all
 journeymen builder status Steve.Ann
 journeymen builder status Steve.Ben

@@ -34,8 +34,8 @@ journeymen debug as Steve 0 4 200 5 journeymen builder chest Tess add 2 200 2 su
 journeymen debug as Steve 0 4 200 5 journeymen builder chest Tess add 5 200 2 supply
 journeymen debug as Steve 0 4 200 5 journeymen builder chest Tess add 8 200 2 dump
 journeymen debug as Steve 0 4 200 5 journeymen builder build Tess tfc_farm.schem 10 200 10 none corner
-waitlog 30 nosprint Tess is on the way
-waitlog 60 \[Steve\.Tess\] I finished building
+waitlog 30 nosprint Tess is on the way !!
+waitlog 60 \[Steve\.Tess\] I finished building !!
 journeymen debug as Steve 0 4 200 5 journeymen builder status Tess
 journeymen debug as Steve 0 4 200 5 journeymen builder status Tess
 journeymen debug as Steve 0 4 200 5 journeymen builder notices

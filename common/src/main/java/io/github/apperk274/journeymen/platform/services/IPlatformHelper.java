@@ -20,7 +20,7 @@ public interface IPlatformHelper {
 
     ServerPlayer getFakePlayer(ServerLevel level, GameProfile profile);
 
-    boolean mayBreak(ServerPlayer player, BlockPos pos, BlockState state);
+    boolean mayStartBreaking(ServerPlayer player, BlockPos pos);
 
     boolean mayPlace(ServerPlayer player, BlockPos pos, BlockState state);
 

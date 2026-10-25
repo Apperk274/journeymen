@@ -16,7 +16,7 @@ journeymen debug as Steve 0 642 100 637 journeymen builder chest Sol add 648 100
 journeymen debug as Steve 2 642 100 637 journeymen builder supply Sol test_solid.schem 640 100 640 none corner
 waitlog 60 \] Supplied \d+ items
 journeymen debug as Steve 0 642 100 637 journeymen builder build Sol test_solid.schem 640 100 640 none corner
-waitlog 300 \[Steve\.Sol\] I finished building
+waitlog 120 \[Steve\.Sol\] I finished building !!
 journeymen builder status Steve.Sol
 mark
 journeymen debug as Steve 0 642 100 637 journeymen builder check Sol test_solid.schem 640 100 640 none corner

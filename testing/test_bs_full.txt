@@ -18,7 +18,7 @@ journeymen debug as Steve 0 300 100 317 journeymen builder chest Bo add 306 100 
 journeymen debug as Steve 2 300 100 317 journeymen builder supply Bo Blacksmith_1339748.schematic 300 100 320
 waitlog 60 \] Supplied \d+ items
 journeymen debug as Steve 0 300 100 317 journeymen builder build Bo Blacksmith_1339748.schematic 300 100 320
-waitlog 300 \[Steve\.Bo\] I finished building
+waitlog 120 \[Steve\.Bo\] I finished building !!
 journeymen builder status Steve.Bo
 mark
 journeymen debug as Steve 0 300 100 317 journeymen builder check Bo Blacksmith_1339748.schematic 300 100 320

@@ -4,9 +4,9 @@ import com.mojang.authlib.GameProfile;
 import io.github.apperk274.journeymen.platform.services.IPlatformHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLLoader;
@@ -14,7 +14,9 @@ import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 import java.nio.file.Path;
 
@@ -46,8 +48,10 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
     }
 
     @Override
-    public boolean mayBreak(ServerPlayer player, BlockPos pos, BlockState state) {
-        return !CommonHooks.fireBlockBreak(player.level(), GameType.SURVIVAL, player, pos, state).isCanceled();
+    public boolean mayStartBreaking(ServerPlayer player, BlockPos pos) {
+        PlayerInteractEvent.LeftClickBlock event = CommonHooks.onLeftClickBlock(player, pos, Direction.UP,
+                ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK);
+        return !event.isCanceled() && event.getUseItem() != TriState.FALSE;
     }
 
     @Override

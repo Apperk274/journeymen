@@ -33,7 +33,7 @@ journeymen debug as Steve 0 210 100 212 journeymen builder build Red redstone_de
 journeymen debug as Steve 0 210 100 212 journeymen builder check Red test_nether_portal.nbt 230 100 220
 journeymen debug as Steve 0 210 100 212 journeymen builder check Red test_old_version_and_missing_mod.schem 230 100 225
 journeymen schematic materials test_broken.schem
-waitlog 120 x4 \[Steve\.(Fay|Cole|Dee|Red)\] I finished building
+waitlog 120 x4 \[Steve\.(Fay|Cole|Dee|Red)\] I finished building !!
 journeymen builder list
 mark
 journeymen debug as Steve 0 198 100 198 journeymen builder check Fay wheat_farm.nbt 200 100 200

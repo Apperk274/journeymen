@@ -72,14 +72,14 @@ public final class BuildPlan {
                     BlockPos pos = transform.toWorld(x, y, z);
                     BlockState target = transform.transform(schematicState);
                     BlockState actual = level.getBlockState(pos);
-                    plan.classify(pos, target, actual, schematic.getBlockEntity(new BlockPos(x, y, z)));
+                    plan.classify(level, pos, target, actual, schematic.getBlockEntity(new BlockPos(x, y, z)));
                 }
             }
         }
         return plan;
     }
 
-    private void classify(BlockPos pos, BlockState target, BlockState actual, @Nullable CompoundTag blockEntity) {
+    private void classify(ServerLevel level, BlockPos pos, BlockState target, BlockState actual, @Nullable CompoundTag blockEntity) {
         if (target.getBlock() instanceof LiquidBlock && !target.getFluidState().isSource()) {
             doneCount++;
             return;
@@ -94,7 +94,8 @@ public final class BuildPlan {
             }
             return;
         }
-        if (StateRules.matchesIncludingWater(target, actual)) {
+        if (StateRules.matchesIncludingWater(target, actual)
+                || target.is(actual.getBlock()) && StateRules.matchesIncludingWater(SandboxLevel.shapedHere(level, pos, target), actual)) {
             doneCount++;
             return;
         }
