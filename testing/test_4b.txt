@@ -1,0 +1,46 @@
+forceload add 288 288 352 352
+kill @e[type=journeymen:builder]
+ticks 40
+fill 290 99 290 340 99 340 minecraft:grass_block
+fill 290 100 290 340 108 340 minecraft:air
+kill @e[type=item]
+setblock 300 100 305 minecraft:chest[facing=north,type=right]
+setblock 301 100 305 minecraft:chest[facing=north,type=left]
+setblock 305 100 305 minecraft:chest
+setblock 307 100 305 minecraft:stone
+journeymen debug as Steve 2 302 100 302 journeymen builder summon Gus
+item replace entity @e[type=journeymen:builder,name=Gus,limit=1] armor.head with minecraft:iron_helmet
+item replace entity @e[type=journeymen:builder,name=Gus,limit=1] armor.chest with minecraft:iron_chestplate
+damage @e[type=journeymen:builder,name=Gus,limit=1] 6 minecraft:mob_attack
+data get entity @e[type=journeymen:builder,name=Gus,limit=1] ArmorItems
+data get entity @e[type=journeymen:builder,name=Gus,limit=1] Health
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] follow ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] stay ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] rename ~ ~ ~ Gustav
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] rename ~ ~ ~ bad.name
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] link_supply ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug use 300 100 305
+journeymen debug as Steve 2 302 100 302 journeymen debug use 305 100 305
+journeymen debug as Steve 2 302 100 302 journeymen debug use 307 100 305
+journeymen debug as Steve 2 302 100 302 journeymen debug use 301 100 305
+journeymen debug as Steve 2 302 100 302 journeymen debug use 300 100 305
+journeymen debug as Steve 2 302 100 302 journeymen builder chest Gustav list
+journeymen debug as Alex 2 302 100 302 journeymen debug use 302 100 305
+journeymen debug as Alex 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] follow ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] remove_chest 305 100 305 -
+journeymen debug as Steve 2 302 100 302 journeymen builder supply Gustav wheat_farm.nbt 310 100 310
+waitlog 60 \] Supplied \d+ items
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] check 310 100 310 wheat_farm.nbt|none|
+ticks 40
+journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] start 310 100 310 wheat_farm.nbt|clockwise_90|corner
+waitfor 60 journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav =~ Job: wheat_farm
+journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] follow ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] cancel_job ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] notices ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] schematic_info ~ ~ ~ cottage.schem
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] dismiss ~ ~ ~ -
+ticks 40
+execute if entity @e[type=journeymen:builder,name=Gustav]
+execute if entity @e[type=item,nbt={Item:{id:'minecraft:iron_helmet'}}]

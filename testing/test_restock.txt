@@ -1,0 +1,61 @@
+forceload add 480 480 560 560
+kill @e[type=journeymen:builder]
+fill 480 99 480 550 99 550 minecraft:grass_block
+fill 480 100 480 550 104 550 minecraft:air
+kill @e[type=item]
+setblock 495 100 495 minecraft:chest[facing=south,type=left]
+setblock 496 100 495 minecraft:chest[facing=south,type=right]
+setblock 492 100 495 minecraft:chest
+item replace block 495 100 495 container.0 with minecraft:stone 64
+item replace block 495 100 495 container.1 with minecraft:stone 64
+item replace block 495 100 495 container.2 with minecraft:stone 64
+item replace block 495 100 495 container.3 with minecraft:stone 64
+item replace block 495 100 495 container.4 with minecraft:stone 64
+item replace block 495 100 495 container.5 with minecraft:stone 64
+item replace block 495 100 495 container.6 with minecraft:stone 64
+item replace block 495 100 495 container.7 with minecraft:stone 64
+item replace block 495 100 495 container.8 with minecraft:stone 64
+item replace block 495 100 495 container.9 with minecraft:stone 64
+item replace block 495 100 495 container.10 with minecraft:stone 64
+item replace block 495 100 495 container.11 with minecraft:stone 64
+item replace block 495 100 495 container.12 with minecraft:stone 64
+item replace block 495 100 495 container.13 with minecraft:stone 64
+item replace block 495 100 495 container.14 with minecraft:stone 64
+item replace block 495 100 495 container.15 with minecraft:stone 64
+journeymen debug as Steve 2 497 100 497 journeymen builder summon Rex
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
+ticks 60
+journeymen debug as Steve 0 497 100 497 journeymen builder chest Rex add 495 100 495 supply
+journeymen debug as Steve 0 497 100 497 journeymen builder chest Rex add 492 100 495 dump
+journeymen debug as Steve 0 497 100 497 journeymen builder build Rex test_restock.schem 500 100 500 none corner
+waitlog 30 nosprint Rex is on the way
+ticks 1800
+journeymen debug as Steve 0 497 100 497 journeymen builder status Rex
+data get block 492 100 495 Items
+data get entity @e[type=journeymen:builder,name=Rex,limit=1] Inventory
+journeymen debug as Steve 0 497 100 497 journeymen builder cancel Rex

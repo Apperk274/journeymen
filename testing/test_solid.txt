@@ -1,0 +1,23 @@
+forceload add 630 630 675 675
+kill @e[type=journeymen:builder]
+ticks 40
+fill 630 99 630 675 99 675 minecraft:grass_block
+fill 630 100 630 675 106 675 minecraft:air
+kill @e[type=item]
+setblock 640 100 636 minecraft:chest[facing=north,type=right]
+setblock 641 100 636 minecraft:chest[facing=north,type=left]
+setblock 644 100 636 minecraft:chest[facing=north,type=right]
+setblock 645 100 636 minecraft:chest[facing=north,type=left]
+setblock 648 100 636 minecraft:chest
+journeymen debug as Steve 2 642 100 637 journeymen builder summon Sol
+journeymen debug as Steve 0 642 100 637 journeymen builder chest Sol add 640 100 636 supply
+journeymen debug as Steve 0 642 100 637 journeymen builder chest Sol add 644 100 636 supply
+journeymen debug as Steve 0 642 100 637 journeymen builder chest Sol add 648 100 636 dump
+journeymen debug as Steve 2 642 100 637 journeymen builder supply Sol test_solid.schem 640 100 640 none corner
+waitlog 60 \] Supplied \d+ items
+journeymen debug as Steve 0 642 100 637 journeymen builder build Sol test_solid.schem 640 100 640 none corner
+waitlog 300 \[Steve\.Sol\] I finished building
+journeymen builder status Steve.Sol
+mark
+journeymen debug as Steve 0 642 100 637 journeymen builder check Sol test_solid.schem 640 100 640 none corner
+waitlog 60 \d+ to clear, \d+ to place

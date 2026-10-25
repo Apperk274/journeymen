@@ -1,0 +1,94 @@
+forceload add 600 600 700 700
+kill @e[type=journeymen:builder]
+ticks 40
+fill 610 99 610 690 99 690 minecraft:grass_block
+fill 610 100 610 690 103 690 minecraft:air
+kill @e[type=item]
+setblock 625 100 625 minecraft:chest[facing=south,type=right]
+setblock 626 100 625 minecraft:chest[facing=south,type=left]
+setblock 622 100 625 minecraft:chest
+item replace block 625 100 625 container.0 with minecraft:stone 64
+item replace block 625 100 625 container.1 with minecraft:stone 64
+item replace block 625 100 625 container.2 with minecraft:stone 64
+item replace block 625 100 625 container.3 with minecraft:stone 64
+item replace block 625 100 625 container.4 with minecraft:stone 64
+item replace block 625 100 625 container.5 with minecraft:stone 64
+item replace block 625 100 625 container.6 with minecraft:stone 64
+item replace block 625 100 625 container.7 with minecraft:stone 64
+item replace block 625 100 625 container.8 with minecraft:stone 64
+item replace block 625 100 625 container.9 with minecraft:stone 64
+item replace block 625 100 625 container.10 with minecraft:stone 64
+item replace block 625 100 625 container.11 with minecraft:stone 64
+item replace block 625 100 625 container.12 with minecraft:oak_planks 64
+item replace block 625 100 625 container.13 with minecraft:oak_planks 64
+item replace block 625 100 625 container.14 with minecraft:oak_planks 64
+item replace block 625 100 625 container.15 with minecraft:oak_planks 64
+item replace block 625 100 625 container.16 with minecraft:oak_planks 64
+item replace block 625 100 625 container.17 with minecraft:oak_planks 64
+item replace block 625 100 625 container.18 with minecraft:oak_planks 64
+item replace block 625 100 625 container.19 with minecraft:oak_planks 64
+item replace block 625 100 625 container.20 with minecraft:oak_planks 64
+item replace block 625 100 625 container.21 with minecraft:oak_planks 64
+item replace block 625 100 625 container.22 with minecraft:oak_planks 64
+item replace block 625 100 625 container.23 with minecraft:oak_planks 64
+item replace block 625 100 625 container.24 with minecraft:oak_planks 64
+item replace block 625 100 625 container.25 with minecraft:oak_planks 64
+item replace block 625 100 625 container.26 with minecraft:oak_planks 64
+item replace block 626 100 625 container.0 with minecraft:oak_planks 64
+item replace block 626 100 625 container.1 with minecraft:oak_planks 64
+item replace block 626 100 625 container.2 with minecraft:oak_planks 64
+item replace block 626 100 625 container.3 with minecraft:oak_planks 64
+item replace block 626 100 625 container.4 with minecraft:oak_planks 64
+item replace block 626 100 625 container.5 with minecraft:oak_planks 64
+item replace block 626 100 625 container.6 with minecraft:oak_planks 64
+journeymen debug as Steve 2 627 100 628 journeymen builder summon Pip
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+summon item 627 100 628 {Item:{id:'minecraft:stone',count:64}}
+ticks 60
+journeymen debug as Steve 0 627 100 628 journeymen builder chest Pip add 625 100 625 supply
+journeymen debug as Steve 0 627 100 628 journeymen builder chest Pip add 622 100 625 dump
+journeymen debug as Steve 0 627 100 628 journeymen builder build Pip test_fill.schem 630 100 630 none corner
+waitlog 30 nosprint Pip is on the way
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+ticks 400
+journeymen debug as Steve 0 627 100 628 journeymen builder status Pip
+journeymen debug as Steve 0 627 100 628 journeymen builder cancel Pip

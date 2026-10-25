@@ -1,0 +1,58 @@
+forceload add 176 176 240 240
+kill @e[type=journeymen:builder]
+kill @e[type=villager]
+ticks 40
+fill 180 99 180 235 99 235 minecraft:grass_block
+fill 180 100 180 235 109 235 minecraft:air
+fill 180 110 180 235 110 235 minecraft:air
+kill @e[type=item]
+journeymen schematic list
+setblock 196 100 197 minecraft:chest[facing=north,type=right]
+setblock 197 100 197 minecraft:chest[facing=north,type=left]
+setblock 220 100 197 minecraft:chest[facing=north,type=right]
+setblock 221 100 197 minecraft:chest[facing=north,type=left]
+setblock 198 100 212 minecraft:chest
+setblock 208 100 212 minecraft:chest
+journeymen debug as Steve 2 198 100 198 journeymen builder summon Fay
+journeymen debug as Steve 2 224 100 197 journeymen builder summon Cole
+journeymen debug as Steve 2 200 100 212 journeymen builder summon Dee
+journeymen debug as Steve 2 210 100 212 journeymen builder summon Red
+journeymen debug as Steve 0 198 100 198 journeymen builder chest Fay add 196 100 197 supply
+journeymen debug as Steve 0 224 100 197 journeymen builder chest Cole add 220 100 197 supply
+journeymen debug as Steve 0 200 100 212 journeymen builder chest Dee add 198 100 212 supply
+journeymen debug as Steve 0 210 100 212 journeymen builder chest Red add 208 100 212 supply
+journeymen debug as Steve 2 198 100 198 journeymen builder supply Fay wheat_farm.nbt 200 100 200
+journeymen debug as Steve 2 224 100 197 journeymen builder supply Cole cottage.schem 225 100 200
+journeymen debug as Steve 2 200 100 212 journeymen builder supply Dee decor_corner.nbt 200 100 215
+journeymen debug as Steve 2 210 100 212 journeymen builder supply Red redstone_demo.nbt 210 100 215
+waitlog 60 x4 \] Supplied \d+ items
+journeymen debug as Steve 0 198 100 198 journeymen builder build Fay wheat_farm.nbt 200 100 200
+journeymen debug as Steve 0 224 100 197 journeymen builder build Cole cottage.schem 225 100 200
+journeymen debug as Steve 0 200 100 212 journeymen builder build Dee decor_corner.nbt 200 100 215
+journeymen debug as Steve 0 210 100 212 journeymen builder build Red redstone_demo.nbt 210 100 215
+journeymen debug as Steve 0 210 100 212 journeymen builder check Red test_nether_portal.nbt 230 100 220
+journeymen debug as Steve 0 210 100 212 journeymen builder check Red test_old_version_and_missing_mod.schem 230 100 225
+journeymen schematic materials test_broken.schem
+waitlog 120 x4 \[Steve\.(Fay|Cole|Dee|Red)\] I finished building
+journeymen builder list
+mark
+journeymen debug as Steve 0 198 100 198 journeymen builder check Fay wheat_farm.nbt 200 100 200
+journeymen debug as Steve 0 224 100 197 journeymen builder check Cole cottage.schem 225 100 200
+journeymen debug as Steve 0 200 100 212 journeymen builder check Dee decor_corner.nbt 200 100 215
+journeymen debug as Steve 0 210 100 212 journeymen builder check Red redstone_demo.nbt 210 100 215
+waitlog 60 x4 \d+ to clear, \d+ to place
+data get block 200 101 216 Book
+data get block 201 101 216 RecordItem
+data get block 202 101 216 Items
+data get block 203 101 216 sherds
+data get block 203 101 216 item
+data get block 204 101 216 patterns
+data get block 201 102 216 front_text
+execute if block 215 101 215 minecraft:sticky_piston[extended=false]
+execute if block 213 101 215 minecraft:redstone_lamp[lit=false]
+execute if block 210 101 215 minecraft:lever[powered=false]
+data get block 226 102 201 front_text
+execute if block 202 101 202 minecraft:wheat
+execute if block 202 100 202 minecraft:farmland
+execute if block 205 100 205 minecraft:water
+execute if block 205 100 200 minecraft:dirt_path

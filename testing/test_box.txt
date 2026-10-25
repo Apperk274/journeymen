@@ -1,0 +1,24 @@
+forceload add 796 796 884 884
+kill @e[type=journeymen:builder]
+ticks 40
+fill 796 99 796 884 99 884 minecraft:grass_block
+fill 796 100 796 884 103 884 minecraft:air
+fill 796 104 796 884 108 884 minecraft:air
+kill @e[type=item]
+setblock 800 100 832 minecraft:chest[facing=north,type=right]
+setblock 801 100 832 minecraft:chest[facing=north,type=left]
+setblock 803 100 832 minecraft:chest[facing=north,type=right]
+setblock 804 100 832 minecraft:chest[facing=north,type=left]
+setblock 806 100 832 minecraft:chest
+journeymen debug as Steve 2 811.5 100 830.5 journeymen builder summon Box
+journeymen debug as Steve 0 811 100 830 journeymen builder chest Box add 800 100 832 supply
+journeymen debug as Steve 0 811 100 830 journeymen builder chest Box add 803 100 832 supply
+journeymen debug as Steve 0 811 100 830 journeymen builder chest Box add 806 100 832 dump
+journeymen debug as Steve 2 811 100 830 journeymen builder supply Box test_box.schem 805 100 835 none corner
+waitlog 60 \] Supplied \d+ items
+journeymen debug as Steve 0 811 100 830 journeymen builder build Box test_box.schem 805 100 835 none corner
+waitlog 120 \[Steve\.Box\] I finished building
+journeymen builder status Steve.Box
+mark
+journeymen debug as Steve 0 811 100 830 journeymen builder check Box test_box.schem 805 100 835 none corner
+waitlog 60 \d+ to clear, \d+ to place

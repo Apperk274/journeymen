@@ -1,0 +1,65 @@
+forceload add 296 296 367 367
+kill @e[type=journeymen:builder]
+ticks 40
+fill 300 99 300 360 99 340 minecraft:grass_block
+fill 300 100 300 360 109 340 minecraft:air
+fill 300 110 300 360 110 340 minecraft:air
+kill @e[type=item]
+journeymen schematic list
+setblock 306 100 312 minecraft:gold_block
+setblock 318 100 305 minecraft:chest
+setblock 336 100 305 minecraft:chest
+setblock 350 100 305 minecraft:chest
+journeymen debug as Steve 2 318 100 306 journeymen builder summon Gil
+journeymen debug as Steve 2 336 100 306 journeymen builder summon Hal
+journeymen debug as Steve 2 350 100 306 journeymen builder summon Ike
+journeymen debug as Steve 0 318 100 306 journeymen builder chest Gil add 318 100 305 supply
+journeymen debug as Steve 0 336 100 306 journeymen builder chest Hal add 336 100 305 supply
+journeymen debug as Steve 0 350 100 306 journeymen builder chest Ike add 350 100 305 supply
+journeymen debug as Steve 2 318 100 306 journeymen schematic materials garden_shed.litematic
+journeymen debug as Steve 2 318 100 306 journeymen schematic materials old_hut.schematic
+journeymen debug as Steve 2 318 100 306 journeymen schematic materials 'uploaded/Steve/watchtower.nbt'
+journeymen debug as Steve 2 318 100 306 journeymen schematic materials {q}uploaded/Steve/watchtower.nbt{q}
+journeymen debug as Steve 2 318 100 306 journeymen schematic materials Blacksmith_1339748.schematic
+journeymen debug as Steve 2 318 100 306 journeymen schematic materials '../server.properties.nbt'
+journeymen debug as Steve 2 318 100 306 journeymen schematic materials 'uploaded/../../server.properties'
+journeymen debug as Steve 2 318 100 306 journeymen builder supply Gil garden_shed.litematic 310 100 310
+journeymen debug as Steve 2 336 100 306 journeymen builder supply Hal old_hut.schematic 330 100 310
+journeymen debug as Steve 2 350 100 306 journeymen builder supply Ike 'uploaded/Steve/watchtower.nbt' 345 100 310
+waitlog 60 x3 \] Supplied \d+ items
+journeymen debug as Steve 0 318 100 306 journeymen builder build Gil garden_shed.litematic 310 100 310
+journeymen debug as Steve 0 336 100 306 journeymen builder build Hal old_hut.schematic 330 100 310
+journeymen debug as Steve 0 350 100 306 journeymen builder build Ike {q}uploaded/Steve/watchtower.nbt{q} 345 100 310
+journeymen debug as Steve 0 336 100 306 journeymen builder check Hal Blacksmith_1339748.schematic 300 100 320
+waitlog 120 x3 \[Steve\.(Gil|Hal|Ike)\] I finished building
+journeymen builder list
+mark
+journeymen debug as Steve 0 318 100 306 journeymen builder check Gil garden_shed.litematic 310 100 310
+journeymen debug as Steve 0 336 100 306 journeymen builder check Hal old_hut.schematic 330 100 310
+journeymen debug as Steve 0 350 100 306 journeymen builder check Ike 'uploaded/Steve/watchtower.nbt' 345 100 310
+waitlog 60 x3 \d+ to clear, \d+ to place
+execute if block 310 100 310 minecraft:cobblestone
+execute if block 312 101 310 minecraft:spruce_door[half=lower,facing=north]
+execute if block 312 102 310 minecraft:spruce_door[half=upper,facing=north]
+execute if block 306 100 307 minecraft:moss_block
+execute if block 306 101 307 minecraft:poppy
+execute if block 307 101 308 minecraft:dandelion
+execute if block 309 101 309 minecraft:oak_sign[rotation=8]
+data get block 309 101 309 front_text
+execute if block 306 100 312 minecraft:gold_block
+execute if block 309 100 310 minecraft:air
+execute if block 314 103 313 minecraft:spruce_slab
+execute if block 328 100 310 minecraft:cobblestone
+execute if block 328 101 310 minecraft:oak_log[axis=y]
+execute if block 330 101 310 minecraft:oak_door[half=lower,facing=north,hinge=left]
+execute if block 330 102 310 minecraft:oak_door[half=upper,facing=north,hinge=left]
+execute if block 330 103 312 minecraft:smooth_stone_slab[type=bottom]
+execute if block 329 101 312 minecraft:blue_bed[part=head,facing=north]
+execute if block 329 101 313 minecraft:blue_bed[part=foot,facing=north]
+execute if block 331 101 313 minecraft:potted_poppy
+execute if block 331 101 311 minecraft:torch
+execute if block 330 101 312 minecraft:red_carpet
+execute if block 330 102 313 minecraft:oak_wall_sign[facing=north]
+data get block 330 102 313 front_text
+execute if block 345 100 310 minecraft:stone_bricks
+execute if block 345 104 310 minecraft:lantern

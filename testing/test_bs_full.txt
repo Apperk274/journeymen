@@ -1,0 +1,31 @@
+forceload add 290 310 330 360
+kill @e[type=journeymen:builder]
+ticks 40
+fill 296 99 316 325 99 358 minecraft:grass_block
+fill 296 100 316 325 116 340 minecraft:air
+fill 296 100 341 325 116 358 minecraft:air
+kill @e[type=item]
+setblock 298 100 318 minecraft:chest[facing=north,type=right]
+setblock 299 100 318 minecraft:chest[facing=north,type=left]
+setblock 302 100 318 minecraft:chest[facing=north,type=right]
+setblock 303 100 318 minecraft:chest[facing=north,type=left]
+setblock 306 100 318 minecraft:chest[facing=north,type=right]
+setblock 307 100 318 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 300 100 317 journeymen builder summon Bo
+journeymen debug as Steve 0 300 100 317 journeymen builder chest Bo add 298 100 318 supply
+journeymen debug as Steve 0 300 100 317 journeymen builder chest Bo add 302 100 318 supply
+journeymen debug as Steve 0 300 100 317 journeymen builder chest Bo add 306 100 318 supply
+journeymen debug as Steve 2 300 100 317 journeymen builder supply Bo Blacksmith_1339748.schematic 300 100 320
+waitlog 60 \] Supplied \d+ items
+journeymen debug as Steve 0 300 100 317 journeymen builder build Bo Blacksmith_1339748.schematic 300 100 320
+waitlog 300 \[Steve\.Bo\] I finished building
+journeymen builder status Steve.Bo
+mark
+journeymen debug as Steve 0 300 100 317 journeymen builder check Bo Blacksmith_1339748.schematic 300 100 320
+waitlog 60 \d+ to clear, \d+ to place
+data get block 309 104 337 front_text
+execute if block 314 107 339 minecraft:red_bed[part=head,facing=north]
+execute if block 314 107 340 minecraft:red_bed[part=foot,facing=north]
+execute if block 307 103 332 minecraft:furnace[facing=east]
+execute if block 314 103 347 minecraft:ladder[facing=north]
+execute if block 300 100 320 minecraft:dirt

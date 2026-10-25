@@ -1,0 +1,25 @@
+forceload add 400 400 432 432
+kill @e[type=journeymen:builder]
+fill 400 99 400 430 99 430 minecraft:stone
+fill 400 100 400 430 106 430 minecraft:air
+kill @e[type=item]
+setblock 412 100 410 minecraft:dirt
+setblock 405 100 405 minecraft:chest
+item replace block 405 100 405 container.0 with minecraft:stone 2
+item replace block 405 100 405 container.1 with minecraft:oak_planks 1
+journeymen debug as Steve 2 406 100 406 journeymen builder summon Skip
+journeymen debug as Steve 0 406 100 406 journeymen builder chest Skip add 405 100 405 supply
+journeymen debug as Steve 0 406 100 406 journeymen builder check Skip test_skip.schem 410 100 410 none corner
+waitlog 60 x1 \d+ to clear, \d+ to place
+journeymen debug as Steve 0 406 100 406 journeymen builder check Skip test_skip.schem 410 100 410 none corner skip-unplaceable
+waitlog 60 x2 \d+ to clear, \d+ to place
+journeymen debug as Steve 0 406 100 406 journeymen builder build Skip test_skip.schem 410 100 410 none corner skip-unplaceable skip-missing
+waitlog 60 \[Steve\.Skip\] I finished building
+journeymen debug as Steve 0 406 100 406 journeymen builder notices
+journeymen debug as Steve 0 406 100 406 journeymen builder check Skip test_skip.schem 410 100 410 none corner skip-unplaceable skip-missing
+waitlog 60 x4 \d+ to clear, \d+ to place
+execute if block 410 100 410 minecraft:stone
+execute if block 411 100 410 minecraft:stone
+execute if block 412 100 410 minecraft:dirt
+execute if block 413 100 410 minecraft:oak_planks
+execute if block 414 100 410 minecraft:air

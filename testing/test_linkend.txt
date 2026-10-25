@@ -1,0 +1,30 @@
+forceload add 288 288 352 352
+kill @e[type=journeymen:builder]
+ticks 1300
+fill 290 99 290 340 99 340 minecraft:grass_block
+fill 290 100 290 340 108 340 minecraft:air
+kill @e[type=item]
+setblock 300 100 305 minecraft:chest[facing=north,type=right]
+setblock 301 100 305 minecraft:chest[facing=north,type=left]
+setblock 305 100 305 minecraft:chest
+setblock 307 100 305 minecraft:barrel
+journeymen debug as Steve 2 302 100 302 journeymen builder summon Gus
+journeymen debug as Steve 2 302 100 302 journeymen builder summon Max
+journeymen debug as Steve 2 302 100 302 journeymen debug interact @e[type=journeymen:builder,name=Gus,limit=1]
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] link_supply ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug use 300 100 305
+journeymen debug as Steve 2 302 100 302 journeymen debug use 305 100 305
+journeymen debug as Steve 2 302 100 302 journeymen debug interact @e[type=journeymen:builder,name=Gus,limit=1]
+journeymen debug as Steve 2 302 100 302 journeymen debug use 307 100 305
+journeymen debug as Steve 2 302 100 302 journeymen builder chest Gus list
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] link_dump ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug use 307 100 305
+journeymen debug as Steve 2 302 100 302 journeymen debug interact @e[type=journeymen:builder,name=Max,limit=1]
+journeymen debug as Steve 2 302 100 302 journeymen debug use 305 100 305
+journeymen debug as Steve 2 302 100 302 journeymen builder chest Gus list
+journeymen debug as Alex 2 302 100 302 journeymen debug interact @e[type=journeymen:builder,name=Gus,limit=1]
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] link_supply ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug use 307 100 305
+ticks 1260
+journeymen debug as Steve 2 302 100 302 journeymen debug use 305 100 305
+journeymen debug as Steve 2 302 100 302 journeymen builder chest Gus list
