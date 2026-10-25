@@ -8,6 +8,7 @@ import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.command.SchematicCommands;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
+import io.github.apperk274.journeymen.network.PreviewBlocks;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
 import io.github.apperk274.journeymen.schematic.MaterialList;
@@ -22,7 +23,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.level.block.state.BlockState;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,8 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
 public final class BuilderScreenService {
-
-    public static final int MAX_PREVIEW_BLOCKS = 6000;
 
     private BuilderScreenService() {
     }
@@ -185,22 +183,31 @@ public final class BuilderScreenService {
         CompletableFuture
                 .supplyAsync(() -> {
                     try {
-                        return SchematicFiles.load(file);
+                        Schematic schematic = SchematicFiles.load(file);
+                        return new LoadedSchematic(schematic, PreviewBlocks.encode(schematic));
                     } catch (IOException e) {
                         throw new CompletionException(e);
                     }
                 }, Util.backgroundExecutor())
-                .whenCompleteAsync((schematic, error) -> {
+                .whenCompleteAsync((loaded, error) -> {
                     if (error != null) {
                         Throwable cause = error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
                         tell(player, "Could not load " + file + ": " + cause.getMessage(), false);
                         return;
                     }
-                    Services.NETWORK.sendToPlayer(player, info(file, schematic, player));
+                    Services.NETWORK.sendToPlayer(player, info(file, loaded, player));
+                    List<byte[]> parts = loaded.preview().parts();
+                    for (int i = 0; i < parts.size(); i++) {
+                        Services.NETWORK.sendToPlayer(player, new ScreenPayloads.SchematicBlocks(file, i, parts.get(i)));
+                    }
                 }, player.server);
     }
 
-    private static ScreenPayloads.SchematicInfo info(String file, Schematic schematic, ServerPlayer player) {
+    private record LoadedSchematic(Schematic schematic, PreviewBlocks.Encoded preview) {
+    }
+
+    private static ScreenPayloads.SchematicInfo info(String file, LoadedSchematic loaded, ServerPlayer player) {
+        Schematic schematic = loaded.schematic();
         MaterialList materials = MaterialList.of(schematic, player.registryAccess());
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal(schematic.getSize().getX() + "×" + schematic.getSize().getY() + "×" + schematic.getSize().getZ()
@@ -215,30 +222,8 @@ public final class BuilderScreenService {
             lines.add(Component.literal("Can't be placed by hand: " + entry.getValue() + " ").append(entry.getKey().getName())
                     .withStyle(ChatFormatting.RED));
         }
-        List<BlockState> palette = schematic.getPalette();
-        List<Integer> blocks = new ArrayList<>();
-        boolean complete = true;
-        for (int y = 0; y < schematic.getSize().getY() && complete; y++) {
-            for (int z = 0; z < schematic.getSize().getZ() && complete; z++) {
-                for (int x = 0; x < schematic.getSize().getX(); x++) {
-                    int index = schematic.paletteIndex(x, y, z);
-                    if (index == Schematic.NO_BLOCK || palette.get(index).isAir()) {
-                        continue;
-                    }
-                    if (blocks.size() / 4 >= MAX_PREVIEW_BLOCKS) {
-                        complete = false;
-                        blocks.clear();
-                        break;
-                    }
-                    blocks.add(x);
-                    blocks.add(y);
-                    blocks.add(z);
-                    blocks.add(index);
-                }
-            }
-        }
-        int[] packed = blocks.stream().mapToInt(Integer::intValue).toArray();
+        boolean complete = loaded.preview().complete();
         return new ScreenPayloads.SchematicInfo(file, new BlockPos(schematic.getSize()), new BlockPos(schematic.getPasteOffset()), lines,
-                complete ? palette : List.of(), packed, complete);
+                complete ? schematic.getPalette() : List.of(), loaded.preview().parts().size(), complete);
     }
 }

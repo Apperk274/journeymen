@@ -31,6 +31,7 @@ public final class JourneymenNetwork {
             new ClientBound<>(ScreenPayloads.BuilderState.TYPE, ScreenPayloads.BuilderState.CODEC, payload -> ClientHandlers.builderState(payload)),
             new ClientBound<>(ScreenPayloads.SchematicList.TYPE, ScreenPayloads.SchematicList.CODEC, payload -> ClientHandlers.schematicList(payload)),
             new ClientBound<>(ScreenPayloads.SchematicInfo.TYPE, ScreenPayloads.SchematicInfo.CODEC, payload -> ClientHandlers.schematicInfo(payload)),
+            new ClientBound<>(ScreenPayloads.SchematicBlocks.TYPE, ScreenPayloads.SchematicBlocks.CODEC, payload -> ClientHandlers.schematicBlocks(payload)),
             new ClientBound<>(ScreenPayloads.CheckResult.TYPE, ScreenPayloads.CheckResult.CODEC, payload -> ClientHandlers.checkResult(payload)),
             new ClientBound<>(ScreenPayloads.LinkMode.TYPE, ScreenPayloads.LinkMode.CODEC, payload -> ClientHandlers.linkMode(payload)));
 

@@ -53,7 +53,7 @@ public class JourneymenNeoForge {
             }
         });
         eventBus.addListener((RegisterPayloadHandlersEvent event) -> {
-            PayloadRegistrar registrar = event.registrar("1");
+            PayloadRegistrar registrar = event.registrar("2");
             JourneymenNetwork.SERVER_BOUND.forEach(payload -> registerServerBound(registrar, payload));
             JourneymenNetwork.CLIENT_BOUND.forEach(payload -> registerClientBound(registrar, payload));
         });

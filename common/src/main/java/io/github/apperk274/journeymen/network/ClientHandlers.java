@@ -24,7 +24,11 @@ public final class ClientHandlers {
     }
 
     static void schematicInfo(ScreenPayloads.SchematicInfo payload) {
-        ClientState.info = payload;
+        ClientState.schematicInfo(payload);
+    }
+
+    static void schematicBlocks(ScreenPayloads.SchematicBlocks payload) {
+        ClientState.schematicBlocks(payload);
     }
 
     static void checkResult(ScreenPayloads.CheckResult payload) {

@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import io.github.apperk274.journeymen.build.BuildOptions;
@@ -10,15 +11,11 @@ import net.minecraft.Util;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -39,11 +36,16 @@ public final class PlacementMode {
     private static BlockPos origin;
     private static long lastHint;
     private static long lastScroll;
+    @Nullable
+    private static PreviewMesh mesh;
 
     private PlacementMode() {
     }
 
     public static void start(int builderId, ScreenPayloads.SchematicInfo info, String options) {
+        if (mesh != null && !mesh.isFor(info)) {
+            freeMesh();
+        }
         PlacementMode.active = true;
         PlacementMode.builderId = builderId;
         PlacementMode.info = info;
@@ -61,6 +63,23 @@ public final class PlacementMode {
         info = null;
         origin = null;
         rotation = Rotation.NONE;
+        freeMesh();
+    }
+
+    private static void freeMesh() {
+        PreviewMesh old = mesh;
+        mesh = null;
+        if (old != null) {
+            if (RenderSystem.isOnRenderThread()) {
+                old.close();
+            } else {
+                RenderSystem.recordRenderCall(old::close);
+            }
+        }
+    }
+
+    public static boolean isPreviewReady() {
+        return active && info != null && (!info.complete() || mesh != null && mesh.isReady(rotation));
     }
 
     public static boolean isActive() {
@@ -105,12 +124,15 @@ public final class PlacementMode {
         long now = minecraft.level == null ? 0 : minecraft.level.getGameTime();
         if (minecraft.player != null && (force || now - lastHint > 40)) {
             lastHint = now;
+            boolean outline = info != null && (!info.complete() || mesh != null && mesh.isOutlineOnly());
             minecraft.player.displayClientMessage(Component.literal("Placing " + (info == null ? "" : info.file()) + " (" + rotation.getSerializedName()
-                    + ") · sneak + scroll: rotate · right-click: confirm · sneak + right-click: cancel").withStyle(ChatFormatting.AQUA), true);
+                    + (outline ? ", outline only" : "") + ") · sneak + scroll: rotate · right-click: confirm · sneak + right-click: cancel")
+                    .withStyle(ChatFormatting.AQUA), true);
         }
     }
 
     public static void render(Camera camera) {
+        PreviewBenchmark.frame();
         Minecraft minecraft = Minecraft.getInstance();
         PoseStack poseStack = new PoseStack();
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
@@ -128,20 +150,18 @@ public final class PlacementMode {
         }
         Vec3 cameraPos = camera.getPosition();
         BlockPos base = List.of(options.split(" ")).contains(BuildOptions.CORNER) ? BlockPos.ZERO : info.offset();
-        BlockRenderDispatcher dispatcher = minecraft.getBlockRenderer();
-        VertexConsumer ghost = new TranslucentConsumer(buffers.getBuffer(RenderType.translucent()));
-        List<BlockState> palette = info.palette();
-        int[] blocks = info.blocks();
-        for (int i = 0; i + 3 < blocks.length; i += 4) {
-            BlockPos world = toWorld(base, blocks[i], blocks[i + 1], blocks[i + 2]);
-            BlockState state = palette.get(blocks[i + 3]).rotate(rotation);
-            poseStack.pushPose();
-            poseStack.translate(world.getX() - cameraPos.x, world.getY() - cameraPos.y, world.getZ() - cameraPos.z);
-            dispatcher.getModelRenderer().renderModel(poseStack.last(), ghost, state, dispatcher.getBlockModel(state), 1.0F, 1.0F, 1.0F,
-                    LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
-            poseStack.popPose();
+        if (info.complete()) {
+            if (mesh == null) {
+                List<byte[]> data = ClientState.previewData(info);
+                if (data != null) {
+                    mesh = new PreviewMesh(info, data);
+                }
+            }
+            if (mesh != null) {
+                BlockPos anchor = origin.offset(base.rotate(rotation));
+                mesh.render(rotation, anchor.getX() - cameraPos.x, anchor.getY() - cameraPos.y, anchor.getZ() - cameraPos.z);
+            }
         }
-        buffers.endBatch(RenderType.translucent());
         BlockPos a = toWorld(base, 0, 0, 0);
         BlockPos b = toWorld(base, info.size().getX() - 1, info.size().getY() - 1, info.size().getZ() - 1);
         AABB box = new AABB(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ()),
@@ -171,44 +191,5 @@ public final class PlacementMode {
 
     private static BlockPos toWorld(BlockPos base, int x, int y, int z) {
         return origin.offset(new BlockPos(base.getX() + x, base.getY() + y, base.getZ() + z).rotate(rotation));
-    }
-
-    private record TranslucentConsumer(VertexConsumer delegate) implements VertexConsumer {
-
-        @Override
-        public VertexConsumer addVertex(float x, float y, float z) {
-            delegate.addVertex(x, y, z);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setColor(int red, int green, int blue, int alpha) {
-            delegate.setColor(red, green, blue, alpha / 2);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv(float u, float v) {
-            delegate.setUv(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv1(int u, int v) {
-            delegate.setUv1(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setUv2(int u, int v) {
-            delegate.setUv2(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer setNormal(float x, float y, float z) {
-            delegate.setNormal(x, y, z);
-            return this;
-        }
     }
 }

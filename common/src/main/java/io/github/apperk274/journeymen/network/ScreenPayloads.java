@@ -91,7 +91,7 @@ public final class ScreenPayloads {
     }
 
     public record SchematicInfo(String file, BlockPos size, BlockPos offset, List<Component> materials, List<BlockState> palette,
-                                int[] blocks, boolean complete) implements CustomPacketPayload {
+                                int parts, boolean complete) implements CustomPacketPayload {
 
         public static final Type<SchematicInfo> TYPE = payloadType("schematic_info");
         public static final StreamCodec<RegistryFriendlyByteBuf, SchematicInfo> CODEC = StreamCodec.of((buf, value) -> {
@@ -101,7 +101,7 @@ public final class ScreenPayloads {
             COMPONENTS.encode(buf, value.materials);
             buf.writeVarInt(value.palette.size());
             value.palette.forEach(state -> BLOCK_STATE.encode(buf, state));
-            buf.writeVarIntArray(value.blocks);
+            buf.writeVarInt(value.parts);
             buf.writeBoolean(value.complete);
         }, buf -> {
             String file = buf.readUtf();
@@ -113,8 +113,23 @@ public final class ScreenPayloads {
             for (int i = 0; i < paletteSize; i++) {
                 palette.add(BLOCK_STATE.decode(buf));
             }
-            return new SchematicInfo(file, size, offset, materials, palette, buf.readVarIntArray(), buf.readBoolean());
+            return new SchematicInfo(file, size, offset, materials, palette, buf.readVarInt(), buf.readBoolean());
         });
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record SchematicBlocks(String file, int part, byte[] data) implements CustomPacketPayload {
+
+        public static final Type<SchematicBlocks> TYPE = payloadType("schematic_blocks");
+        public static final StreamCodec<RegistryFriendlyByteBuf, SchematicBlocks> CODEC = StreamCodec.of((buf, value) -> {
+            buf.writeUtf(value.file);
+            buf.writeVarInt(value.part);
+            buf.writeByteArray(value.data);
+        }, buf -> new SchematicBlocks(buf.readUtf(), buf.readVarInt(), buf.readByteArray(PreviewBlocks.PART_BYTES)));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
