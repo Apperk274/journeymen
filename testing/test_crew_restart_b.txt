@@ -1,0 +1,9 @@
+forceload add 1400 1300 1440 1340
+waitfor 5 nosprint journeymen builder status Steve.Rea =~ Crew of 2
+waitfor 5 nosprint journeymen builder status Steve.Sam =~ Job: test_box\.schem
+journeymen builder status Steve.Rea
+waitlog 20 \[Steve\.(Rea|Sam)\] I finished building test_box\.schem !!
+waitfor 5 nosprint journeymen builder status Steve.Sam =~ Job: none
+mark
+journeymen debug as Steve 0 1406 100 1306 journeymen builder check Rea test_box.schem 1410 100 1310 none corner
+waitlog 10 0 to clear, 0 to place

@@ -2,7 +2,8 @@ param(
     [string[]]$Loaders = @("neoforge", "fabric", "tfc"),
     [string[]]$Suites = @("test_examples.txt", "test_restock.txt", "test_solid.txt", "test_bs_full.txt", "test_stuck.txt", "test_box.txt",
         "test_fill.txt", "test_formats.txt", "test_skip.txt", "test_4b.txt", "test_linkend.txt", "test_hang.txt", "test_supply_missing.txt",
-        "test_dump_gone.txt"),
+        "test_dump_gone.txt", "test_crew.txt", "test_crew_restart_a.txt"),
+    [string[]]$AfterRestart = @("test_crew_restart_b.txt"),
     [string[]]$TfcSuites = @("test_tfc_farm.txt", "test_tfc_shelf.txt", "test_tfc_collapse.txt")
 )
 $repo = Split-Path -Parent $PSScriptRoot
@@ -10,12 +11,20 @@ $outDir = Join-Path $repo "build\testing"
 New-Item -ItemType Directory -Force $outDir | Out-Null
 python (Join-Path $PSScriptRoot "gen_schematics.py")
 $started = Get-Date
+$summary = "^test_.*: \d+ s|TIMEOUT|FAIL|STOPPED|NOT RUN|no timeouts|no failures|not ready"
 foreach ($loader in $Loaders) {
     $files = if ($loader -eq "tfc") { $TfcSuites } else { $Suites }
     $out = Join-Path $outDir "regress-$loader.txt"
     $t = Get-Date
     & (Join-Path $PSScriptRoot "server_test.ps1") -Loader $loader -CommandsFile $files *> $out
     "{0}: {1:N0} s -> {2}" -f $loader, ((Get-Date) - $t).TotalSeconds, $out
-    Get-Content $out | Where-Object { $_ -cmatch "^test_.*: \d+ s|TIMEOUT|FAIL|STOPPED|NOT RUN|no timeouts|no failures|not ready" }
+    Get-Content $out | Where-Object { $_ -cmatch $summary }
+    if ($loader -ne "tfc" -and $AfterRestart.Count -gt 0) {
+        $out = Join-Path $outDir "regress-$loader-restart.txt"
+        $t = Get-Date
+        & (Join-Path $PSScriptRoot "server_test.ps1") -Loader $loader -CommandsFile $AfterRestart *> $out
+        "{0} after restart: {1:N0} s -> {2}" -f $loader, ((Get-Date) - $t).TotalSeconds, $out
+        Get-Content $out | Where-Object { $_ -cmatch $summary }
+    }
 }
 "all: {0:N0} s" -f ((Get-Date) - $started).TotalSeconds

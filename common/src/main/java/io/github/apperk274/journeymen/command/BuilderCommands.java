@@ -12,9 +12,11 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ClearingTask;
+import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.build.MaterialSupply;
 import io.github.apperk274.journeymen.build.PlacingTask;
+import io.github.apperk274.journeymen.build.WorkState;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderNames;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
@@ -31,7 +33,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Rotation;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,6 +41,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 public class BuilderCommands {
@@ -57,6 +59,7 @@ public class BuilderCommands {
     }
 
     private static final int STUCK_SHOWN_SECONDS = 5;
+    private static final String HELPER = "helper";
 
     private static final SuggestionProvider<CommandSourceStack> ROLE_SUGGESTIONS = (context, builder) ->
             SharedSuggestionProvider.suggest(List.of("supply", "dump"), builder);
@@ -89,6 +92,9 @@ public class BuilderCommands {
                         .then(jobArguments(JobMode.SUPPLY).executes(context -> supplyCurrentJob(context, false))
                                 .then(Commands.literal(MaterialSupply.MISSING_ONLY).executes(context -> supplyCurrentJob(context, true)))))
                 .then(Commands.literal("cancel").then(BuilderTargets.argument().executes(BuilderCommands::cancel)))
+                .then(Commands.literal("join").then(BuilderTargets.argument(HELPER)
+                        .then(BuilderTargets.argument().executes(BuilderCommands::join))))
+                .then(Commands.literal("leave").then(BuilderTargets.argument().executes(BuilderCommands::leave)))
                 .then(Commands.literal("chest").then(BuilderTargets.argument()
                         .then(Commands.literal("add").then(Commands.argument("pos", BlockPosArgument.blockPos())
                                 .then(Commands.argument("role", StringArgumentType.word()).suggests(ROLE_SUGGESTIONS)
@@ -105,7 +111,7 @@ public class BuilderCommands {
     }
 
     private static RequiredArgumentBuilder<CommandSourceStack, String> jobArguments(JobMode mode) {
-        return BuilderTargets.argument().then(Commands.argument("file", StringArgumentType.string())
+        return (mode == JobMode.SUPPLY ? BuilderTargets.argument() : BuilderTargets.crewArgument()).then(Commands.argument("file", StringArgumentType.string())
                 .suggests(SchematicCommands.SCHEMATIC_FILES)
                 .executes(context -> job(context, mode, false, false, false))
                 .then(Commands.argument("pos", BlockPosArgument.blockPos())
@@ -121,12 +127,19 @@ public class BuilderCommands {
             throws CommandSyntaxException {
         boolean start = mode == JobMode.BUILD;
         CommandSourceStack source = context.getSource();
-        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
-        if (start && builder.getJob() != null) {
-            throw JourneymenCommand.fail(builder.getBuilderName() + " is already working on " + builder.getJob().getFile() + ". Cancel that job first.");
+        List<BuilderEntity> crew = mode == JobMode.SUPPLY ? List.of(BuilderTargets.resolveLoaded(context)) : BuilderTargets.resolveCrew(context);
+        BuilderEntity builder = crew.get(0);
+        for (BuilderEntity member : crew) {
+            if (start && member.getJob() != null) {
+                throw JourneymenCommand.fail(member.getBuilderName() + " is already working on " + member.getJob().getFile() + ". Cancel that job first.");
+            }
+            if (member.level() != source.getLevel()) {
+                throw JourneymenCommand.fail(member.getBuilderName() + " is in another dimension.");
+            }
         }
-        if (builder.level() != source.getLevel()) {
-            throw JourneymenCommand.fail(builder.getBuilderName() + " is in another dimension.");
+        String crewProblem = JobService.crewProblem(crew, start);
+        if (crewProblem != null) {
+            throw JourneymenCommand.fail(crewProblem);
         }
         String file = StringArgumentType.getString(context, "file");
         BlockPos origin = hasPos ? BlockPosArgument.getBlockPos(context, "pos") : BlockPos.containing(source.getPosition());
@@ -153,7 +166,7 @@ public class BuilderCommands {
             });
             return 1;
         }
-        JobService.run(source.getServer(), builder, file, origin, rotation, options, start, result -> {
+        JobService.run(source.getServer(), crew, file, origin, rotation, options, start, result -> {
             if (result.header() != null) {
                 source.sendSuccess(result::header, false);
                 result.lines().forEach(line -> source.sendSuccess(() -> line, false));
@@ -161,7 +174,8 @@ public class BuilderCommands {
             if (result.error() != null) {
                 source.sendFailure(Component.literal(result.error()));
             } else if (result.started()) {
-                source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " is on the way.").withStyle(ChatFormatting.GREEN), false);
+                String who = Crew.names(crew) + (crew.size() == 1 ? " is" : " are");
+                source.sendSuccess(() -> Component.literal(who + " on the way.").withStyle(ChatFormatting.GREEN), false);
             }
         });
         return 1;
@@ -200,8 +214,38 @@ public class BuilderCommands {
         if (job == null) {
             throw JourneymenCommand.fail(builder.getBuilderName() + " has no job.");
         }
+        String who = job.size() == 1 ? builder.getBuilderName() : "The crew of " + BuilderRegistry.get(context.getSource().getServer()).describeCrew(job);
         builder.cancelJob();
-        context.getSource().sendSuccess(() -> Component.literal(builder.getBuilderName() + " stopped working on " + job.getFile() + "."), false);
+        context.getSource().sendSuccess(() -> Component.literal(who + " stopped working on " + job.getFile() + "."), false);
+        return 1;
+    }
+
+    private static int join(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        BuilderEntity helper = BuilderTargets.resolveLoaded(context, HELPER);
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        String problem = Crew.join(helper, builder, source.hasPermission(Commands.LEVEL_GAMEMASTERS));
+        if (problem != null) {
+            throw JourneymenCommand.fail(problem);
+        }
+        BuildJob job = helper.getJob();
+        String crew = BuilderRegistry.get(source.getServer()).describeCrew(job);
+        source.sendSuccess(() -> Component.literal(helper.getBuilderName() + " joins the crew of " + job.getFile() + " (" + crew + ").")
+                .withStyle(ChatFormatting.GREEN), false);
+        return 1;
+    }
+
+    private static int leave(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        BuildJob job = builder.getJob();
+        if (job == null) {
+            throw JourneymenCommand.fail(builder.getBuilderName() + " has no job.");
+        }
+        builder.leaveJob();
+        BuilderRegistry registry = BuilderRegistry.get(source.getServer());
+        String rest = registry.hasJob(job.getId()) ? " " + registry.describeCrew(job) + " carry on." : " Nobody is working on it anymore.";
+        source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " left the crew of " + job.getFile() + "." + rest), false);
         return 1;
     }
 
@@ -335,10 +379,14 @@ public class BuilderCommands {
         }
         source.sendSuccess(() -> Component.literal("  Job: " + job.getFile() + " at " + job.getOrigin().toShortString() + ", rotation "
                 + job.describeRotation() + ", options " + job.getOptions().describe()), false);
-        String phase = job.getPhase() == BuildJob.Phase.PAUSED && job.getPauseReason() != null
-                ? "paused: " + job.getPauseReason()
-                : job.getPhase().description();
+        WorkState work = builder.getWork();
+        String phase = work.getPhase() == BuildJob.Phase.PAUSED && work.getPauseReason() != null
+                ? "paused: " + work.getPauseReason()
+                : work.getPhase().description();
         source.sendSuccess(() -> Component.literal("  Phase: " + phase), false);
+        if (job.size() > 1) {
+            describeCrew(source, job);
+        }
         ClearingTask clearing = builder.getClearing();
         PlacingTask placing = builder.getPlacing();
         BuildPlan plan = job.getPlan();
@@ -431,6 +479,27 @@ public class BuilderCommands {
         }
     }
 
+    private static void describeCrew(CommandSourceStack source, BuildJob job) {
+        BuilderRegistry registry = BuilderRegistry.get(source.getServer());
+        List<UUID> members = job.getMembers();
+        source.sendSuccess(() -> Component.literal("  Crew of " + members.size() + ":"), false);
+        for (UUID id : members) {
+            BuilderRegistry.Entry entry = registry.get(id).orElse(null);
+            BuilderEntity member = entry == null ? null : BuilderTargets.find(source.getServer(), entry);
+            String name = entry == null ? id.toString() : entry.name();
+            String doing;
+            if (member == null) {
+                doing = "not loaded";
+            } else if (member.getWork().getPhase() == BuildJob.Phase.PAUSED && member.getWork().getPauseReason() != null) {
+                doing = "paused: " + member.getWork().getPauseReason();
+            } else {
+                doing = member.progress().text();
+            }
+            String line = "    " + name + (job.isLeader(id) ? " (leader)" : "") + ": " + doing;
+            source.sendSuccess(() -> Component.literal(line), false);
+        }
+    }
+
     private static String describePosition(BuilderRegistry.Entry entry) {
         BlockPos pos = entry.pos();
         return "at " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " in " + entry.dimension().location();
@@ -441,7 +510,7 @@ public class BuilderCommands {
             return "not loaded";
         }
         if (builder.getJob() != null) {
-            return "working on " + builder.getJob().getFile() + " (" + builder.getJob().getPhase().description() + ")";
+            return "working on " + builder.getJob().getFile() + " (" + builder.getWork().getPhase().description() + ")";
         }
         if (builder.getComeTarget() != null) {
             return "walking to you";

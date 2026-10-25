@@ -5,6 +5,7 @@ import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.BlockRequirements;
 import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
+import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.build.MaterialSupply;
 import io.github.apperk274.journeymen.command.SchematicCommands;
@@ -25,6 +26,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Rotation;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,7 +58,8 @@ public final class BuilderScreenService {
     public static void sendState(ServerPlayer player, BuilderEntity builder) {
         BuildJob job = builder.getJob();
         BuilderEntity.Progress progress = builder.progress();
-        String detail = job != null && job.getPhase() == BuildJob.Phase.PAUSED && job.getPauseReason() != null ? job.getPauseReason() : "";
+        String detail = job != null && builder.getWork().getPhase() == BuildJob.Phase.PAUSED && builder.getWork().getPauseReason() != null
+                ? builder.getWork().getPauseReason() : "";
         List<ScreenPayloads.ChestEntry> chests = new ArrayList<>();
         for (AssignedChest chest : builder.getChests()) {
             chests.add(new ScreenPayloads.ChestEntry(chest.pos(), chest.role() == AssignedChest.Role.SUPPLY));
@@ -113,9 +116,23 @@ public final class BuilderScreenService {
             case "cancel_job" -> {
                 BuildJob job = builder.getJob();
                 if (job != null) {
+                    boolean crew = job.size() > 1;
                     builder.cancelJob();
-                    tell(player, name + " stopped working on " + job.getFile() + ".", true);
+                    tell(player, (crew ? "The crew" : name) + " stopped working on " + job.getFile() + ".", true);
                 }
+            }
+            case "leave_crew" -> {
+                BuildJob job = builder.getJob();
+                if (job != null) {
+                    builder.leaveJob();
+                    tell(player, name + " left the crew of " + job.getFile() + ".", true);
+                }
+            }
+            case "add_helper" -> {
+                BuilderEntity helper = findBuilder(player, builder, action.text().strip());
+                String problem = helper == null ? "There is no builder named " + action.text().strip() + " nearby."
+                        : Crew.join(helper, builder, player.hasPermissions(2));
+                tell(player, problem != null ? problem : helper.getBuilderName() + " joins the crew of " + builder.getJob().getFile() + ".", problem == null);
             }
             case "remove_chest" -> builder.removeChest(action.pos());
             case "link_supply", "link_dump" -> {
@@ -161,8 +178,21 @@ public final class BuilderScreenService {
 
     private static void runJob(ServerPlayer player, BuilderEntity builder, ScreenPayloads.BuilderAction action, JobAction jobAction) {
         String[] parts = action.text().split("\n", -1);
-        if (parts.length != 3) {
+        if (parts.length != 3 && parts.length != 4) {
             return;
+        }
+        List<BuilderEntity> crew = new ArrayList<>(List.of(builder));
+        if (parts.length == 4 && !parts[3].isBlank()) {
+            for (String helperName : parts[3].split(",")) {
+                BuilderEntity helper = findBuilder(player, builder, helperName.strip());
+                if (helper == null) {
+                    tell(player, "There is no builder named " + helperName.strip() + " nearby.", false);
+                    return;
+                }
+                if (!crew.contains(helper)) {
+                    crew.add(helper);
+                }
+            }
         }
         String file = parts[0];
         Rotation rotation = Rotation.NONE;
@@ -200,14 +230,28 @@ public final class BuilderScreenService {
                     result.error() == null ? "" : result.error(), result.unplaceable(), (int) Math.min(Integer.MAX_VALUE, result.missing()),
                     result.missingTools()));
             if (result.started()) {
-                tell(player, builder.getBuilderName() + " is on the way to build " + file + ".", true);
+                tell(player, Crew.names(crew) + (crew.size() == 1 ? " is" : " are") + " on the way to build " + file + ".", true);
             }
         };
         if (jobAction == JobAction.SUPPLY_MISSING) {
             JobService.supplyMissing(player.server, builder, file, origin, rotation, options, player, done);
         } else {
-            JobService.run(player.server, builder, file, origin, rotation, options, jobAction == JobAction.START, done);
+            JobService.run(player.server, crew, file, origin, rotation, options, jobAction == JobAction.START, done);
         }
+    }
+
+    @Nullable
+    private static BuilderEntity findBuilder(ServerPlayer player, BuilderEntity builder, String name) {
+        BuilderRegistry registry = BuilderRegistry.get(player.server);
+        BuilderRegistry.Entry entry = null;
+        int dot = name.indexOf('.');
+        if (dot >= 0 && player.hasPermissions(2)) {
+            entry = registry.findByOwnerName(name.substring(0, dot), name.substring(dot + 1)).stream().findFirst().orElse(null);
+        } else if (builder.getOwner() != null) {
+            entry = registry.find(builder.getOwner(), name).orElse(null);
+        }
+        Entity entity = entry == null ? null : player.serverLevel().getEntity(entry.id());
+        return entity instanceof BuilderEntity found && found.isAlive() && found.canBeCommandedBy(player) ? found : null;
     }
 
     private static void sendSchematicInfo(ServerPlayer player, String file) {

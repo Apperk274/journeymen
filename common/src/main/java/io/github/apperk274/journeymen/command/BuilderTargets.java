@@ -5,6 +5,7 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
 import net.minecraft.commands.CommandSourceStack;
@@ -37,16 +38,53 @@ final class BuilderTargets {
         return SharedSuggestionProvider.suggest(names.stream().map(StringArgumentType::escapeIfRequired), builder);
     };
 
+    private static final SuggestionProvider<CommandSourceStack> CREW_SUGGESTIONS = (context, builder) -> {
+        String remaining = builder.getRemaining();
+        int comma = remaining.lastIndexOf(',');
+        SuggestionsBuilder offset = builder.createOffset(builder.getStart() + comma + 1);
+        return SUGGESTIONS.getSuggestions(context, offset);
+    };
+
     private BuilderTargets() {
     }
 
     static RequiredArgumentBuilder<CommandSourceStack, String> argument() {
-        return Commands.argument(ARGUMENT, StringArgumentType.string()).suggests(SUGGESTIONS);
+        return argument(ARGUMENT);
+    }
+
+    static RequiredArgumentBuilder<CommandSourceStack, String> argument(String name) {
+        return Commands.argument(name, StringArgumentType.string()).suggests(SUGGESTIONS);
+    }
+
+    static RequiredArgumentBuilder<CommandSourceStack, String> crewArgument() {
+        return Commands.argument(ARGUMENT, CrewArgument.crew()).suggests(CREW_SUGGESTIONS);
     }
 
     static BuilderRegistry.Entry resolve(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        CommandSourceStack source = context.getSource();
-        String raw = StringArgumentType.getString(context, ARGUMENT);
+        return resolve(context.getSource(), context.getArgument(ARGUMENT, String.class));
+    }
+
+    static BuilderEntity resolveLoaded(CommandContext<CommandSourceStack> context, String argument) throws CommandSyntaxException {
+        return loaded(context.getSource(), resolve(context.getSource(), context.getArgument(argument, String.class)));
+    }
+
+    static List<BuilderEntity> resolveCrew(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String raw = context.getArgument(ARGUMENT, String.class);
+        List<BuilderEntity> crew = new ArrayList<>();
+        for (String name : raw.split(",", -1)) {
+            if (name.isBlank()) {
+                throw JourneymenCommand.fail("Separate builder names with single commas and no spaces, e.g. Bob,Ann.");
+            }
+            BuilderEntity builder = loaded(context.getSource(), resolve(context.getSource(), name.strip()));
+            if (crew.contains(builder)) {
+                throw JourneymenCommand.fail(builder.getBuilderName() + " is named twice.");
+            }
+            crew.add(builder);
+        }
+        return crew;
+    }
+
+    static BuilderRegistry.Entry resolve(CommandSourceStack source, String raw) throws CommandSyntaxException {
         BuilderRegistry registry = BuilderRegistry.get(source.getServer());
         ServerPlayer player = source.getPlayer();
         int dot = raw.indexOf('.');
@@ -72,8 +110,11 @@ final class BuilderTargets {
     }
 
     static BuilderEntity resolveLoaded(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        BuilderRegistry.Entry entry = resolve(context);
-        BuilderEntity builder = find(context.getSource().getServer(), entry);
+        return loaded(context.getSource(), resolve(context));
+    }
+
+    private static BuilderEntity loaded(CommandSourceStack source, BuilderRegistry.Entry entry) throws CommandSyntaxException {
+        BuilderEntity builder = find(source.getServer(), entry);
         if (builder == null) {
             BlockPos pos = entry.pos();
             throw JourneymenCommand.fail(entry.name() + " is in an unloaded area (last seen at " + pos.getX() + " " + pos.getY() + " "

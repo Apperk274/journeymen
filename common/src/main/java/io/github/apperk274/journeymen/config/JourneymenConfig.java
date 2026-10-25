@@ -43,6 +43,9 @@ public final class JourneymenConfig {
     public static final Entry<Integer> STUCK_TELEPORT_SECONDS = add(new Entry<>("stuck_teleport_seconds",
             "How long a builder may be stuck without getting closer to where it is going (a chest, the build site, you) before it teleports to a safe spot next to it, in seconds (0 = never).",
             20, Integer::parseInt, value -> value >= 0));
+    public static final Entry<Integer> MAX_CREW_SIZE = add(new Entry<>("max_crew_size",
+            "How many builders can work on one job together (0 = no limit).",
+            8, Integer::parseInt, value -> value >= 0));
 
     public static final Entry<String> HIRE_COST_ITEM = add(new Entry<>("hire_cost_item",
             "The item paid to a recruiter to hire a builder: an item id such as minecraft:emerald, or an item tag such as #c:gems/emerald.",

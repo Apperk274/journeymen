@@ -72,7 +72,7 @@ public final class MaterialSupply {
 
     public static Needs missing(ServerLevel level, BuildPlan plan, BuilderEntity builder, BuildOptions options) {
         BuildPlan.Requirements requirements = plan.requirements(level.registryAccess());
-        List<ItemStack> stock = builder.collectStock(new ArrayList<>());
+        List<ItemStack> stock = Crew.stock(Crew.of(builder), new ArrayList<>());
         ItemCounter available = new ItemCounter();
         stock.forEach(stack -> available.add(stack, stack.getCount()));
         ItemCounter items = new ItemCounter();

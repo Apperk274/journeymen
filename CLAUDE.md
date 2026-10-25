@@ -98,6 +98,8 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - **Tools:** each builder fetches its own tools from the crew's supply chests. The pre-check pools durability across all of them, and a builder only claims blocks it has a suitable tool for (one diamond pickaxe means only one builder mines obsidian).
 - **Feedback:** one boss bar per job, e.g. `Bob +2 · house2.nbt · placing 45/92`, and pause messages (missing materials, chests gone) come once from the crew, not from every builder. `builder status` shows the job and what each member is doing.
 - Each builder still walks, reaches, gets stuck and teleports on its own; the job and its claims are saved with the world.
+- **Saving:** the job lives in the world's builder registry, not inside a builder; each member keeps only the job's id and what it is doing itself. So the job survives any member dying, leaving or being unloaded, and a member whose job was cancelled or finished while it was unloaded drops it when it loads. A builder saved before crews existed moves its job into a shared one of its own when it loads.
+- **Commands:** `build` and `check` take a comma-separated crew (`Bob,Ann`; ops can use `Steve.Bob,Alex.Zed`), and `check` pools the stock the same way. `join` is refused when the helper has a job (even the same one), is too far from the site, is in another dimension or the crew is full; a non-op can only name their own builders, so only ops mix owners. `builder status <member>` adds a `Crew of N` list with what each member is doing (or `not loaded`).
 
 ### Pre-check (core requirement)
 
@@ -154,7 +156,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 ### Config
 
-A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI. Keys include the speed multiplier, chunk loading (off), the redo limit (3), the max job volume, the max walking distance to a site, the reminder interval, `stuck_teleport_seconds` (20, 0 = off) and the hire price keys.
+A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI. Keys include the speed multiplier, chunk loading (off), the redo limit (3), the max job volume, the max walking distance to a site, the reminder interval, `stuck_teleport_seconds` (20, 0 = off), `max_crew_size` (8, 0 = no limit) and the hire price keys.
 
 ## Survival UI
 
@@ -196,7 +198,7 @@ The server sends the schematic compressed (run-length encoded, deflated, packets
 
 Phases 0–4 are built: the mod on both loaders, the builder entity, schematic loading, building by hand (everything above), and the survival UI. Phase 4's client side still has to be checked in game by a person.
 
-Phase 5 is crews (see Crews), built in steps: 5a the crew job model (join, leave, cancel, shared stock in the pre-check, saved with the world, commands); 5b the shared work list (batch claims and item reservations, for clearing and placing); 5c the screens (crew picking in the confirmation screen, Add helper and Leave crew) and the shared boss bar and messages.
+Phase 5 is crews (see Crews), built in steps: 5a ✅ the crew job model (join, leave, cancel, shared stock in the pre-check, saved with the world, commands; until 5b only the first loaded member works and the others wait at the site); 5b the shared work list (batch claims and item reservations, for clearing and placing); 5c the screens (crew picking in the confirmation screen, Add helper and Leave crew) and the shared boss bar and messages.
 
 Not tested yet (no way to test them so far):
 

@@ -2,12 +2,27 @@ package io.github.apperk274.journeymen.build;
 
 import io.github.apperk274.journeymen.schematic.Schematic;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.IntArrayTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public final class BuildJob {
 
@@ -29,29 +44,39 @@ public final class BuildJob {
         }
     }
 
+    private final UUID id;
+    private final ResourceKey<Level> dimension;
     private final String file;
     private final BlockPos origin;
     private final Rotation rotation;
     private final BuildOptions options;
     private final BoundingBox area;
-    private Phase phase;
-    private Phase resumePhase;
-    @Nullable
-    private String pauseReason;
+    private final List<UUID> members = new ArrayList<>();
     @Nullable
     private Schematic schematic;
     @Nullable
     private BuildPlan plan;
     private boolean loading;
+    private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
+    private final List<BlockPos> unclearable = new ArrayList<>();
+    private final Set<BlockPos> skippedPositions = new LinkedHashSet<>();
 
-    public BuildJob(String file, BlockPos origin, Rotation rotation, BuildOptions options, BoundingBox area, Phase phase) {
+    public BuildJob(UUID id, ResourceKey<Level> dimension, String file, BlockPos origin, Rotation rotation, BuildOptions options, BoundingBox area) {
+        this.id = id;
+        this.dimension = dimension;
         this.file = file;
         this.origin = origin.immutable();
         this.rotation = rotation;
         this.options = options;
         this.area = area;
-        this.phase = phase;
-        this.resumePhase = phase;
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public ResourceKey<Level> getDimension() {
+        return dimension;
     }
 
     public String getFile() {
@@ -74,33 +99,32 @@ public final class BuildJob {
         return area;
     }
 
-    public Phase getPhase() {
-        return phase;
+    public List<UUID> getMembers() {
+        return List.copyOf(members);
     }
 
-    public void setPhase(Phase phase) {
-        this.phase = phase;
-        if (phase != Phase.PAUSED && phase != Phase.LOADING) {
-            this.resumePhase = phase;
-            this.pauseReason = null;
+    public boolean hasMember(UUID member) {
+        return members.contains(member);
+    }
+
+    public boolean isLeader(UUID member) {
+        return !members.isEmpty() && members.get(0).equals(member);
+    }
+
+    public int size() {
+        return members.size();
+    }
+
+    public boolean addMember(UUID member) {
+        if (members.contains(member)) {
+            return false;
         }
+        members.add(member);
+        return true;
     }
 
-    public Phase getResumePhase() {
-        return resumePhase;
-    }
-
-    public void pause(String reason) {
-        if (phase != Phase.PAUSED && phase != Phase.LOADING) {
-            resumePhase = phase;
-        }
-        phase = Phase.PAUSED;
-        pauseReason = reason;
-    }
-
-    @Nullable
-    public String getPauseReason() {
-        return pauseReason;
+    public boolean removeMember(UUID member) {
+        return members.remove(member);
     }
 
     @Nullable
@@ -131,6 +155,18 @@ public final class BuildJob {
         this.loading = loading;
     }
 
+    public Map<BlockPos, Integer> getRedoCounts() {
+        return redoCounts;
+    }
+
+    public List<BlockPos> getUnclearable() {
+        return unclearable;
+    }
+
+    public Set<BlockPos> getSkippedPositions() {
+        return skippedPositions;
+    }
+
     public PlacementTransform transform() {
         if (schematic == null) {
             throw new IllegalStateException("Schematic not loaded");
@@ -144,39 +180,58 @@ public final class BuildJob {
 
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
+        tag.putUUID("Id", id);
+        tag.putString("Dimension", dimension.location().toString());
         tag.putString("File", file);
         tag.putIntArray("Origin", new int[]{origin.getX(), origin.getY(), origin.getZ()});
         tag.putString("Rotation", rotation.name());
         tag.put("Options", options.save());
         tag.putIntArray("Area", new int[]{area.minX(), area.minY(), area.minZ(), area.maxX(), area.maxY(), area.maxZ()});
-        tag.putString("Phase", (phase == Phase.LOADING ? resumePhase : phase).name());
-        tag.putString("ResumePhase", resumePhase.name());
-        if (pauseReason != null) {
-            tag.putString("PauseReason", pauseReason);
-        }
+        ListTag memberList = new ListTag();
+        members.forEach(member -> memberList.add(new IntArrayTag(UUIDUtil.uuidToIntArray(member))));
+        tag.put("Members", memberList);
         return tag;
     }
 
     @Nullable
     public static BuildJob load(CompoundTag tag) {
+        ResourceLocation dimension = ResourceLocation.tryParse(tag.getString("Dimension"));
+        if (!tag.hasUUID("Id") || dimension == null) {
+            return null;
+        }
+        BuildJob job = read(tag, tag.getUUID("Id"), ResourceKey.create(Registries.DIMENSION, dimension));
+        if (job == null) {
+            return null;
+        }
+        ListTag memberList = tag.getList("Members", Tag.TAG_INT_ARRAY);
+        for (int i = 0; i < memberList.size(); i++) {
+            int[] uuid = memberList.getIntArray(i);
+            if (uuid.length == 4) {
+                job.addMember(UUIDUtil.uuidFromIntArray(uuid));
+            }
+        }
+        return job;
+    }
+
+    @Nullable
+    public static BuildJob loadLegacy(CompoundTag tag, ResourceKey<Level> dimension) {
+        return read(tag, UUID.randomUUID(), dimension);
+    }
+
+    @Nullable
+    private static BuildJob read(CompoundTag tag, UUID id, ResourceKey<Level> dimension) {
         int[] origin = tag.getIntArray("Origin");
         int[] area = tag.getIntArray("Area");
         if (origin.length != 3 || area.length != 6 || tag.getString("File").isEmpty()) {
             return null;
         }
         Rotation rotation;
-        Phase resumePhase;
         try {
             rotation = Rotation.valueOf(tag.getString("Rotation").toUpperCase(Locale.ROOT));
-            resumePhase = Phase.valueOf(tag.getString("ResumePhase"));
         } catch (IllegalArgumentException e) {
             return null;
         }
-        BuildJob job = new BuildJob(tag.getString("File"), new BlockPos(origin[0], origin[1], origin[2]), rotation,
-                BuildOptions.load(tag.getCompound("Options")),
-                new BoundingBox(area[0], area[1], area[2], area[3], area[4], area[5]), Phase.LOADING);
-        job.resumePhase = resumePhase == Phase.LOADING ? Phase.WALKING : resumePhase;
-        job.pauseReason = tag.contains("PauseReason") ? tag.getString("PauseReason") : null;
-        return job;
+        return new BuildJob(id, dimension, tag.getString("File"), new BlockPos(origin[0], origin[1], origin[2]), rotation,
+                BuildOptions.load(tag.getCompound("Options")), new BoundingBox(area[0], area[1], area[2], area[3], area[4], area[5]));
     }
 }

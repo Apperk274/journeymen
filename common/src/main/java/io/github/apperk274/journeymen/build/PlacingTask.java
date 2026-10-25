@@ -187,7 +187,7 @@ public final class PlacingTask {
 
     @Nullable
     private static BlockPos rampStart(BuilderEntity builder) {
-        for (AssignedChest chest : builder.getChests()) {
+        for (AssignedChest chest : builder.jobChests()) {
             if (chest.role() == AssignedChest.Role.SUPPLY) {
                 return chest.pos();
             }

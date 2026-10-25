@@ -8,6 +8,7 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildPlan;
 import io.github.apperk274.journeymen.build.ChestVisit;
 import io.github.apperk274.journeymen.build.ClearingTask;
+import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.build.ItemCounter;
 import io.github.apperk274.journeymen.build.ItemMatch;
 import io.github.apperk274.journeymen.build.ItemStore;
@@ -15,6 +16,7 @@ import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.build.PlacingTask;
 import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.build.Reach;
+import io.github.apperk274.journeymen.build.WorkState;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.ai.BuilderMoveGoal;
 import io.github.apperk274.journeymen.menu.BuilderMenu;
@@ -28,7 +30,6 @@ import io.github.apperk274.journeymen.schematic.SchematicFiles;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -120,7 +121,12 @@ public class BuilderEntity extends PathfinderMob {
     private BlockPos comeTarget;
     private final List<AssignedChest> chests = new ArrayList<>();
     @Nullable
+    private UUID jobId;
+    @Nullable
     private BuildJob job;
+    @Nullable
+    private CompoundTag legacyJob;
+    private final WorkState work = new WorkState();
     private double bestSiteDistance = Double.MAX_VALUE;
     private int ticksWithoutProgress;
     private int pausedTicks;
@@ -140,9 +146,6 @@ public class BuilderEntity extends PathfinderMob {
     private boolean toolsFetched;
     private int storeBlockedUntil;
     private final List<ItemStack> overflow = new ArrayList<>();
-    private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
-    private final List<BlockPos> unclearable = new ArrayList<>();
-    private final Set<BlockPos> skippedPositions = new LinkedHashSet<>();
     @Nullable
     private String lastNotice;
     private int lastNoticeTick;
@@ -188,23 +191,23 @@ public class BuilderEntity extends PathfinderMob {
         goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F) {
             @Override
             public boolean canUse() {
-                return job == null && super.canUse();
+                return getJob() == null && super.canUse();
             }
 
             @Override
             public boolean canContinueToUse() {
-                return job == null && super.canContinueToUse();
+                return getJob() == null && super.canContinueToUse();
             }
         });
         goalSelector.addGoal(4, new RandomLookAroundGoal(this) {
             @Override
             public boolean canUse() {
-                return job == null && super.canUse();
+                return getJob() == null && super.canUse();
             }
 
             @Override
             public boolean canContinueToUse() {
-                return job == null && super.canContinueToUse();
+                return getJob() == null && super.canContinueToUse();
             }
         });
     }
@@ -311,11 +314,12 @@ public class BuilderEntity extends PathfinderMob {
 
     @Nullable
     private BlockPos otherChestHalf(BlockPos pos) {
-        BlockState state = level().getBlockState(pos);
-        if (state.getBlock() instanceof ChestBlock && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
-            return pos.relative(ChestBlock.getConnectedDirection(state));
-        }
-        return null;
+        return Crew.otherChestHalf(level(), pos);
+    }
+
+    public List<AssignedChest> jobChests() {
+        BuildJob current = getJob();
+        return current == null || current.size() <= 1 ? getChests() : Crew.chests(this, Crew.of(this));
     }
 
     public List<ItemStack> collectStock(List<Component> problems) {
@@ -325,72 +329,75 @@ public class BuilderEntity extends PathfinderMob {
                 stock.add(stack.copy());
             }
         }
-        for (AssignedChest chest : chests) {
-            if (chest.role() != AssignedChest.Role.SUPPLY) {
-                continue;
-            }
-            if (!level().isLoaded(chest.pos())) {
-                problems.add(Component.literal("The supply chest at " + chest.pos().toShortString() + " isn't loaded."));
-                continue;
-            }
-            ItemStore store = ItemStores.at(level(), chest.pos());
-            if (store == null) {
-                problems.add(Component.literal("There is no container at " + chest.pos().toShortString() + " anymore (supply chest)."));
-                continue;
-            }
-            for (int slot = 0; slot < store.size(); slot++) {
-                ItemStack stack = store.get(slot);
-                if (!stack.isEmpty()) {
-                    stock.add(stack.copy());
-                }
-            }
-        }
+        stock.addAll(Crew.supplyStock(level(), jobChests(), problems));
         return stock;
-    }
-
-    public long countInDumpChests(ItemStack template) {
-        long count = 0;
-        for (AssignedChest chest : chests) {
-            if (chest.role() != AssignedChest.Role.DUMP || !level().isLoaded(chest.pos())) {
-                continue;
-            }
-            ItemStore store = ItemStores.at(level(), chest.pos());
-            if (store == null) {
-                continue;
-            }
-            for (int slot = 0; slot < store.size(); slot++) {
-                ItemStack stack = store.get(slot);
-                if (ItemMatch.same(stack, template)) {
-                    count += stack.getCount();
-                }
-            }
-        }
-        return count;
-    }
-
-    public int countSupplyChests() {
-        return (int) chests.stream().filter(chest -> chest.role() == AssignedChest.Role.SUPPLY).count();
     }
 
     @Nullable
     public BuildJob getJob() {
+        if (job == null && (jobId != null || legacyJob != null) && level() instanceof ServerLevel serverLevel) {
+            attachJob(BuilderRegistry.get(serverLevel.getServer()));
+        }
         return job;
     }
 
-    public void startJob(BuildJob newJob, Schematic schematic, BuildPlan plan) {
+    private void attachJob(BuilderRegistry registry) {
+        if (legacyJob != null) {
+            BuildJob migrated = BuildJob.loadLegacy(legacyJob, level().dimension());
+            legacyJob = null;
+            registry.forgetLegacyJobArea(getUUID());
+            if (migrated == null) {
+                work.reset();
+                return;
+            }
+            migrated.addMember(getUUID());
+            registry.addJob(migrated);
+            job = migrated;
+            jobId = migrated.getId();
+            return;
+        }
+        BuildJob found = registry.getJob(jobId).orElse(null);
+        if (found == null || !found.hasMember(getUUID())) {
+            detachJob();
+            return;
+        }
+        job = found;
+    }
+
+    public WorkState getWork() {
+        return work;
+    }
+
+    public boolean isWorker() {
+        BuildJob current = getJob();
+        if (current == null) {
+            return false;
+        }
+        if (current.size() <= 1) {
+            return true;
+        }
+        List<BuilderEntity> loaded = Crew.loaded(getServer(), current);
+        return !loaded.isEmpty() && loaded.get(0) == this;
+    }
+
+    public void beginJob(BuildJob newJob) {
         job = newJob;
-        newJob.setLoaded(schematic, plan);
-        newJob.setPhase(BuildJob.Phase.WALKING);
+        jobId = newJob.getId();
+        legacyJob = null;
+        work.setPhase(BuildJob.Phase.WALKING);
         following = false;
         comeTarget = null;
         bestSiteDistance = Double.MAX_VALUE;
         ticksWithoutProgress = 0;
         getNavigation().stop();
-        updateJobArea();
         toolsFetched = false;
         clearedSomething = false;
         Constants.LOG.debug("{} starts {}", getBuilderName(), newJob.getFile());
-        prepareForSite(plan);
+        if (newJob.getSchematic() == null) {
+            work.setPhase(BuildJob.Phase.LOADING);
+        } else if (newJob.isLeader(getUUID()) && newJob.getPlan() != null) {
+            prepareForSite(newJob.getPlan());
+        }
     }
 
     private void prepareForSite(BuildPlan plan) {
@@ -404,7 +411,7 @@ public class BuilderEntity extends PathfinderMob {
 
     private void queueToolFetch(Predicate<ItemStack> useful) {
         toolsFetched = true;
-        for (AssignedChest chest : chests) {
+        for (AssignedChest chest : jobChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
@@ -422,11 +429,44 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     public void cancelJob() {
+        BuildJob current = getJob();
+        if (current == null) {
+            return;
+        }
+        endJob(current);
+    }
+
+    private void endJob(BuildJob current) {
+        MinecraftServer server = level().getServer();
+        for (BuilderEntity member : Crew.loaded(server, current)) {
+            if (member != this) {
+                member.detachJob();
+            }
+        }
+        detachJob();
+        if (server != null) {
+            BuilderRegistry.get(server).removeJob(current.getId());
+        }
+    }
+
+    public void leaveJob() {
+        BuildJob current = getJob();
+        if (current == null) {
+            return;
+        }
+        detachJob();
+        MinecraftServer server = level().getServer();
+        if (server != null) {
+            BuilderRegistry.get(server).leaveJob(current, getUUID());
+        }
+    }
+
+    private void detachJob() {
         stopWork();
         job = null;
-        redoCounts.clear();
-        unclearable.clear();
-        skippedPositions.clear();
+        jobId = null;
+        legacyJob = null;
+        work.reset();
         for (ItemStack stack : overflow) {
             ItemStack remainder = inventory.addItem(stack);
             if (!remainder.isEmpty()) {
@@ -434,7 +474,6 @@ public class BuilderEntity extends PathfinderMob {
             }
         }
         overflow.clear();
-        updateJobArea();
     }
 
     private void stopWork() {
@@ -688,7 +727,7 @@ public class BuilderEntity extends PathfinderMob {
         }
         visits.clear();
         getNavigation().stop();
-        job.pause(reason);
+        work.pause(reason);
         pausedTicks = 0;
         int reminderTicks = JourneymenConfig.REMINDER_INTERVAL_SECONDS.get() * 20;
         if (!reason.equals(lastNotice) || tickCount - lastNoticeTick >= reminderTicks) {
@@ -791,10 +830,10 @@ public class BuilderEntity extends PathfinderMob {
         job.setPlan(plan);
         List<BlockPos> leftover = new ArrayList<>();
         for (BlockPos pos : plan.getToClear()) {
-            if (redoCounts.merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
+            if (job.getRedoCounts().merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
                 leftover.add(pos);
-            } else if (!unclearable.contains(pos)) {
-                unclearable.add(pos);
+            } else if (!job.getUnclearable().contains(pos)) {
+                job.getUnclearable().add(pos);
             }
         }
         if (!leftover.isEmpty() || !plan.getFluidsInTheWay().isEmpty()) {
@@ -802,15 +841,15 @@ public class BuilderEntity extends PathfinderMob {
             return;
         }
         showInHand(ItemStack.EMPTY);
-        if (!unclearable.isEmpty() || !skipped.isEmpty()) {
-            BlockPos example = !unclearable.isEmpty() ? unclearable.get(0) : skipped.get(0);
-            notifyOwner("I couldn't clear " + Math.max(unclearable.size(), skipped.size()) + " block(s) of the site, e.g. at "
+        if (!job.getUnclearable().isEmpty() || !skipped.isEmpty()) {
+            BlockPos example = !job.getUnclearable().isEmpty() ? job.getUnclearable().get(0) : skipped.get(0);
+            notifyOwner("I couldn't clear " + Math.max(job.getUnclearable().size(), skipped.size()) + " block(s) of the site, e.g. at "
                     + example.toShortString() + ".");
         }
         boolean collected = clearedSomething;
         clearedSomething = false;
         if (!collected) {
-            job.setPhase(BuildJob.Phase.PLACING);
+            work.setPhase(BuildJob.Phase.PLACING);
             return;
         }
         notifyOwner("The site of " + job.getFile() + " is clear.");
@@ -821,7 +860,7 @@ public class BuilderEntity extends PathfinderMob {
 
     private void queueEmptyingOut() {
         if (hasDumpableItems()) {
-            for (AssignedChest chest : chests) {
+            for (AssignedChest chest : jobChests()) {
                 if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
                     queueVisit(ChestVisit.dump(chest.pos()));
                     return;
@@ -834,7 +873,7 @@ public class BuilderEntity extends PathfinderMob {
         }
         emptyingOut = false;
         resetDumpTries();
-        job.setPhase(BuildJob.Phase.PLACING);
+        work.setPhase(BuildJob.Phase.PLACING);
     }
 
     private void tickPlacing() {
@@ -890,7 +929,7 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private boolean withinRedoLimit(BlockPos pos) {
-        return redoCounts.getOrDefault(pos, 0) <= JourneymenConfig.REDO_LIMIT.get() && !skippedPositions.contains(pos);
+        return job.getRedoCounts().getOrDefault(pos, 0) <= JourneymenConfig.REDO_LIMIT.get() && !job.getSkippedPositions().contains(pos);
     }
 
     private void fetchMaterials(@Nullable List<ItemStack> immediate) {
@@ -926,7 +965,7 @@ public class BuilderEntity extends PathfinderMob {
         for (BlockRequirements.ToolUse use : placing.remainingToolUses()) {
             Predicate<ItemStack> usable = PlacingTask.toolFor(use, job.getOptions().allowBreakingEnchanted());
             if (findSlot(usable) < 0) {
-                for (AssignedChest chest : chests) {
+                for (AssignedChest chest : jobChests()) {
                     if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                         continue;
                     }
@@ -942,7 +981,7 @@ public class BuilderEntity extends PathfinderMob {
             return;
         }
         boolean queued = false;
-        for (AssignedChest chest : chests) {
+        for (AssignedChest chest : jobChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
@@ -985,7 +1024,7 @@ public class BuilderEntity extends PathfinderMob {
     private boolean queueUnload(ItemCounter keep) {
         boolean queued = false;
         if (hasDumpableItems()) {
-            for (AssignedChest chest : chests) {
+            for (AssignedChest chest : jobChests()) {
                 if (chest.role() == AssignedChest.Role.DUMP && level().isLoaded(chest.pos())) {
                     queueVisit(ChestVisit.dump(chest.pos()));
                     queued = true;
@@ -1015,7 +1054,7 @@ public class BuilderEntity extends PathfinderMob {
 
     @Nullable
     private AssignedChest firstSupplyChest() {
-        for (AssignedChest chest : chests) {
+        for (AssignedChest chest : jobChests()) {
             if (chest.role() == AssignedChest.Role.SUPPLY && level().isLoaded(chest.pos())) {
                 return chest;
             }
@@ -1066,7 +1105,7 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void finishPlacing() {
-        skippedPositions.addAll(placing.getSkipped());
+        job.getSkippedPositions().addAll(placing.getSkipped());
         placing.stop();
         placing = null;
         BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
@@ -1076,13 +1115,13 @@ public class BuilderEntity extends PathfinderMob {
         plan.getToFix().forEach(placement -> leftover.add(placement.pos()));
         plan.getToWaterlog().forEach(placement -> leftover.add(placement.pos()));
         leftover.addAll(plan.getFluidsInTheWay());
-        leftover.removeAll(skippedPositions);
+        leftover.removeAll(job.getSkippedPositions());
         boolean redo = false;
         for (BlockPos pos : leftover) {
-            if (redoCounts.merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
+            if (job.getRedoCounts().merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
                 redo = true;
-            } else if (!unclearable.contains(pos)) {
-                unclearable.add(pos);
+            } else if (!job.getUnclearable().contains(pos)) {
+                job.getUnclearable().add(pos);
             }
         }
         if (!redo) {
@@ -1092,7 +1131,7 @@ public class BuilderEntity extends PathfinderMob {
         List<BlockPos> toClear = plan.getToClear().stream().filter(this::withinRedoLimit).toList();
         if (!toClear.isEmpty() || !plan.getFluidsInTheWay().isEmpty()) {
             clearing = new ClearingTask(this, job, toClear, plan.getFluidsInTheWay(), plan.targetsByPosition());
-            job.setPhase(BuildJob.Phase.CLEARING);
+            work.setPhase(BuildJob.Phase.CLEARING);
             return;
         }
         placing = new PlacingTask(this, plan, this::withinRedoLimit);
@@ -1100,19 +1139,14 @@ public class BuilderEntity extends PathfinderMob {
 
     private void finishJob() {
         String file = job.getFile();
-        Set<BlockPos> problems = new LinkedHashSet<>(unclearable);
-        problems.addAll(skippedPositions);
+        Set<BlockPos> problems = new LinkedHashSet<>(job.getUnclearable());
+        problems.addAll(job.getSkippedPositions());
         if (!problems.isEmpty()) {
             notifyOwner("I couldn't build " + problems.size() + " block(s) of " + file + ", e.g. at "
                     + problems.iterator().next().toShortString() + ".");
         }
         notifyOwner("I finished building " + file + ".");
-        stopWork();
-        job = null;
-        redoCounts.clear();
-        unclearable.clear();
-        skippedPositions.clear();
-        updateJobArea();
+        endJob(job);
     }
 
     private void startDump() {
@@ -1123,7 +1157,7 @@ public class BuilderEntity extends PathfinderMob {
                 return;
             }
         }
-        for (AssignedChest chest : chests) {
+        for (AssignedChest chest : jobChests()) {
             if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
                 queueVisit(ChestVisit.dump(chest.pos()));
                 return;
@@ -1131,7 +1165,7 @@ public class BuilderEntity extends PathfinderMob {
         }
         String problems = describeDumpProblems("");
         resetDumpTries();
-        boolean hasDumpChest = chests.stream().anyMatch(chest -> chest.role() == AssignedChest.Role.DUMP);
+        boolean hasDumpChest = jobChests().stream().anyMatch(chest -> chest.role() == AssignedChest.Role.DUMP);
         pauseJob(problems != null ? "My inventory is full. " + problems
                 : hasDumpChest
                 ? "My inventory is full and my dump chests are full too. Please empty them or give me another one."
@@ -1187,7 +1221,7 @@ public class BuilderEntity extends PathfinderMob {
 
     private String supplyChestProblems() {
         StringBuilder problems = new StringBuilder();
-        for (AssignedChest chest : chests) {
+        for (AssignedChest chest : jobChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY) {
                 continue;
             }
@@ -1201,7 +1235,7 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void startFetch(Predicate<ItemStack> wanted, String description) {
-        for (AssignedChest chest : chests) {
+        for (AssignedChest chest : jobChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
@@ -1224,13 +1258,6 @@ public class BuilderEntity extends PathfinderMob {
         return false;
     }
 
-    private void updateJobArea() {
-        MinecraftServer server = level().getServer();
-        if (server != null) {
-            BuilderRegistry.get(server).setJobArea(getUUID(), job == null ? null : new BuilderRegistry.JobArea(level().dimension(), job.getArea()));
-        }
-    }
-
     public void notifyOwner(String message) {
         Constants.LOG.info("[{}.{}] {}", getOwnerName(), getBuilderName(), message);
         deliverToOwner(Component.literal("[" + getBuilderName() + "] " + message));
@@ -1250,7 +1277,7 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     public Progress progress() {
-        if (job == null) {
+        if (getJob() == null) {
             return new Progress(isFollowing() ? "following you" : "idle", 0.0F, 0, 0);
         }
         float fraction = 0.0F;
@@ -1272,22 +1299,25 @@ public class BuilderEntity extends PathfinderMob {
             doneCount = done;
             allCount = all;
         }
-        String phase = switch (job.getPhase()) {
+        String phase = switch (work.getPhase()) {
             case LOADING -> "loading";
             case WALKING -> "walking to the site";
             case CLEARING -> "clearing" + counts;
             case PLACING -> "placing" + counts;
             case PAUSED -> "paused";
         };
-        if (waitTicks > 0 && job.getPhase() == BuildJob.Phase.PLACING) {
+        if (waitTicks > 0 && work.getPhase() == BuildJob.Phase.PLACING) {
             phase = "waiting for someone to move";
+        }
+        if (!isWorker() && (work.getPhase() == BuildJob.Phase.CLEARING || work.getPhase() == BuildJob.Phase.PLACING)) {
+            phase = "waiting to help";
         }
         return new Progress(phase, fraction, doneCount, allCount);
     }
 
     private void updateProgressBar() {
         ServerPlayer ownerPlayer = getOwnerPlayer();
-        boolean show = job != null && isAlive() && ownerPlayer != null && ownerPlayer.level() == level()
+        boolean show = job != null && isAlive() && isWorker() && ownerPlayer != null && ownerPlayer.level() == level()
                 && ownerPlayer.distanceToSqr(this) <= PROGRESS_BAR_RANGE * PROGRESS_BAR_RANGE;
         if (!show) {
             removeProgressBar();
@@ -1295,7 +1325,7 @@ public class BuilderEntity extends PathfinderMob {
         }
         Progress progress = progress();
         Component title = Component.literal(getBuilderName() + " · " + job.getFile() + " · " + progress.text());
-        BossEvent.BossBarColor color = job.getPhase() == BuildJob.Phase.PAUSED ? BossEvent.BossBarColor.YELLOW : BossEvent.BossBarColor.GREEN;
+        BossEvent.BossBarColor color = work.getPhase() == BuildJob.Phase.PAUSED ? BossEvent.BossBarColor.YELLOW : BossEvent.BossBarColor.GREEN;
         if (progressBar == null) {
             progressBar = new ServerBossEvent(title, color, BossEvent.BossBarOverlay.PROGRESS);
         }
@@ -1316,24 +1346,41 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void tickJob() {
-        if (job == null) {
+        if (getJob() == null) {
             return;
         }
-        switch (job.getPhase()) {
+        MinecraftServer server = level().getServer();
+        if (server != null && (!BuilderRegistry.get(server).hasJob(job.getId()) || !job.hasMember(getUUID()))) {
+            detachJob();
+            return;
+        }
+        switch (work.getPhase()) {
             case LOADING -> reloadJob();
             case WALKING -> {
                 if (!handleVisits()) {
                     walkToSite();
                 }
             }
-            case CLEARING -> tickClearing();
-            case PLACING -> tickPlacing();
+            case CLEARING -> {
+                if (isWorker()) {
+                    tickClearing();
+                } else {
+                    handleVisits();
+                }
+            }
+            case PLACING -> {
+                if (isWorker()) {
+                    tickPlacing();
+                } else {
+                    handleVisits();
+                }
+            }
             case PAUSED -> {
                 if (++pausedTicks >= PAUSE_RETRY_TICKS) {
                     pausedTicks = 0;
                     bestSiteDistance = Double.MAX_VALUE;
                     ticksWithoutProgress = 0;
-                    job.setPhase(job.getResumePhase());
+                    work.setPhase(work.getResumePhase());
                 }
             }
             default -> {
@@ -1342,12 +1389,18 @@ public class BuilderEntity extends PathfinderMob {
     }
 
     private void reloadJob() {
-        if (job == null || job.isLoading()) {
+        if (job == null) {
+            return;
+        }
+        if (job.getSchematic() != null) {
+            work.setPhase(work.getResumePhase());
+            return;
+        }
+        if (job.isLoading()) {
             return;
         }
         BuildJob loadingJob = job;
         loadingJob.setLoading(true);
-        updateJobArea();
         MinecraftServer server = level().getServer();
         CompletableFuture
                 .supplyAsync(() -> {
@@ -1358,17 +1411,25 @@ public class BuilderEntity extends PathfinderMob {
                     }
                 }, Util.backgroundExecutor())
                 .whenCompleteAsync((schematic, error) -> {
-                    if (job != loadingJob || isRemoved()) {
+                    loadingJob.setLoading(false);
+                    if (!BuilderRegistry.get(server).hasJob(loadingJob.getId())) {
                         return;
                     }
                     if (error != null) {
                         Throwable cause = error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
                         notifyOwner("I stopped working on " + loadingJob.getFile() + " because the file can't be loaded anymore: " + cause.getMessage());
-                        cancelJob();
+                        if (job == loadingJob) {
+                            endJob(loadingJob);
+                        } else {
+                            Crew.loaded(server, loadingJob).forEach(BuilderEntity::cancelJob);
+                            BuilderRegistry.get(server).removeJob(loadingJob.getId());
+                        }
                         return;
                     }
                     loadingJob.setLoaded(schematic, null);
-                    loadingJob.setPhase(loadingJob.getResumePhase());
+                    if (job == loadingJob) {
+                        work.setPhase(work.getResumePhase());
+                    }
                 }, server);
     }
 
@@ -1380,7 +1441,7 @@ public class BuilderEntity extends PathfinderMob {
             getNavigation().stop();
             BuildPlan plan = job.getPlan();
             boolean nothingToClear = plan != null && plan.getToClear().isEmpty() && plan.getFluidsInTheWay().isEmpty();
-            job.setPhase(nothingToClear ? BuildJob.Phase.PLACING : BuildJob.Phase.CLEARING);
+            work.setPhase(nothingToClear ? BuildJob.Phase.PLACING : BuildJob.Phase.CLEARING);
             return;
         }
         if (distance < bestSiteDistance - 0.5) {
@@ -1388,7 +1449,7 @@ public class BuilderEntity extends PathfinderMob {
             ticksWithoutProgress = 0;
         } else if (++ticksWithoutProgress > StuckRecovery.giveUpTicks(STUCK_TICKS)) {
             getNavigation().stop();
-            job.pause("can't find a way to the site");
+            work.pause("can't find a way to the site");
             notifyOwner("I can't find a way to the site of " + job.getFile() + ". I'll try again in a while.");
             return;
         }
@@ -1413,18 +1474,18 @@ public class BuilderEntity extends PathfinderMob {
             }
             return null;
         }
-        if (job.getPhase() == BuildJob.Phase.PAUSED || job.getPhase() == BuildJob.Phase.LOADING) {
+        if (work.getPhase() == BuildJob.Phase.PAUSED || work.getPhase() == BuildJob.Phase.LOADING) {
             return null;
         }
         ChestVisit visit = visits.peek();
         if (visit != null) {
             return visit.isOpen() ? null : chestGoal(visit.getChest());
         }
-        if (job.getPhase() == BuildJob.Phase.WALKING) {
+        if (work.getPhase() == BuildJob.Phase.WALKING) {
             return siteGoal(false);
         }
-        Reach reach = job.getPhase() == BuildJob.Phase.CLEARING && clearing != null ? clearing.getReach()
-                : job.getPhase() == BuildJob.Phase.PLACING && placing != null ? placing.getReach() : null;
+        Reach reach = work.getPhase() == BuildJob.Phase.CLEARING && clearing != null ? clearing.getReach()
+                : work.getPhase() == BuildJob.Phase.PLACING && placing != null ? placing.getReach() : null;
         BlockPos stand = reach == null ? null : reach.walkingTo();
         return stand == null ? null : reachGoal(stand);
     }
@@ -1484,6 +1545,7 @@ public class BuilderEntity extends PathfinderMob {
 
     @Nullable
     public String unstick(@Nullable BlockPos fallback) {
+        getJob();
         StuckRecovery.Goal goal = movementGoal();
         if (goal == null && job != null) {
             ChestVisit visit = visits.peek();
@@ -1672,6 +1734,7 @@ public class BuilderEntity extends PathfinderMob {
         removeProgressBar();
         MinecraftServer server = level().getServer();
         if (server != null && reason.shouldDestroy()) {
+            leaveJob();
             BuilderRegistry.get(server).remove(getUUID());
         }
         super.remove(reason);
@@ -1686,6 +1749,7 @@ public class BuilderEntity extends PathfinderMob {
             Constants.LOG.info("[{}.{}] {}", getOwnerName(), getBuilderName(), message.getString());
             deliverToOwner(message);
             removeProgressBar();
+            leaveJob();
         }
     }
 
@@ -1725,8 +1789,11 @@ public class BuilderEntity extends PathfinderMob {
         ListTag chestList = new ListTag();
         chests.forEach(chest -> chestList.add(chest.save()));
         tag.put("Chests", chestList);
-        if (job != null) {
-            tag.put("Job", job.save());
+        if (jobId != null) {
+            tag.putUUID("JobId", jobId);
+            tag.put("Work", work.save());
+        } else if (legacyJob != null) {
+            tag.put("Job", legacyJob.copy());
         }
         ListTag overflowList = new ListTag();
         overflow.forEach(stack -> overflowList.add(stack.save(registryAccess())));
@@ -1751,7 +1818,15 @@ public class BuilderEntity extends PathfinderMob {
                 chests.add(chest);
             }
         }
-        job = tag.contains("Job", Tag.TAG_COMPOUND) ? BuildJob.load(tag.getCompound("Job")) : null;
+        job = null;
+        jobId = tag.hasUUID("JobId") ? tag.getUUID("JobId") : null;
+        legacyJob = jobId == null && tag.contains("Job", Tag.TAG_COMPOUND) ? tag.getCompound("Job").copy() : null;
+        work.reset();
+        if (jobId != null) {
+            work.load(tag.getCompound("Work"));
+        } else if (legacyJob != null) {
+            work.load(legacyJob);
+        }
         overflow.clear();
         ListTag overflowList = tag.getList("Overflow", Tag.TAG_COMPOUND);
         for (int i = 0; i < overflowList.size(); i++) {

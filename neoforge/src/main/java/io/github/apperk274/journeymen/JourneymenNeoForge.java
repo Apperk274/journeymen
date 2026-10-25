@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen;
 
 import io.github.apperk274.journeymen.block.ModBlocks;
 import io.github.apperk274.journeymen.client.ClientState;
+import io.github.apperk274.journeymen.command.CrewArgument;
 import io.github.apperk274.journeymen.command.JourneymenCommand;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ModEntities;
@@ -10,6 +11,8 @@ import io.github.apperk274.journeymen.item.ModItems;
 import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.network.JourneymenNetwork;
 import io.github.apperk274.journeymen.platform.NeoForgeMenuHelper;
+import net.minecraft.commands.synchronization.ArgumentTypeInfos;
+import net.minecraft.commands.synchronization.SingletonArgumentInfo;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -42,6 +45,8 @@ public class JourneymenNeoForge {
             event.register(Registries.ENTITY_TYPE, helper -> ModEntities.register(helper::register));
             event.register(Registries.MENU, helper -> helper.register(ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "builder"),
                     NeoForgeMenuHelper.BUILDER_MENU));
+            event.register(Registries.COMMAND_ARGUMENT_TYPE, helper -> helper.register(ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "crew"),
+                    ArgumentTypeInfos.registerByClass(CrewArgument.class, SingletonArgumentInfo.contextFree(CrewArgument::crew))));
         });
         eventBus.addListener((EntityAttributeCreationEvent event) -> {
             event.put(ModEntities.BUILDER, BuilderEntity.createAttributes().build());

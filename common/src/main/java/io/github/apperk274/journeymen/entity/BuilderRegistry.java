@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.entity;
 
+import io.github.apperk274.journeymen.build.BuildJob;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
@@ -33,7 +34,8 @@ public final class BuilderRegistry extends SavedData {
     private static final Factory<BuilderRegistry> FACTORY = new Factory<>(BuilderRegistry::new, BuilderRegistry::load, null);
 
     private final Map<UUID, Entry> entries = new LinkedHashMap<>();
-    private final Map<UUID, JobArea> jobAreas = new HashMap<>();
+    private final Map<UUID, BuildJob> jobs = new LinkedHashMap<>();
+    private final Map<UUID, JobArea> legacyJobAreas = new HashMap<>();
     private final Map<UUID, List<String>> notices = new HashMap<>();
     private static final int MAX_NOTICES = 20;
 
@@ -84,14 +86,69 @@ public final class BuilderRegistry extends SavedData {
 
     public void remove(UUID id) {
         boolean changed = entries.remove(id) != null;
-        changed |= jobAreas.remove(id) != null;
+        changed |= legacyJobAreas.remove(id) != null;
+        BuildJob job = jobOf(id);
+        if (job != null) {
+            leaveJob(job, id);
+            changed = true;
+        }
         if (changed) {
             setDirty();
         }
     }
 
-    public void setJobArea(UUID id, @Nullable JobArea area) {
-        if (area == null ? jobAreas.remove(id) != null : !area.equals(jobAreas.put(id, area))) {
+    public Optional<BuildJob> getJob(@Nullable UUID jobId) {
+        return jobId == null ? Optional.empty() : Optional.ofNullable(jobs.get(jobId));
+    }
+
+    public boolean hasJob(UUID jobId) {
+        return jobs.containsKey(jobId);
+    }
+
+    @Nullable
+    public BuildJob jobOf(UUID member) {
+        for (BuildJob job : jobs.values()) {
+            if (job.hasMember(member)) {
+                return job;
+            }
+        }
+        return null;
+    }
+
+    public void addJob(BuildJob job) {
+        jobs.put(job.getId(), job);
+        job.getMembers().forEach(legacyJobAreas::remove);
+        setDirty();
+    }
+
+    public void removeJob(UUID jobId) {
+        if (jobs.remove(jobId) != null) {
+            setDirty();
+        }
+    }
+
+    public boolean joinJob(BuildJob job, UUID member) {
+        boolean added = job.addMember(member);
+        if (added) {
+            legacyJobAreas.remove(member);
+            setDirty();
+        }
+        return added;
+    }
+
+    public boolean leaveJob(BuildJob job, UUID member) {
+        if (!job.removeMember(member)) {
+            return false;
+        }
+        if (job.size() == 0) {
+            jobs.remove(job.getId());
+        }
+        setDirty();
+        return true;
+    }
+
+    public void forgetLegacyJobArea(UUID id) {
+        if (legacyJobAreas.remove(id) != null) {
             setDirty();
         }
     }
@@ -125,16 +182,32 @@ public final class BuilderRegistry extends SavedData {
         }
     }
 
-    public Optional<Entry> findOverlappingJob(ResourceKey<Level> dimension, BoundingBox box, UUID except) {
-        for (Map.Entry<UUID, JobArea> job : jobAreas.entrySet()) {
-            if (!job.getKey().equals(except) && job.getValue().dimension().equals(dimension) && job.getValue().box().intersects(box)) {
+    public Optional<String> findOverlappingJob(ResourceKey<Level> dimension, BoundingBox box, @Nullable UUID exceptJob) {
+        for (BuildJob job : jobs.values()) {
+            if (!job.getId().equals(exceptJob) && job.getDimension().equals(dimension) && job.getArea().intersects(box)) {
+                return Optional.of(describeCrew(job));
+            }
+        }
+        for (Map.Entry<UUID, JobArea> job : legacyJobAreas.entrySet()) {
+            if (job.getValue().dimension().equals(dimension) && job.getValue().box().intersects(box)) {
                 Entry entry = entries.get(job.getKey());
                 if (entry != null) {
-                    return Optional.of(entry);
+                    return Optional.of(entry.qualifiedName());
                 }
             }
         }
         return Optional.empty();
+    }
+
+    public String describeCrew(BuildJob job) {
+        List<String> names = new ArrayList<>();
+        for (UUID member : job.getMembers()) {
+            Entry entry = entries.get(member);
+            if (entry != null) {
+                names.add(entry.qualifiedName());
+            }
+        }
+        return names.isEmpty() ? "nobody" : String.join(", ", names);
     }
 
     @Override
@@ -151,16 +224,19 @@ public final class BuilderRegistry extends SavedData {
             list.add(entryTag);
         }
         tag.put("Builders", list);
-        ListTag jobs = new ListTag();
-        for (Map.Entry<UUID, JobArea> job : jobAreas.entrySet()) {
+        ListTag jobList = new ListTag();
+        jobs.values().forEach(job -> jobList.add(job.save()));
+        tag.put("Jobs", jobList);
+        ListTag legacy = new ListTag();
+        for (Map.Entry<UUID, JobArea> job : legacyJobAreas.entrySet()) {
             CompoundTag jobTag = new CompoundTag();
             jobTag.putUUID("Id", job.getKey());
             jobTag.putString("Dimension", job.getValue().dimension().location().toString());
             BoundingBox box = job.getValue().box();
             jobTag.putIntArray("Box", new int[]{box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ()});
-            jobs.add(jobTag);
+            legacy.add(jobTag);
         }
-        tag.put("JobAreas", jobs);
+        tag.put("JobAreas", legacy);
         ListTag noticeList = new ListTag();
         for (Map.Entry<UUID, List<String>> owner : notices.entrySet()) {
             CompoundTag ownerTag = new CompoundTag();
@@ -188,13 +264,20 @@ public final class BuilderRegistry extends SavedData {
                     entryTag.getString("Name"), ResourceKey.create(Registries.DIMENSION, dimension), new BlockPos(pos[0], pos[1], pos[2]));
             registry.entries.put(entry.id, entry);
         }
-        ListTag jobs = tag.getList("JobAreas", Tag.TAG_COMPOUND);
-        for (int i = 0; i < jobs.size(); i++) {
-            CompoundTag jobTag = jobs.getCompound(i);
+        ListTag jobList = tag.getList("Jobs", Tag.TAG_COMPOUND);
+        for (int i = 0; i < jobList.size(); i++) {
+            BuildJob job = BuildJob.load(jobList.getCompound(i));
+            if (job != null && job.size() > 0) {
+                registry.jobs.put(job.getId(), job);
+            }
+        }
+        ListTag legacy = tag.getList("JobAreas", Tag.TAG_COMPOUND);
+        for (int i = 0; i < legacy.size(); i++) {
+            CompoundTag jobTag = legacy.getCompound(i);
             ResourceLocation dimension = ResourceLocation.tryParse(jobTag.getString("Dimension"));
             int[] box = jobTag.getIntArray("Box");
             if (jobTag.hasUUID("Id") && dimension != null && box.length == 6) {
-                registry.jobAreas.put(jobTag.getUUID("Id"), new JobArea(ResourceKey.create(Registries.DIMENSION, dimension),
+                registry.legacyJobAreas.put(jobTag.getUUID("Id"), new JobArea(ResourceKey.create(Registries.DIMENSION, dimension),
                         new BoundingBox(box[0], box[1], box[2], box[3], box[4], box[5])));
             }
         }

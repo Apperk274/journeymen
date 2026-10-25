@@ -20,6 +20,7 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,11 @@ public final class PreCheck {
     }
 
     public static PreCheck run(BuilderEntity builder, Schematic schematic, PlacementTransform transform, BuildOptions options) {
+        return run(List.of(builder), schematic, transform, options);
+    }
+
+    public static PreCheck run(List<BuilderEntity> crew, Schematic schematic, PlacementTransform transform, BuildOptions options) {
+        BuilderEntity builder = crew.get(0);
         ServerLevel level = (ServerLevel) builder.level();
         Vec3i size = schematic.getSize();
         PreCheck check = new PreCheck(transform.area(size));
@@ -62,18 +68,27 @@ public final class PreCheck {
                     + (level.getMaxBuildHeight() - 1) + ").");
             return check;
         }
-        UUID owner = builder.getOwner();
-        if (owner == null) {
-            check.problem(builder.getBuilderName() + " has no owner, so it can't take jobs.");
-            return check;
+        Map<UUID, String> owners = new LinkedHashMap<>();
+        for (BuilderEntity member : crew) {
+            if (member.getOwner() == null) {
+                check.problem(member.getBuilderName() + " has no owner, so it can't take jobs.");
+                return check;
+            }
+            owners.putIfAbsent(member.getOwner(), member.getOwnerName());
         }
-        double distance = horizontalDistance(builder.blockPosition(), area);
-        if (distance > JourneymenConfig.MAX_SITE_DISTANCE.get()) {
-            check.problem("The site is " + Math.round(distance) + " blocks away from " + builder.getBuilderName() + "; the limit is "
-                    + JourneymenConfig.MAX_SITE_DISTANCE.get() + ".");
+        UUID ownJob = null;
+        for (BuilderEntity member : crew) {
+            double distance = horizontalDistance(member.blockPosition(), area);
+            if (distance > JourneymenConfig.MAX_SITE_DISTANCE.get()) {
+                check.problem("The site is " + Math.round(distance) + " blocks away from " + member.getBuilderName() + "; the limit is "
+                        + JourneymenConfig.MAX_SITE_DISTANCE.get() + ".");
+            }
+            if (ownJob == null && member.getJob() != null) {
+                ownJob = member.getJob().getId();
+            }
         }
-        BuilderRegistry.get(level.getServer()).findOverlappingJob(level.dimension(), area, builder.getUUID())
-                .ifPresent(other -> check.problem("The site overlaps the job of " + other.qualifiedName() + "."));
+        BuilderRegistry.get(level.getServer()).findOverlappingJob(level.dimension(), area, ownJob)
+                .ifPresent(other -> check.problem("The site overlaps the job of " + other + "."));
         if (!BuildPlan.isLoaded(level, area)) {
             check.problem("Part of the site isn't loaded. Go closer to it and try again.");
             return check;
@@ -113,31 +128,34 @@ public final class PreCheck {
                     + positions(plan.getFluidsInTheWay()) + ". " + builder.getBuilderName() + " will stop there and ask you to remove it.");
         }
 
-        ServerPlayer actor = Services.PLATFORM.getFakePlayer(level, new GameProfile(owner, builder.getOwnerName()));
         Set<BlockPos> positions = new LinkedHashSet<>(plan.getToClear());
         plan.getToPlace().forEach(placement -> positions.add(placement.pos()));
-        List<BlockPos> denied = new ArrayList<>();
-        ItemStack held = actor.getMainHandItem();
-        actor.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        try {
-            for (BlockPos pos : positions) {
-                if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayStartBreaking(actor, pos)) {
-                    denied.add(pos);
+        for (Map.Entry<UUID, String> owner : owners.entrySet()) {
+            ServerPlayer actor = Services.PLATFORM.getFakePlayer(level, new GameProfile(owner.getKey(), owner.getValue()));
+            List<BlockPos> denied = new ArrayList<>();
+            ItemStack held = actor.getMainHandItem();
+            actor.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            try {
+                for (BlockPos pos : positions) {
+                    if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayStartBreaking(actor, pos)) {
+                        denied.add(pos);
+                    }
                 }
+            } finally {
+                actor.setItemInHand(InteractionHand.MAIN_HAND, held);
             }
-        } finally {
-            actor.setItemInHand(InteractionHand.MAIN_HAND, held);
-        }
-        if (!denied.isEmpty()) {
-            check.problem(builder.getOwnerName() + " isn't allowed to build at " + denied.size() + " position(s) of the site (spawn protection or a claim), e.g. "
-                    + positions(denied) + ".");
+            if (!denied.isEmpty()) {
+                check.problem(owner.getValue() + " isn't allowed to build at " + denied.size() + " position(s) of the site (spawn protection or a claim), e.g. "
+                        + positions(denied) + ".");
+            }
         }
 
-        int supplyChests = builder.countSupplyChests();
-        check.stockNote = "Counted " + builder.getBuilderName() + "'s inventory" + (supplyChests == 0
-                ? " (it has no supply chests)."
-                : " and " + supplyChests + " supply chest" + (supplyChests == 1 ? "" : "s") + ".");
-        List<ItemStack> stock = builder.collectStock(check.problems);
+        int supplyChests = Crew.countSupplyChests(crew);
+        String counted = crew.size() == 1 ? builder.getBuilderName() + "'s inventory" : "the inventories of " + Crew.names(crew);
+        check.stockNote = "Counted " + counted + (supplyChests == 0
+                ? (crew.size() == 1 ? " (it has no supply chests)." : " (they have no supply chests).")
+                : (crew.size() == 1 ? " and " : ", and ") + supplyChests + " supply chest" + (supplyChests == 1 ? "" : "s") + ".");
+        List<ItemStack> stock = Crew.stock(crew, check.problems);
         ItemCounter available = new ItemCounter();
         for (ItemStack stack : stock) {
             available.add(stack, stack.getCount());
@@ -149,7 +167,7 @@ public final class PreCheck {
                 if (ItemMatch.hasVanillaData(entry.getKey())) {
                     line.append(Component.literal(" (with specific data, e.g. patterns or contents)"));
                 }
-                long inDump = builder.countInDumpChests(entry.getKey());
+                long inDump = Crew.countInDumpChests(crew, entry.getKey());
                 if (inDump > 0) {
                     line.append(Component.literal(". " + inDump + " are in a dump chest, which doesn't count as stock"));
                 }
