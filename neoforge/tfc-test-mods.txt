@@ -10,3 +10,6 @@ ftb-library-neoforge-*.jar
 ftb-teams-neoforge-*.jar
 architectury-*-neoforge.jar
 worldedit-mod-*.jar
+ColdSweat-*.jar
+tfc_coldsweat-*.jar
+tfctrough-*.jar
