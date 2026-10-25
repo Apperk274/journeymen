@@ -1349,7 +1349,13 @@ public class BuilderEntity extends PathfinderMob {
         if (visit != null) {
             return visit.isOpen() ? null : chestGoal(visit.getChest());
         }
-        return job.getPhase() == BuildJob.Phase.WALKING ? siteGoal(false) : null;
+        if (job.getPhase() == BuildJob.Phase.WALKING) {
+            return siteGoal(false);
+        }
+        Reach reach = job.getPhase() == BuildJob.Phase.CLEARING && clearing != null ? clearing.getReach()
+                : job.getPhase() == BuildJob.Phase.PLACING && placing != null ? placing.getReach() : null;
+        BlockPos stand = reach == null ? null : reach.walkingTo();
+        return stand == null ? null : reachGoal(stand);
     }
 
     private StuckRecovery.Goal chestGoal(BlockPos chest) {
@@ -1365,6 +1371,11 @@ public class BuilderEntity extends PathfinderMob {
     private StuckRecovery.Goal spotGoal(BlockPos spot) {
         return new StuckRecovery.Goal(StuckRecovery.Kind.SPOT, spot, spot, Math.sqrt(distanceToSqr(Vec3.atBottomCenterOf(spot))),
                 spot.toShortString());
+    }
+
+    private StuckRecovery.Goal reachGoal(BlockPos stand) {
+        return new StuckRecovery.Goal(StuckRecovery.Kind.SPOT, stand, stand, Math.sqrt(distanceToSqr(Vec3.atBottomCenterOf(stand))),
+                "the spot at " + stand.toShortString() + " within reach of the next blocks");
     }
 
     @Nullable
@@ -1423,6 +1434,12 @@ public class BuilderEntity extends PathfinderMob {
     void afterEscape() {
         bestSiteDistance = Double.MAX_VALUE;
         ticksWithoutProgress = 0;
+        if (clearing != null) {
+            clearing.getReach().retry();
+        }
+        if (placing != null) {
+            placing.getReach().retry();
+        }
         syncRegistry();
     }
 

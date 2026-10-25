@@ -229,6 +229,10 @@ public final class ClearingTask {
         return JourneymenConfig.SPEED_MULTIPLIER.get().floatValue();
     }
 
+    public Reach getReach() {
+        return reach;
+    }
+
     public int getTotal() {
         return total;
     }

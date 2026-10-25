@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.build;
 
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.StuckRecovery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -18,17 +19,21 @@ public final class Reach {
     private static final int GIVE_UP_TICKS = 60;
     private static final int REPATH_INTERVAL = 10;
     private static final int STRANDED_RECHECK_TICKS = 100;
+    private static final int MAX_STRANDED_RECHECK_TICKS = 600;
 
     private final BoundingBox area;
     private double bestDistance = Double.MAX_VALUE;
     private int ticksWithoutProgress;
     private int repathTimer;
     private boolean workFromHere;
+    private boolean walking;
+    private int lastApproach;
     @Nullable
     private BlockPos stand;
     @Nullable
     private BlockPos strandedAt;
     private int strandedTick;
+    private int strandedWait = STRANDED_RECHECK_TICKS;
 
     public Reach(BoundingBox area) {
         this.area = area;
@@ -49,7 +54,7 @@ public final class Reach {
             return nearest;
         }
         if (strandedAt != null && builder.blockPosition().closerThan(strandedAt, 2.0)
-                && builder.tickCount - strandedTick < STRANDED_RECHECK_TICKS) {
+                && builder.tickCount - strandedTick < strandedWait) {
             workFromHere = true;
             return nearest;
         }
@@ -58,13 +63,11 @@ public final class Reach {
         ReachSearch.Result result = ReachSearch.find(builder, positions, area);
         switch (result.outcome()) {
             case FOUND -> {
-                strandedAt = null;
                 stand = result.stand();
                 return candidates.get(result.index());
             }
             case NONE -> {
-                strandedAt = builder.blockPosition();
-                strandedTick = builder.tickCount;
+                strand(builder);
                 workFromHere = true;
                 return nearest;
             }
@@ -75,14 +78,26 @@ public final class Reach {
     }
 
     public boolean approach(BuilderEntity builder, BlockPos pos) {
-        if (workFromHere || horizontalDistanceSqr(builder, pos) <= HORIZONTAL * HORIZONTAL) {
+        if (workFromHere) {
             return true;
         }
+        if (horizontalDistanceSqr(builder, pos) <= HORIZONTAL * HORIZONTAL) {
+            if (walking) {
+                walking = false;
+                strandedAt = null;
+            }
+            return true;
+        }
+        if (builder.tickCount - lastApproach > 1) {
+            retry();
+        }
+        lastApproach = builder.tickCount;
+        walking = true;
         double distance = remaining(builder, pos);
         if (distance < bestDistance - 0.25) {
             bestDistance = distance;
             ticksWithoutProgress = 0;
-        } else if (++ticksWithoutProgress > GIVE_UP_TICKS) {
+        } else if (++ticksWithoutProgress > (stand != null ? StuckRecovery.giveUpTicks(GIVE_UP_TICKS) : GIVE_UP_TICKS)) {
             if (stand != null) {
                 stand = null;
                 bestDistance = Double.MAX_VALUE;
@@ -90,7 +105,9 @@ public final class Reach {
                 repathTimer = 0;
                 return false;
             }
+            strand(builder);
             workFromHere = true;
+            walking = false;
             builder.getNavigation().stop();
             return true;
         }
@@ -115,11 +132,29 @@ public final class Reach {
         return Math.sqrt(horizontalDistanceSqr(builder, stand != null ? stand : pos));
     }
 
-    public void reset() {
+    private void strand(BuilderEntity builder) {
+        BlockPos here = builder.blockPosition();
+        boolean again = strandedAt != null && here.closerThan(strandedAt, 2.0);
+        strandedWait = again ? Math.min(strandedWait * 2, MAX_STRANDED_RECHECK_TICKS) : STRANDED_RECHECK_TICKS;
+        strandedAt = here;
+        strandedTick = builder.tickCount;
+    }
+
+    @Nullable
+    public BlockPos walkingTo() {
+        return walking ? stand : null;
+    }
+
+    public void retry() {
         bestDistance = Double.MAX_VALUE;
         ticksWithoutProgress = 0;
         repathTimer = 0;
+    }
+
+    public void reset() {
+        retry();
         workFromHere = false;
+        walking = false;
         stand = null;
     }
 
