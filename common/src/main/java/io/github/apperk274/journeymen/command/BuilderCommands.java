@@ -22,6 +22,7 @@ import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.BuilderNames;
 import io.github.apperk274.journeymen.entity.BuilderRegistry;
 import io.github.apperk274.journeymen.entity.ModEntities;
+import io.github.apperk274.journeymen.entity.StuckRecovery;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -54,6 +55,8 @@ public class BuilderCommands {
         return SharedSuggestionProvider.suggest(BuildOptions.ALL.stream().filter(option -> !used.contains(option)), offset);
     };
 
+    private static final int STUCK_SHOWN_SECONDS = 5;
+
     private static final SuggestionProvider<CommandSourceStack> ROLE_SUGGESTIONS = (context, builder) ->
             SharedSuggestionProvider.suggest(List.of("supply", "dump"), builder);
 
@@ -77,6 +80,7 @@ public class BuilderCommands {
                 .then(Commands.literal("follow").then(BuilderTargets.argument().executes(context -> setFollowing(context, true))))
                 .then(Commands.literal("stay").then(BuilderTargets.argument().executes(context -> setFollowing(context, false))))
                 .then(Commands.literal("kill").then(BuilderTargets.argument().executes(BuilderCommands::kill)))
+                .then(Commands.literal("unstick").then(BuilderTargets.argument().executes(BuilderCommands::unstick)))
                 .then(Commands.literal("check").then(jobArguments(JobMode.CHECK)))
                 .then(Commands.literal("build").then(jobArguments(JobMode.BUILD)))
                 .then(Commands.literal("supply")
@@ -366,6 +370,7 @@ public class BuilderCommands {
         source.sendSuccess(() -> Component.literal("  " + describeActivity(builder)), false);
         if (builder != null) {
             source.sendSuccess(() -> Component.literal("  Health " + Math.round(builder.getHealth()) + "/" + Math.round(builder.getMaxHealth())), false);
+            describeStuck(source, builder);
         }
         BuildJob job = builder == null ? null : builder.getJob();
         if (job == null) {
@@ -430,12 +435,44 @@ public class BuilderCommands {
         return 1;
     }
 
+    private static int unstick(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        BuilderEntity builder = BuilderTargets.resolveLoaded(context);
+        BlockPos here = builder.level() == source.getLevel() ? BlockPos.containing(source.getPosition()) : null;
+        BlockPos from = builder.blockPosition();
+        String problem = builder.unstick(here);
+        if (problem != null) {
+            throw JourneymenCommand.fail(problem);
+        }
+        BlockPos to = builder.blockPosition();
+        source.sendSuccess(() -> Component.literal(builder.getBuilderName() + " got out of " + from.toShortString() + " to "
+                + to.toShortString() + "."), false);
+        return 1;
+    }
+
     private static int kill(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         BuilderEntity builder = BuilderTargets.resolveLoaded(context);
         String name = builder.getBuilderName();
         builder.kill();
         context.getSource().sendSuccess(() -> Component.literal("Killed " + name + "."), false);
         return 1;
+    }
+
+    private static void describeStuck(CommandSourceStack source, BuilderEntity builder) {
+        StuckRecovery recovery = builder.getStuckRecovery();
+        int stuckSeconds = recovery.getStuckTicks() / 20;
+        if (stuckSeconds >= STUCK_SHOWN_SECONDS && recovery.getGoalDescription() != null) {
+            int limit = StuckRecovery.limitTicks() / 20;
+            source.sendSuccess(() -> Component.literal("  Stuck for " + stuckSeconds + " s on the way to " + recovery.getGoalDescription()
+                    + (limit > 0 ? "; it gets itself out after " + limit + " s" : "")), false);
+        }
+        StuckRecovery.Escape escape = recovery.getLast();
+        if (escape != null) {
+            long seconds = Math.max(0, (builder.level().getGameTime() - escape.time()) / 20);
+            String ago = seconds < 120 ? seconds + " s ago" : seconds / 60 + " min ago";
+            source.sendSuccess(() -> Component.literal("  Last got unstuck " + ago + ": from " + escape.from().toShortString() + " to "
+                    + escape.to().toShortString() + ", on the way to " + escape.reason()), false);
+        }
     }
 
     private static String describePosition(BuilderRegistry.Entry entry) {

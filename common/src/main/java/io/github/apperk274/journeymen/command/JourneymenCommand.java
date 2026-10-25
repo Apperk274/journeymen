@@ -28,6 +28,7 @@ public class JourneymenCommand {
             new String[]{"builder follow <builder>", "Make a builder follow you"},
             new String[]{"builder stay <builder>", "Make a builder stay where it is"},
             new String[]{"builder kill <builder>", "Kill a builder; it drops its inventory"},
+            new String[]{"builder unstick <builder>", "Get a stuck builder out to a safe spot near where it's going"},
             new String[]{"builder check <builder> <file> [pos] [rotation] [options]", "Run the pre-check for a job without starting it"},
             new String[]{"builder build <builder> <file> [pos] [rotation] [options]", "Give a builder a job"},
             new String[]{"builder cancel <builder>", "Stop a builder's job; the half-built structure stays"},

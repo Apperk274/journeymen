@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.build;
 
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.StuckRecovery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -16,7 +17,7 @@ import java.util.function.Predicate;
 
 public final class ChestVisit {
 
-    private static final double REACH = 4.0;
+    public static final double REACH = 4.0;
     private static final int OPEN_TICKS = 10;
     private static final int GIVE_UP_TICKS = 400;
 
@@ -80,6 +81,10 @@ public final class ChestVisit {
         return failure;
     }
 
+    public boolean isOpen() {
+        return open;
+    }
+
     public Status tick(BuilderEntity builder) {
         ServerLevel level = (ServerLevel) builder.level();
         if (!level.isLoaded(chest)) {
@@ -94,7 +99,7 @@ public final class ChestVisit {
         builder.getLookControl().setLookAt(Vec3.atCenterOf(chest));
         if (!open) {
             if (builder.getEyePosition().distanceTo(Vec3.atCenterOf(chest)) > REACH) {
-                if (++walkTicks > GIVE_UP_TICKS) {
+                if (++walkTicks > StuckRecovery.giveUpTicks(GIVE_UP_TICKS)) {
                     failure = "I can't reach the chest at " + chest.toShortString() + ".";
                     return Status.FAILED;
                 }

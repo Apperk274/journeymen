@@ -60,6 +60,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - Can be hurt like a mob (falls, lava, mobs, other players under PvP rules), including by its owner, and regenerates slowly. On death it drops its inventory. `/journeymen builder kill <name>` removes it and drops its inventory.
 - Picks up items lying around itself (player pickup range), whether working or idle. It doesn't go out of its way for items.
 - When idle it stays where it is. `builder come <name>` walks it to you, and `builder follow <name>` / `builder stay <name>` toggle following.
+- **Getting unstuck:** like a tamed wolf, but going by time stuck rather than distance alone. While it is going somewhere (a chest it wants, the build site, the spot it was called to with `come`, or its owner when following and at least 12 blocks behind) and hasn't got 0.5 blocks closer to it, nor broken, placed or fetched anything, for `stuck_teleport_seconds` (20 by default, 0 turns it off), it teleports to a safe spot next to that goal: floor under it, room to stand, no fluid, fire or leaves, in an entity-ticking chunk of the same dimension, in sight of the goal (within chest reach of a chest, within reach of the site's edge, 2–3 blocks from its owner like a wolf), preferably outside the job area and never where the job will still place a block or clear the floor, and closer to the goal than it is. A pause (waiting for materials, a full dump chest, someone in the way) doesn't count as stuck time but doesn't reset it either, so retrying an unreachable chest adds up. It sounds and shows particles like a chorus fruit teleport, logs `Stuck for … teleported to …` on the server, and only tells its owner when it happened 3 times within 10 minutes (then at most once per reminder interval). After a teleport it waits at least 30 s before the next; when no safe spot exists it tries again every 10 s and the old fallbacks (pausing for an unreachable chest or site) still apply. A builder told to `stay` never teleports by itself. `/journeymen builder unstick <name>` does the same at once: towards its current goal, or the site (or a chest it is heading for) during a job, its owner when following, otherwise the player who ran the command. `builder status` shows how long it has been stuck and when, from where and to where it last got out (saved with the world). Working from where it is (see Reach) counts as progress, so it is not a reason to teleport.
 - It walks through wooden doors and fence gates like a player: it opens them on its way and closes them behind it if they were closed, leaving open ones open (like villagers). Iron doors stay shut.
 
 ### Schematics
@@ -126,13 +127,13 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 ### Feedback
 
-- `/journeymen builder status <name>`: phase (walking, clearing, building, paused), percent done, and what it is waiting for.
+- `/journeymen builder status <name>`: phase (walking, clearing, building, paused), percent done, what it is waiting for, how long it has been stuck, and when it last got unstuck.
 - A boss bar shows progress to the owner while within 64 blocks of the builder, e.g. `Bob · house2.nbt · placing 45/92`. It is green while working and yellow while paused.
 - Pause messages go to the owner in chat at any distance, and are also written to the server log. If the owner is offline, they are saved with the world and delivered on login (repeats collapsed, at most 20 kept); `/journeymen builder notices` shows them too. While paused it reminds every few minutes.
 
 ### Config
 
-A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI for now. Keys include the speed multiplier, chunk loading (off), the redo limit (3), the max job volume, the max walking distance to a site, and the reminder interval.
+A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI for now. Keys include the speed multiplier, chunk loading (off), the redo limit (3), the max job volume, the max walking distance to a site, the reminder interval and the stuck time before a builder teleports out (`stuck_teleport_seconds`, 20, 0 = off).
 
 ## Phase 4: survival UI
 
@@ -198,6 +199,7 @@ Scaffolding and pillaring were dropped: the builder reaches any height (see Reac
 Not tested yet (no way to test them so far):
 
 - Other players hurting a builder when PvP is off (the builder should take no damage).
+- A following builder getting unstuck towards its owner: the owner must be a real player in the player list, which a fake player from `debug as` isn't. The same recovery is tested with `come` (spot goal), chests, the site and `unstick`.
 - Spawn protection and claim/protection mods (FTB Chunks, Open Parties and Claims, …) blocking the pre-check and the builder's breaking and placing. FTB Chunks is in the TFC test set, but claiming needs a real player in a team: fake players have none, and `ftbchunks admin claim_as` doesn't find server teams from the console.
 - The phase 4b–4d client side by a person in game: the builder screen's tabs and slots, armor rendering, link mode outlines, the placement preview, rotating with sneak + scroll and the confirmation screen. Their server side is tested headlessly with `debug action`, `debug use` and `debug interact`.
 

@@ -38,6 +38,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.Containers;
@@ -100,6 +101,7 @@ public class BuilderEntity extends PathfinderMob {
     private static final int STUCK_TICKS = 1200;
     private static final int PAUSE_RETRY_TICKS = 100;
     private static final int STORE_RETRY_TICKS = 1200;
+    private static final double COME_ARRIVE_DISTANCE = 1.5;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -142,6 +144,8 @@ public class BuilderEntity extends PathfinderMob {
     @Nullable
     private String lastNotice;
     private int lastNoticeTick;
+    private final StuckRecovery stuck = new StuckRecovery(this);
+    private int visitsDone;
 
     public BuilderEntity(EntityType<? extends BuilderEntity> type, Level level) {
         super(type, level);
@@ -700,6 +704,7 @@ public class BuilderEntity extends PathfinderMob {
                 }
                 case DONE -> {
                     visits.poll();
+                    visitsDone++;
                     if (visit.getKind() == ChestVisit.Kind.DUMP && emptyingOut) {
                         queueEmptyingOut();
                     } else if (visit.getKind() == ChestVisit.Kind.DUMP && visits.isEmpty()) {
@@ -1310,7 +1315,7 @@ public class BuilderEntity extends PathfinderMob {
         if (distance < bestSiteDistance - 0.5) {
             bestSiteDistance = distance;
             ticksWithoutProgress = 0;
-        } else if (++ticksWithoutProgress > STUCK_TICKS) {
+        } else if (++ticksWithoutProgress > StuckRecovery.giveUpTicks(STUCK_TICKS)) {
             getNavigation().stop();
             job.pause("can't find a way to the site");
             notifyOwner("I can't find a way to the site of " + job.getFile() + ". I'll try again in a while.");
@@ -1321,6 +1326,108 @@ public class BuilderEntity extends PathfinderMob {
             double z = Math.max(area.minZ(), Math.min(area.maxZ(), getZ()));
             walkTowards(new Vec3(x + 0.5, getY(), z + 0.5));
         }
+    }
+
+    @Nullable
+    private StuckRecovery.Goal movementGoal() {
+        if (job == null) {
+            if (comeTarget != null) {
+                double distance = Math.sqrt(distanceToSqr(Vec3.atBottomCenterOf(comeTarget)));
+                return distance > COME_ARRIVE_DISTANCE ? spotGoal(comeTarget) : null;
+            }
+            ServerPlayer ownerPlayer = following ? getOwnerPlayer() : null;
+            if (ownerPlayer != null && ownerPlayer.level() == level() && !ownerPlayer.isSpectator()
+                    && distanceTo(ownerPlayer) >= StuckRecovery.FOLLOW_DISTANCE) {
+                return ownerGoal(ownerPlayer);
+            }
+            return null;
+        }
+        if (job.getPhase() == BuildJob.Phase.PAUSED || job.getPhase() == BuildJob.Phase.LOADING) {
+            return null;
+        }
+        ChestVisit visit = visits.peek();
+        if (visit != null) {
+            return visit.isOpen() ? null : chestGoal(visit.getChest());
+        }
+        return job.getPhase() == BuildJob.Phase.WALKING ? siteGoal(false) : null;
+    }
+
+    private StuckRecovery.Goal chestGoal(BlockPos chest) {
+        return new StuckRecovery.Goal(StuckRecovery.Kind.CHEST, chest, chest, getEyePosition().distanceTo(Vec3.atCenterOf(chest)),
+                "the chest at " + chest.toShortString());
+    }
+
+    private StuckRecovery.Goal ownerGoal(ServerPlayer ownerPlayer) {
+        return new StuckRecovery.Goal(StuckRecovery.Kind.OWNER, ownerPlayer.getUUID(), ownerPlayer.blockPosition(), distanceTo(ownerPlayer),
+                "its owner " + ownerPlayer.getGameProfile().getName());
+    }
+
+    private StuckRecovery.Goal spotGoal(BlockPos spot) {
+        return new StuckRecovery.Goal(StuckRecovery.Kind.SPOT, spot, spot, Math.sqrt(distanceToSqr(Vec3.atBottomCenterOf(spot))),
+                spot.toShortString());
+    }
+
+    @Nullable
+    private StuckRecovery.Goal siteGoal(boolean fromInside) {
+        BoundingBox area = job.getArea();
+        BlockPos pos = blockPosition();
+        int x = Mth.clamp(pos.getX(), area.minX() - 1, area.maxX() + 1);
+        int z = Mth.clamp(pos.getZ(), area.minZ() - 1, area.maxZ() + 1);
+        if (x >= area.minX() && x <= area.maxX() && z >= area.minZ() && z <= area.maxZ()) {
+            if (!fromInside) {
+                return null;
+            }
+            int west = x - area.minX();
+            int east = area.maxX() - x;
+            int north = z - area.minZ();
+            int south = area.maxZ() - z;
+            int nearest = Math.min(Math.min(west, east), Math.min(north, south));
+            if (nearest == west) {
+                x = area.minX() - 1;
+            } else if (nearest == east) {
+                x = area.maxX() + 1;
+            } else if (nearest == north) {
+                z = area.minZ() - 1;
+            } else {
+                z = area.maxZ() + 1;
+            }
+        }
+        return new StuckRecovery.Goal(StuckRecovery.Kind.SITE, area, new BlockPos(x, pos.getY(), z), PreCheck.horizontalDistance(pos, area),
+                "the site of " + job.getFile());
+    }
+
+    private int workDone() {
+        return visitsDone + (clearing == null ? 0 : clearing.getCleared()) + (placing == null ? 0 : placing.getPlaced());
+    }
+
+    @Nullable
+    public String unstick(@Nullable BlockPos fallback) {
+        StuckRecovery.Goal goal = movementGoal();
+        if (goal == null && job != null) {
+            ChestVisit visit = visits.peek();
+            goal = visit != null ? chestGoal(visit.getChest()) : siteGoal(true);
+        }
+        ServerPlayer ownerPlayer = following ? getOwnerPlayer() : null;
+        if (goal == null && ownerPlayer != null && ownerPlayer.level() == level() && !ownerPlayer.isSpectator()) {
+            goal = ownerGoal(ownerPlayer);
+        }
+        if (goal == null && fallback != null) {
+            goal = spotGoal(fallback);
+        }
+        if (goal == null) {
+            return getBuilderName() + " has nowhere to go.";
+        }
+        return stuck.escape(goal, true);
+    }
+
+    void afterEscape() {
+        bestSiteDistance = Double.MAX_VALUE;
+        ticksWithoutProgress = 0;
+        syncRegistry();
+    }
+
+    public StuckRecovery getStuckRecovery() {
+        return stuck;
     }
 
     public void assignOwner(ServerPlayer player, String name) {
@@ -1419,6 +1526,9 @@ public class BuilderEntity extends PathfinderMob {
             syncRegistry();
         }
         tickJob();
+        if (isAlive() && !isRemoved()) {
+            stuck.tick(movementGoal(), workDone(), job != null);
+        }
         if (tickCount % 10 == 0) {
             updateProgressBar();
             BuilderScreenService.tick(this);
@@ -1536,6 +1646,7 @@ public class BuilderEntity extends PathfinderMob {
         CompoundTag inventoryTag = new CompoundTag();
         ContainerHelper.saveAllItems(inventoryTag, inventory.getItems(), registryAccess());
         tag.put("Inventory", inventoryTag);
+        stuck.save(tag);
     }
 
     @Override
@@ -1563,5 +1674,6 @@ public class BuilderEntity extends PathfinderMob {
         for (int slot = 0; slot < INVENTORY_SIZE; slot++) {
             inventory.setItem(slot, items.get(slot));
         }
+        stuck.load(tag);
     }
 }

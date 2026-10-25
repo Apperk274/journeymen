@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.entity.ai;
 
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.StuckRecovery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -37,7 +38,7 @@ public class BuilderMoveGoal extends Goal {
     public boolean canContinueToUse() {
         Vec3 target = target();
         return builder.getJob() == null && target != null && builder.position().distanceTo(target) > stopDistance()
-                && ticksWithoutProgress < GIVE_UP_TICKS;
+                && ticksWithoutProgress < StuckRecovery.giveUpTicks(GIVE_UP_TICKS);
     }
 
     @Override
