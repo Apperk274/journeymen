@@ -89,6 +89,16 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - **Chunks:** it stops when its chunks unload and continues when they load. A config option (off by default) lets a builder with a job keep its chunks loaded. It keeps working while the owner is offline.
 - Limits: a config cap on job volume (default 256×256×256); two active jobs' areas may not overlap; `come` and `follow` are refused during a job.
 
+### Crews (several builders on one job)
+
+- **Forming:** a job can have a crew of builders of the same owner (ops can mix, as with commanding). Pick the crew at start (`builder build <a,b,...> <file> ...`, or ticking builders in the confirmation screen), or let builders join a running job (`/journeymen builder join <helper> <builder>`, or "Add helper" in the Job tab). A builder can join if it has no job of its own and is within the max site distance; joining doesn't re-run the pre-check. A `max_crew_size` config key caps the crew (default 8, 0 = no limit).
+- **Leaving:** `builder cancel <any member>` stops the whole job, as for a single builder. `builder leave <name>` takes one builder off the crew ("Leave crew" in the Job tab); a builder that dies simply drops out. The job goes on while any member remains. Leftovers stay in each builder's inventory and chests.
+- **Shared work list:** one plan for the whole build. The order rules stay: the area is cleared before anything is placed, and placing goes bottom-up with hanging blocks after their supports and the access staircase filled last. Within that, each builder claims a batch of nearby work sized to what it can carry, preferring blocks it already carries items for, so no two builders take the same block.
+- **Shared stock:** every member's inventory and supply chests count as one stock in the pre-check, and any member fetches from any crew supply chest and dumps into any crew dump chest. The items for a claimed batch are reserved, so nobody else fetches them; claims and reservations are released when a builder finishes, leaves or dies.
+- **Tools:** each builder fetches its own tools from the crew's supply chests. The pre-check pools durability across all of them, and a builder only claims blocks it has a suitable tool for (one diamond pickaxe means only one builder mines obsidian).
+- **Feedback:** one boss bar per job, e.g. `Bob +2 · house2.nbt · placing 45/92`, and pause messages (missing materials, chests gone) come once from the crew, not from every builder. `builder status` shows the job and what each member is doing.
+- Each builder still walks, reaches, gets stuck and teleports on its own; the job and its claims are saved with the world.
+
 ### Pre-check (core requirement)
 
 `build` and `check` run the same check. A job starts only when everything passes; otherwise it lists every problem at once. The check changes nothing in the world.
@@ -186,6 +196,8 @@ The server sends the schematic compressed (run-length encoded, deflated, packets
 
 Phases 0–4 are built: the mod on both loaders, the builder entity, schematic loading, building by hand (everything above), and the survival UI. Phase 4's client side still has to be checked in game by a person.
 
+Phase 5 is crews (see Crews), built in steps: 5a the crew job model (join, leave, cancel, shared stock in the pre-check, saved with the world, commands); 5b the shared work list (batch claims and item reservations, for clearing and placing); 5c the screens (crew picking in the confirmation screen, Add helper and Leave crew) and the shared boss bar and messages.
+
 Not tested yet (no way to test them so far):
 
 - Other players hurting a builder when PvP is off (it should take no damage).
@@ -194,7 +206,7 @@ Not tested yet (no way to test them so far):
 - The survival UI by a person in game: the Inventory tab's slots and shift-click, armor rendering, link mode outlines, rotating with sneak + scroll, and using the screens with mouse and keyboard. Server side is tested with the debug commands; the Job and Chests tabs, the confirmation screen and the placement preview are rendered and screenshotted by the client test hooks.
 - The placement preview with Sodium/Embeddium or Iris shader packs. It draws its own vertex buffer with the translucent block shader in the loader's after-translucent hook and uses no vanilla renderer internals, but nobody has looked.
 
-Backlog: mirroring schematics, counting Unbreaking in the pre-check durability estimate, placing entities from schematics (item frames, paintings, armor stands), a job queue per builder, several builders on one job, an early have/need material check in the Job tab (design not decided).
+Backlog: mirroring schematics, counting Unbreaking in the pre-check durability estimate, placing entities from schematics (item frames, paintings, armor stands), a job queue per builder, an early have/need material check in the Job tab (design not decided).
 
 ## Related mods (stay distinct from these)
 
