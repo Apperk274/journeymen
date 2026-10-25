@@ -1,7 +1,7 @@
 forceload add 0 0 64 64
 kill @e[type=journeymen:builder]
 kill @e[type=journeymen:recruiter]
-fill 0 199 0 60 199 60 minecraft:stone
+fill 0 199 0 60 199 60 minecraft:smooth_stone
 fill 0 200 0 60 207 60 minecraft:air
 fill 0 208 0 60 215 60 minecraft:air
 fill 0 216 0 60 223 60 minecraft:air
@@ -25,7 +25,7 @@ item replace block 2 200 2 container.6 with tfc:metal/hoe/copper 1
 item replace block 2 200 2 container.7 with tfc:metal/shovel/copper 1
 item replace block 2 200 2 container.8 with tfc:metal/pickaxe/copper 1
 item replace block 5 201 2 container.0 with tfc:seeds/wheat 21
-fill 10 201 12 12 201 12 tfc:rock/raw/granite
+fill 10 200 12 12 200 12 tfc:rock/raw/granite
 ticks 200
 data get block 2 200 2 Items
 data get block 5 201 2 Items
@@ -42,6 +42,8 @@ journeymen debug as Steve 0 4 200 5 journeymen builder notices
 mark
 journeymen debug as Steve 0 4 200 5 journeymen builder check Tess tfc_farm.schem 10 200 10 none corner
 waitlog 60 \d+ to clear, \d+ to place
+waitfor 5 nosprint execute if block 5 200 2 tfc:ceramic/large_vessel =~ passed
+waitfor 5 nosprint execute if block 8 200 2 tfc:ceramic/large_vessel =~ passed
 data get entity @e[type=journeymen:builder,name=Tess,limit=1] Inventory
 data get block 8 200 2
 data get block 2 200 2 Items

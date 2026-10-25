@@ -1,0 +1,29 @@
+forceload add 140 0 191 95
+kill @e[type=journeymen:builder]
+ticks 40
+fill 140 196 0 190 198 95 minecraft:air
+fill 140 199 0 190 199 95 minecraft:smooth_stone
+fill 140 200 0 190 203 95 minecraft:air
+fill 140 204 0 190 207 95 minecraft:air
+kill @e[type=item]
+setblock 158 200 12 minecraft:chest[facing=south,type=left]
+setblock 159 200 12 minecraft:chest[facing=south,type=right]
+setblock 163 200 12 tfc:ceramic/large_vessel
+item replace block 158 200 12 container.0 with tfc:metal/pickaxe/copper 1
+item replace block 158 200 12 container.1 with tfc:metal/pickaxe/copper 1
+fill 160 201 20 166 201 26 tfc:rock/raw/granite
+journeymen debug as Steve 2 161 200 14 journeymen builder summon Rocky
+journeymen debug as Steve 0 161 200 14 journeymen builder chest Rocky add 158 200 12 supply
+journeymen debug as Steve 0 161 200 14 journeymen builder chest Rocky add 163 200 12 dump
+journeymen debug as Steve 0 161 200 14 journeymen builder build Rocky clear_area.schem 159 200 19 none corner
+waitlog 30 nosprint Rocky is on the way !!
+waitlog 120 \[Steve\.Rocky\] I finished building !!
+journeymen debug as Steve 0 161 200 14 journeymen builder status Rocky
+journeymen debug as Steve 0 161 200 14 journeymen builder notices
+mark
+journeymen debug as Steve 0 161 200 14 journeymen builder check Rocky clear_area.schem 159 200 19 none corner
+waitlog 60 \] 0 to clear, 0 to place !! \] [1-9]\d* to clear|, [1-9]\d* to place
+waitfor 5 nosprint execute if blocks 141 199 0 185 199 45 141 199 50 all =~ passed
+waitfor 5 nosprint execute if block 163 200 12 tfc:ceramic/large_vessel =~ passed
+data get block 163 200 12
+data get entity @e[type=journeymen:builder,name=Rocky,limit=1] Inventory
