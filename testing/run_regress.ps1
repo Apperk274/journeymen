@@ -1,7 +1,8 @@
 param(
     [string[]]$Loaders = @("neoforge", "fabric", "tfc"),
     [string[]]$Suites = @("test_examples.txt", "test_restock.txt", "test_solid.txt", "test_bs_full.txt", "test_stuck.txt", "test_box.txt",
-        "test_fill.txt", "test_formats.txt", "test_skip.txt", "test_4b.txt", "test_linkend.txt", "test_hang.txt", "test_supply_missing.txt"),
+        "test_fill.txt", "test_formats.txt", "test_skip.txt", "test_4b.txt", "test_linkend.txt", "test_hang.txt", "test_supply_missing.txt",
+        "test_dump_gone.txt"),
     [string[]]$TfcSuites = @("test_tfc_farm.txt", "test_tfc_shelf.txt", "test_tfc_collapse.txt")
 )
 $repo = Split-Path -Parent $PSScriptRoot

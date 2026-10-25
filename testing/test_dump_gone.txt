@@ -1,0 +1,94 @@
+forceload add 1200 1200 1232 1232
+kill @e[type=journeymen:builder]
+ticks 40
+fill 1200 99 1200 1230 99 1230 minecraft:grass_block
+fill 1200 100 1200 1230 107 1230 minecraft:air
+kill @e[type=item]
+fill 1210 100 1210 1218 100 1218 minecraft:dirt
+setblock 1204 100 1204 minecraft:chest
+item replace block 1204 100 1204 container.0 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.1 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.2 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.3 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.4 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.5 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.6 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.7 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.8 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.9 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.10 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.11 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.12 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.13 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.14 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.15 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.16 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.17 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.18 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.19 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.20 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.21 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.22 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.23 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.24 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.25 with minecraft:cobblestone 64
+item replace block 1204 100 1204 container.26 with minecraft:cobblestone 64
+setblock 1206 100 1204 minecraft:chest
+journeymen debug as Steve 2 1207 100 1207 journeymen builder summon Dumpy
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
+ticks 60
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Dumpy,limit=1] Inventory.Items[25] =~ passed
+journeymen debug as Steve 0 1207 100 1207 journeymen builder chest Dumpy add 1204 100 1204 dump
+mark
+journeymen debug as Steve 0 1207 100 1207 journeymen builder build Dumpy clear_area.schem 1210 100 1210 none corner
+waitlog 30 nosprint Dumpy is on the way !!
+waitlog 120 \[Steve\.Dumpy\] My inventory is full and my dump chests are full too\. Please empty them or give me another one\.$ !! is gone|isn't loaded|can't reach|I finished building
+tick freeze
+mark
+journeymen debug as Steve 0 1207 100 1207 journeymen builder chest Dumpy add 1206 100 1204 dump
+setblock 1206 100 1204 minecraft:air
+tick unfreeze
+waitlog 60 \[Steve\.Dumpy\] My inventory is full\. My dump chest at 1206, 100, 1204 is gone\. My dump chest at 1204, 100, 1204 is full\. Give me another one with /journeymen builder chest Dumpy add <pos> dump\.$ !! full too|I finished building
+mark
+journeymen debug as Steve 0 1207 100 1207 journeymen builder chest Dumpy remove 1204 100 1204
+waitlog 60 \[Steve\.Dumpy\] My inventory is full\. My dump chest at 1206, 100, 1204 is gone\. Give me another one with /journeymen builder chest Dumpy add <pos> dump\.$ !! full too|is full\.|I finished building
+mark
+setblock 1206 100 1204 minecraft:chest
+waitlog 120 \[Steve\.Dumpy\] My dump chests are full, so I'm keeping the rest of what I cleared\.$ !! is gone|I finished building
+waitlog 60 \[Steve\.Dumpy\] I finished building clear_area\.schem !! is gone
+waitfor 5 nosprint execute if data block 1206 100 1204 Items[26] =~ passed
+journeymen debug as Steve 0 1207 100 1207 journeymen builder notices
+data remove block 1206 100 1204 Items
+fill 1210 100 1210 1218 100 1218 minecraft:dirt
+mark
+journeymen debug as Steve 0 1207 100 1207 journeymen builder build Dumpy clear_area.schem 1210 100 1210 none corner
+waitlog 30 nosprint Dumpy is on the way !!
+setblock 1206 100 1204 minecraft:air
+waitlog 120 \[Steve\.Dumpy\] My dump chest at 1206, 100, 1204 is gone\. I'm keeping the rest of what I cleared\. Give me another one with /journeymen builder chest Dumpy add <pos> dump\.$ !! are full|is full|I finished building
+waitlog 60 \[Steve\.Dumpy\] I finished building clear_area\.schem !!
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Dumpy,limit=1] Inventory.Items[{id:"minecraft:dirt"}] =~ passed

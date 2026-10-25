@@ -33,6 +33,12 @@ public final class ChestVisit {
         FAILED
     }
 
+    public enum Problem {
+        GONE,
+        UNLOADED,
+        UNREACHABLE
+    }
+
     private final Kind kind;
     private final BlockPos chest;
     private final Predicate<ItemStack> wanted;
@@ -44,6 +50,8 @@ public final class ChestVisit {
     private int repathTimer;
     @Nullable
     private String failure;
+    @Nullable
+    private Problem problem;
 
     private ChestVisit(Kind kind, BlockPos chest, Predicate<ItemStack> wanted, @Nullable ItemCounter amounts) {
         this.kind = kind;
@@ -81,6 +89,11 @@ public final class ChestVisit {
         return failure;
     }
 
+    @Nullable
+    public Problem getProblem() {
+        return problem;
+    }
+
     public boolean isOpen() {
         return open;
     }
@@ -89,11 +102,13 @@ public final class ChestVisit {
         ServerLevel level = (ServerLevel) builder.level();
         if (!level.isLoaded(chest)) {
             failure = "The " + (kind == Kind.DUMP ? "dump" : "supply") + " chest at " + chest.toShortString() + " isn't loaded.";
+            problem = Problem.UNLOADED;
             return Status.FAILED;
         }
         ItemStore store = ItemStores.at(level, chest);
         if (store == null) {
             failure = "There is no chest at " + chest.toShortString() + " anymore.";
+            problem = Problem.GONE;
             return Status.FAILED;
         }
         builder.getLookControl().setLookAt(Vec3.atCenterOf(chest));
@@ -101,6 +116,7 @@ public final class ChestVisit {
             if (builder.getEyePosition().distanceTo(Vec3.atCenterOf(chest)) > REACH) {
                 if (++walkTicks > StuckRecovery.giveUpTicks(GIVE_UP_TICKS)) {
                     failure = "I can't reach the chest at " + chest.toShortString() + ".";
+                    problem = Problem.UNREACHABLE;
                     return Status.FAILED;
                 }
                 if (--repathTimer <= 0 || builder.getNavigation().isDone()) {

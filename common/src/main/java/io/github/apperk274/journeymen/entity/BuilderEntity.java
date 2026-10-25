@@ -78,6 +78,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -129,7 +130,8 @@ public class BuilderEntity extends PathfinderMob {
     private PlacingTask placing;
     private int waitTicks;
     private final Deque<ChestVisit> visits = new ArrayDeque<>();
-    private final Set<BlockPos> triedDumpChests = new HashSet<>();
+    private final Set<BlockPos> triedDumpChests = new LinkedHashSet<>();
+    private final Map<BlockPos, ChestVisit.Problem> dumpProblems = new HashMap<>();
     private boolean emptyingOut;
     @Nullable
     private ServerBossEvent progressBar;
@@ -449,7 +451,7 @@ public class BuilderEntity extends PathfinderMob {
             visits.forEach(visit -> visit.abort(serverLevel));
         }
         visits.clear();
-        triedDumpChests.clear();
+        resetDumpTries();
         emptyingOut = false;
         getNavigation().stop();
         showInHand(ItemStack.EMPTY);
@@ -711,14 +713,17 @@ public class BuilderEntity extends PathfinderMob {
                         if (!overflow.isEmpty() || !hasFreeSlot()) {
                             startDump();
                         } else {
-                            triedDumpChests.clear();
+                            resetDumpTries();
                         }
                     } else if (visit.getKind() == ChestVisit.Kind.DUMP) {
-                        triedDumpChests.clear();
+                        resetDumpTries();
                     }
                 }
                 case FAILED -> {
                     visits.poll();
+                    if (visit.getKind() == ChestVisit.Kind.DUMP && visit.getProblem() != null) {
+                        dumpProblems.put(visit.getChest(), visit.getProblem());
+                    }
                     if (visit.getKind() == ChestVisit.Kind.DUMP && emptyingOut) {
                         queueEmptyingOut();
                     } else if (visit.getKind() == ChestVisit.Kind.DUMP) {
@@ -810,7 +815,7 @@ public class BuilderEntity extends PathfinderMob {
         }
         notifyOwner("The site of " + job.getFile() + " is clear.");
         emptyingOut = true;
-        triedDumpChests.clear();
+        resetDumpTries();
         queueEmptyingOut();
     }
 
@@ -823,11 +828,12 @@ public class BuilderEntity extends PathfinderMob {
                 }
             }
             if (!triedDumpChests.isEmpty()) {
-                notifyOwner("My dump chests are full, so I'm keeping the rest of what I cleared.");
+                String problems = describeDumpProblems(" I'm keeping the rest of what I cleared.");
+                notifyOwner(problems != null ? problems : "My dump chests are full, so I'm keeping the rest of what I cleared.");
             }
         }
         emptyingOut = false;
-        triedDumpChests.clear();
+        resetDumpTries();
         job.setPhase(BuildJob.Phase.PLACING);
     }
 
@@ -1055,7 +1061,8 @@ public class BuilderEntity extends PathfinderMob {
         }
         String list = String.join(", ", missing.subList(0, Math.min(5, missing.size())))
                 + (missing.size() > 5 ? " and " + (missing.size() - 5) + " more kinds of items" : "");
-        pauseJob("I'm missing " + list + " for " + job.getFile() + ". I'll continue once they're in my inventory or a supply chest.");
+        pauseJob("I'm missing " + list + " for " + job.getFile() + ". I'll continue once they're in my inventory or a supply chest."
+                + supplyChestProblems());
     }
 
     private void finishPlacing() {
@@ -1122,11 +1129,75 @@ public class BuilderEntity extends PathfinderMob {
                 return;
             }
         }
-        triedDumpChests.clear();
+        String problems = describeDumpProblems("");
+        resetDumpTries();
         boolean hasDumpChest = chests.stream().anyMatch(chest -> chest.role() == AssignedChest.Role.DUMP);
-        pauseJob(hasDumpChest
+        pauseJob(problems != null ? "My inventory is full. " + problems
+                : hasDumpChest
                 ? "My inventory is full and my dump chests are full too. Please empty them or give me another one."
                 : "My inventory is full. Give me a dump chest with /journeymen builder chest " + getBuilderName() + " add <pos> dump.");
+    }
+
+    private void resetDumpTries() {
+        triedDumpChests.clear();
+        dumpProblems.clear();
+    }
+
+    @Nullable
+    private String describeDumpProblems(String consequence) {
+        if (dumpProblems.isEmpty()) {
+            return null;
+        }
+        Map<ChestVisit.Problem, List<BlockPos>> failed = new EnumMap<>(ChestVisit.Problem.class);
+        List<BlockPos> full = new ArrayList<>();
+        for (BlockPos pos : triedDumpChests) {
+            ChestVisit.Problem problem = dumpProblems.get(pos);
+            if (problem == null) {
+                full.add(pos);
+            } else {
+                failed.computeIfAbsent(problem, key -> new ArrayList<>()).add(pos);
+            }
+        }
+        List<String> sentences = new ArrayList<>();
+        failed.forEach((problem, positions) -> sentences.add(switch (problem) {
+            case GONE -> dumpChests("My", positions) + (positions.size() == 1 ? " is gone." : " are gone.");
+            case UNLOADED -> dumpChests("My", positions) + (positions.size() == 1 ? " isn't loaded." : " aren't loaded.");
+            case UNREACHABLE -> dumpChests("I can't reach my", positions) + ".";
+        }));
+        if (!full.isEmpty()) {
+            sentences.add(dumpChests("My", full) + (full.size() == 1 ? " is full." : " are full."));
+        }
+        String command = "/journeymen builder chest " + getBuilderName() + " add <pos> dump";
+        boolean several = failed.values().stream().mapToInt(List::size).sum() > 1;
+        String fix = !full.isEmpty() || failed.size() > 1 ? "Give me another one with " + command + "."
+                : switch (failed.keySet().iterator().next()) {
+                    case GONE -> "Give me another one with " + command + ".";
+                    case UNLOADED -> "Load " + (several ? "their" : "its") + " area or give me another one with " + command + ".";
+                    case UNREACHABLE -> "Clear the way or give me another one with " + command + ".";
+                };
+        return String.join(" ", sentences) + consequence + " " + fix;
+    }
+
+    private static String dumpChests(String prefix, List<BlockPos> positions) {
+        List<String> names = positions.stream().map(BlockPos::toShortString).toList();
+        String list = names.size() == 1 ? names.get(0)
+                : String.join("; ", names.subList(0, names.size() - 1)) + " and " + names.get(names.size() - 1);
+        return prefix + (names.size() == 1 ? " dump chest at " : " dump chests at ") + list;
+    }
+
+    private String supplyChestProblems() {
+        StringBuilder problems = new StringBuilder();
+        for (AssignedChest chest : chests) {
+            if (chest.role() != AssignedChest.Role.SUPPLY) {
+                continue;
+            }
+            if (!level().isLoaded(chest.pos())) {
+                problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" isn't loaded.");
+            } else if (ItemStores.at(level(), chest.pos()) == null) {
+                problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" is gone.");
+            }
+        }
+        return problems.toString();
     }
 
     private void startFetch(Predicate<ItemStack> wanted, String description) {
@@ -1140,7 +1211,7 @@ public class BuilderEntity extends PathfinderMob {
                 return;
             }
         }
-        pauseJob("I need " + description + ".");
+        pauseJob("I need " + description + "." + supplyChestProblems());
     }
 
     private static boolean containsMatching(ItemStore store, Predicate<ItemStack> wanted) {
