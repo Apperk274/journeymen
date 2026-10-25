@@ -15,7 +15,11 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -177,9 +181,10 @@ public final class PlacementMode {
             return;
         }
         Vec3 cameraPos = camera.getPosition();
+        Level level = Minecraft.getInstance().level;
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
         for (ScreenPayloads.ChestEntry chest : link.chests()) {
-            AABB box = new AABB(chest.pos()).inflate(0.02).move(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+            AABB box = chestBox(level, chest.pos()).inflate(0.02).move(-cameraPos.x, -cameraPos.y, -cameraPos.z);
             if (chest.supply()) {
                 LevelRenderer.renderLineBox(poseStack, lines, box, 0.2F, 1.0F, 0.2F, 1.0F);
             } else {
@@ -187,6 +192,18 @@ public final class PlacementMode {
             }
         }
         buffers.endBatch(RenderType.lines());
+    }
+
+    private static AABB chestBox(@Nullable Level level, BlockPos pos) {
+        AABB box = new AABB(pos);
+        if (level == null || !level.isLoaded(pos)) {
+            return box;
+        }
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof ChestBlock && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
+            return box.minmax(new AABB(pos.relative(ChestBlock.getConnectedDirection(state))));
+        }
+        return box;
     }
 
     private static BlockPos toWorld(BlockPos base, int x, int y, int z) {
