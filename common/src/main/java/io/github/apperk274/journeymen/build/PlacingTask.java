@@ -225,7 +225,7 @@ public final class PlacingTask {
                        BlockRequirements.Requirement requirement) {
         BlockPos pos = placement.pos();
         if (job.getCrewWork().claimedByOther(pos, builder.getUUID())) {
-            Constants.LOG.warn("[crew] {}.{} places at {}, which another builder claimed", builder.getOwnerName(), builder.getBuilderName(),
+            Constants.LOG.warn("[crew] {}.{} places at {}, which another builder claimed", builder.getOwnerName(), builder.getJourneymanName(),
                     pos.toShortString());
         }
         BlockRequirements.ToolUse toolUse = requirement.toolUse();
@@ -692,7 +692,7 @@ public final class PlacingTask {
         ItemCounter reserved = shortfall(total, carried);
         crew.reserve(me, reserved);
         if (Services.PLATFORM.isDevelopmentEnvironment()) {
-            Constants.LOG.info("[crew] {}.{} claims {} blocks and reserves {}", builder.getOwnerName(), builder.getBuilderName(), batch.size(),
+            Constants.LOG.info("[crew] {}.{} claims {} blocks and reserves {}", builder.getOwnerName(), builder.getJourneymanName(), batch.size(),
                     describe(reserved));
         }
         batchGroup = group;

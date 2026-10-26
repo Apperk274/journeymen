@@ -1,6 +1,6 @@
 package io.github.apperk274.journeymen.build;
 
-import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -70,9 +70,9 @@ public final class MaterialSupply {
         return new Needs(stacks(items), requirements.unobtainable(), noKnownTool);
     }
 
-    public static Needs missing(ServerLevel level, BuildPlan plan, BuilderEntity builder, BuildOptions options) {
+    public static Needs missing(ServerLevel level, BuildPlan plan, ForemanEntity foreman, BuildOptions options) {
         BuildPlan.Requirements requirements = plan.requirements(level.registryAccess());
-        List<ItemStack> stock = Crew.stock(Crew.of(builder), new ArrayList<>());
+        List<ItemStack> stock = Crew.stock(foreman, foreman.loadedCrewHere(), new ArrayList<>());
         ItemCounter available = new ItemCounter();
         stock.forEach(stack -> available.add(stack, stack.getCount()));
         ItemCounter items = new ItemCounter();
@@ -154,28 +154,28 @@ public final class MaterialSupply {
         return stacks;
     }
 
-    public static Outcome supply(BuilderEntity builder, Schematic schematic, String file, BlockPos origin, Rotation rotation, BuildOptions options,
+    public static Outcome supply(ForemanEntity foreman, Schematic schematic, String file, BlockPos origin, Rotation rotation, BuildOptions options,
                                  boolean missingOnly, @Nullable ServerPlayer player) {
-        ServerLevel level = (ServerLevel) builder.level();
-        String name = builder.getBuilderName();
+        ServerLevel level = (ServerLevel) foreman.level();
+        String name = foreman.getJourneymanName();
         PlacementTransform transform = PlacementTransform.of(schematic, origin, rotation, options.corner());
         if (!BuildPlan.isLoaded(level, transform.area(schematic.getSize()))) {
             return Outcome.failure("Part of the site isn't loaded. Go closer to it and try again. Nothing was given.");
         }
         BuildPlan plan = BuildPlan.create(level, schematic, transform, options);
-        Needs needs = missingOnly ? missing(level, plan, builder, options) : needs(level, plan);
+        Needs needs = missingOnly ? missing(level, plan, foreman, options) : needs(level, plan);
         List<Component> notes = new ArrayList<>();
         needs.unobtainable().forEach((block, count) -> notes.add(Component.literal("Can't be supplied (no survival item): " + count + " ")
                 .append(block.getName()).withStyle(ChatFormatting.GOLD)));
         needs.noKnownTool().forEach((block, count) -> notes.add(Component.literal("No known tool for " + count + " ")
                 .append(block.getName()).withStyle(ChatFormatting.GOLD)));
         if (missingOnly && needs.stacks().isEmpty()) {
-            return new Outcome(true, 0, Component.literal("Nothing is missing for " + file + ": " + name + " already has everything it can be given.")
+            return new Outcome(true, 0, Component.literal("Nothing is missing for " + file + ": " + name + "'s crew already has everything it can be given.")
                     .withStyle(ChatFormatting.GREEN), notes);
         }
 
         List<Target> chests = new ArrayList<>();
-        for (AssignedChest chest : builder.getChests()) {
+        for (AssignedChest chest : foreman.getChests()) {
             if (chest.role() == AssignedChest.Role.SUPPLY && level.isLoaded(chest.pos())) {
                 ItemStore store = ItemStores.at(level, chest.pos());
                 if (store != null) {

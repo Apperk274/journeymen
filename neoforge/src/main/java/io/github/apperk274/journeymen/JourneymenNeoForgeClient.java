@@ -3,6 +3,7 @@ package io.github.apperk274.journeymen;
 import io.github.apperk274.journeymen.client.BuilderRenderer;
 import io.github.apperk274.journeymen.client.BuilderScreen;
 import io.github.apperk274.journeymen.client.ClientState;
+import io.github.apperk274.journeymen.client.ForemanRenderer;
 import io.github.apperk274.journeymen.client.PlacementMode;
 import io.github.apperk274.journeymen.client.RecruiterRenderer;
 import io.github.apperk274.journeymen.entity.ModEntities;
@@ -21,6 +22,7 @@ public class JourneymenNeoForgeClient {
 
     public JourneymenNeoForgeClient(IEventBus eventBus) {
         eventBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> {
+            event.registerEntityRenderer(ModEntities.FOREMAN, ForemanRenderer::new);
             event.registerEntityRenderer(ModEntities.BUILDER, BuilderRenderer::new);
             event.registerEntityRenderer(ModEntities.RECRUITER, RecruiterRenderer::new);
         });

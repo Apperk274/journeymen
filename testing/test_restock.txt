@@ -1,4 +1,5 @@
 forceload add 480 480 560 560
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 fill 480 99 480 550 99 550 minecraft:grass_block
 fill 480 100 480 550 104 550 minecraft:air
@@ -22,7 +23,8 @@ item replace block 495 100 495 container.12 with minecraft:stone 64
 item replace block 495 100 495 container.13 with minecraft:stone 64
 item replace block 495 100 495 container.14 with minecraft:stone 64
 item replace block 495 100 495 container.15 with minecraft:stone 64
-journeymen debug as Steve 2 497 100 497 journeymen builder summon Rex
+journeymen debug as Steve 2 490 100 498 journeymen foreman summon RexBoss
+journeymen debug as Steve 2 497 100 497 journeymen builder summon RexBoss Rex
 summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
 summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
 summon item 497 100 497 {Item:{id:'minecraft:oak_planks',count:64}}
@@ -50,12 +52,13 @@ summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
 summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
 summon item 497 100 497 {Item:{id:'minecraft:dirt',count:64}}
 ticks 60
-journeymen debug as Steve 0 497 100 497 journeymen builder chest Rex add 495 100 495 supply
-journeymen debug as Steve 0 497 100 497 journeymen builder chest Rex add 492 100 495 dump
-journeymen debug as Steve 0 497 100 497 journeymen builder build Rex test_restock.schem 500 100 500 none corner
-waitlog nosprint Rex is on the way !!
+journeymen debug as Steve 0 497 100 497 journeymen foreman chest RexBoss add 495 100 495 supply
+journeymen debug as Steve 0 497 100 497 journeymen foreman chest RexBoss add 492 100 495 dump
+journeymen debug as Steve 0 497 100 497 journeymen foreman build RexBoss test_restock.schem 500 100 500 none corner
+waitlog nosprint RexBoss's crew is on the way !!
 ticks 1800
+journeymen debug as Steve 0 497 100 497 journeymen foreman status RexBoss
 journeymen debug as Steve 0 497 100 497 journeymen builder status Rex
 data get block 492 100 495 Items
 data get entity @e[type=journeymen:builder,name=Rex,limit=1] Inventory
-journeymen debug as Steve 0 497 100 497 journeymen builder cancel Rex
+journeymen debug as Steve 0 497 100 497 journeymen foreman cancel RexBoss

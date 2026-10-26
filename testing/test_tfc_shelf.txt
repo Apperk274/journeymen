@@ -1,4 +1,5 @@
 forceload add 64 0 127 63
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 ticks 40
 fill 64 199 0 127 199 40 minecraft:stone
@@ -8,19 +9,20 @@ fill 72 203 22 76 203 26 tfc:rock/raw/granite
 fill 120 203 22 124 203 26 tfc:rock/raw/granite
 setblock 80 200 20 minecraft:chest[facing=north,type=right]
 setblock 81 200 20 minecraft:chest[facing=north,type=left]
-journeymen debug as Steve 2 81 200 18 journeymen builder summon Shelly
-journeymen debug as Steve 0 81 200 18 journeymen builder chest Shelly add 80 200 20 supply
+journeymen debug as Steve 2 84 200 18 journeymen foreman summon ShellyBoss
+journeymen debug as Steve 2 81 200 18 journeymen builder summon ShellyBoss Shelly
+journeymen debug as Steve 0 81 200 18 journeymen foreman chest ShellyBoss add 80 200 20 supply
 mark
-journeymen debug as Steve 0 81 200 18 journeymen builder check Shelly clear_area.schem 70 200 20 none corner
+journeymen debug as Steve 0 81 200 18 journeymen foreman check ShellyBoss clear_area.schem 70 200 20 none corner
 waitlog \d+ to clear, \d+ to place
 ticks 200
 execute if blocks 72 203 22 76 203 26 120 203 22 all
-journeymen debug as Steve 2 81 200 18 journeymen builder supply Shelly test_tfc_shelf.schem 80 200 10 none corner
+journeymen debug as Steve 2 81 200 18 journeymen foreman supply ShellyBoss test_tfc_shelf.schem 80 200 10 none corner
 waitlog \] Supplied \d+ items
-journeymen debug as Steve 0 81 200 18 journeymen builder build Shelly test_tfc_shelf.schem 80 200 10 none corner
-waitlog \[Steve\.Shelly\] I finished building !!
+journeymen debug as Steve 0 81 200 18 journeymen foreman build ShellyBoss test_tfc_shelf.schem 80 200 10 none corner
+waitlog \[Steve\.ShellyBoss\] I finished building !!
 execute if block 81 201 11 tfc:fire_brick_shelf[facing=north]
 execute if block 82 201 12 minecraft:air
 mark
-journeymen debug as Steve 0 81 200 18 journeymen builder check Shelly test_tfc_shelf.schem 80 200 10 none corner
+journeymen debug as Steve 0 81 200 18 journeymen foreman check ShellyBoss test_tfc_shelf.schem 80 200 10 none corner
 waitlog \d+ to clear, \d+ to place

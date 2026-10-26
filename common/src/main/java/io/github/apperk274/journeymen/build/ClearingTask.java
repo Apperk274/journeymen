@@ -251,7 +251,7 @@ public final class ClearingTask {
                 }
                 batch.forEach(pos -> crew.claim(pos, builder.getUUID()));
                 if (Services.PLATFORM.isDevelopmentEnvironment()) {
-                    Constants.LOG.info("[crew] {}.{} claims {} blocks to clear", builder.getOwnerName(), builder.getBuilderName(), batch.size());
+                    Constants.LOG.info("[crew] {}.{} claims {} blocks to clear", builder.getOwnerName(), builder.getJourneymanName(), batch.size());
                 }
                 return first;
             }
@@ -285,6 +285,10 @@ public final class ClearingTask {
         }
         progress = 0.0F;
         lastStage = -1;
+    }
+
+    public boolean isBreaking() {
+        return target != null && progress > 0.0F;
     }
 
     public void stop() {

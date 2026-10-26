@@ -1,4 +1,5 @@
 forceload add 1200 1200 1232 1232
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 ticks 40
 fill 1200 99 1200 1230 99 1230 minecraft:grass_block
@@ -34,7 +35,8 @@ item replace block 1204 100 1204 container.24 with minecraft:cobblestone 64
 item replace block 1204 100 1204 container.25 with minecraft:cobblestone 64
 item replace block 1204 100 1204 container.26 with minecraft:cobblestone 64
 setblock 1206 100 1204 minecraft:chest
-journeymen debug as Steve 2 1207 100 1207 journeymen builder summon Dumpy
+journeymen debug as Steve 2 1202 100 1208 journeymen foreman summon DumpyBoss
+journeymen debug as Steve 2 1207 100 1207 journeymen builder summon DumpyBoss Dumpy
 summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
 summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
 summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
@@ -63,32 +65,32 @@ summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
 summon item 1207 100 1207 {Item:{id:'minecraft:oak_planks',count:64}}
 ticks 60
 waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Dumpy,limit=1] Inventory.Items[25] =~ passed
-journeymen debug as Steve 0 1207 100 1207 journeymen builder chest Dumpy add 1204 100 1204 dump
+journeymen debug as Steve 0 1207 100 1207 journeymen foreman chest DumpyBoss add 1204 100 1204 dump
 mark
-journeymen debug as Steve 0 1207 100 1207 journeymen builder build Dumpy clear_area.schem 1210 100 1210 none corner
-waitlog nosprint Dumpy is on the way !!
-waitlog \[Steve\.Dumpy\] My inventory is full and my dump chests are full too\. Please empty them or give me another one\.$ !! is gone|isn't loaded|can't reach|I finished building
+journeymen debug as Steve 0 1207 100 1207 journeymen foreman build DumpyBoss clear_area.schem 1210 100 1210 none corner
+waitlog nosprint DumpyBoss's crew is on the way !!
+waitlog \[Steve\.DumpyBoss\] Dumpy's inventory is full and my dump chests are full too\. Please empty them or give me another one\.$ !! is gone|isn't loaded|can't reach|I finished building
 tick freeze
 mark
-journeymen debug as Steve 0 1207 100 1207 journeymen builder chest Dumpy add 1206 100 1204 dump
+journeymen debug as Steve 0 1207 100 1207 journeymen foreman chest DumpyBoss add 1206 100 1204 dump
 setblock 1206 100 1204 minecraft:air
 tick unfreeze
-waitlog \[Steve\.Dumpy\] My inventory is full\. My dump chest at 1206, 100, 1204 is gone\. My dump chest at 1204, 100, 1204 is full\. Give me another one with /journeymen builder chest Dumpy add <pos> dump\.$ !! full too|I finished building
+waitlog \[Steve\.DumpyBoss\] Dumpy's inventory is full\. My dump chest at 1206, 100, 1204 is gone\. My dump chest at 1204, 100, 1204 is full\. Give me another one with /journeymen foreman chest DumpyBoss add <pos> dump\.$ !! full too|I finished building
 mark
-journeymen debug as Steve 0 1207 100 1207 journeymen builder chest Dumpy remove 1204 100 1204
-waitlog \[Steve\.Dumpy\] My inventory is full\. My dump chest at 1206, 100, 1204 is gone\. Give me another one with /journeymen builder chest Dumpy add <pos> dump\.$ !! full too|is full\.|I finished building
+journeymen debug as Steve 0 1207 100 1207 journeymen foreman chest DumpyBoss remove 1204 100 1204
+waitlog \[Steve\.DumpyBoss\] Dumpy's inventory is full\. My dump chest at 1206, 100, 1204 is gone\. Give me another one with /journeymen foreman chest DumpyBoss add <pos> dump\.$ !! full too|is full\.|I finished building
 mark
 setblock 1206 100 1204 minecraft:chest
-waitlog \[Steve\.Dumpy\] My dump chests are full, so I'm keeping the rest of what I cleared\.$ !! is gone|I finished building
-waitlog \[Steve\.Dumpy\] I finished building clear_area\.schem !! is gone
+waitlog \[Steve\.DumpyBoss\] My dump chests are full, so Dumpy keeps the rest of what it cleared\.$ !! is gone|I finished building
+waitlog \[Steve\.DumpyBoss\] I finished building clear_area\.schem !! is gone
 waitfor 5 nosprint execute if data block 1206 100 1204 Items[26] =~ passed
-journeymen debug as Steve 0 1207 100 1207 journeymen builder notices
+journeymen debug as Steve 0 1207 100 1207 journeymen notices
 data remove block 1206 100 1204 Items
 fill 1210 100 1210 1218 100 1218 minecraft:dirt
 mark
-journeymen debug as Steve 0 1207 100 1207 journeymen builder build Dumpy clear_area.schem 1210 100 1210 none corner
-waitlog nosprint Dumpy is on the way !!
+journeymen debug as Steve 0 1207 100 1207 journeymen foreman build DumpyBoss clear_area.schem 1210 100 1210 none corner
+waitlog nosprint DumpyBoss's crew is on the way !!
 setblock 1206 100 1204 minecraft:air
-waitlog \[Steve\.Dumpy\] My dump chest at 1206, 100, 1204 is gone\. I'm keeping the rest of what I cleared\. Give me another one with /journeymen builder chest Dumpy add <pos> dump\.$ !! are full|is full|I finished building
-waitlog \[Steve\.Dumpy\] I finished building clear_area\.schem !!
+waitlog \[Steve\.DumpyBoss\] My dump chest at 1206, 100, 1204 is gone\. Dumpy keeps the rest of what it cleared\. Give me another one with /journeymen foreman chest DumpyBoss add <pos> dump\.$ !! are full|is full|I finished building
+waitlog \[Steve\.DumpyBoss\] I finished building clear_area\.schem !!
 waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Dumpy,limit=1] Inventory.Items[{id:"minecraft:dirt"}] =~ passed

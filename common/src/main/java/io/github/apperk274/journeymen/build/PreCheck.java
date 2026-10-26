@@ -3,7 +3,8 @@ package io.github.apperk274.journeymen.build;
 import com.mojang.authlib.GameProfile;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
-import io.github.apperk274.journeymen.entity.BuilderRegistry;
+import io.github.apperk274.journeymen.entity.ForemanEntity;
+import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.platform.Services;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import net.minecraft.ChatFormatting;
@@ -20,12 +21,10 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 public final class PreCheck {
 
@@ -47,13 +46,8 @@ public final class PreCheck {
         this.area = area;
     }
 
-    public static PreCheck run(BuilderEntity builder, Schematic schematic, PlacementTransform transform, BuildOptions options) {
-        return run(List.of(builder), schematic, transform, options);
-    }
-
-    public static PreCheck run(List<BuilderEntity> crew, Schematic schematic, PlacementTransform transform, BuildOptions options) {
-        BuilderEntity builder = crew.get(0);
-        ServerLevel level = (ServerLevel) builder.level();
+    public static PreCheck run(ForemanEntity foreman, Schematic schematic, PlacementTransform transform, BuildOptions options) {
+        ServerLevel level = (ServerLevel) foreman.level();
         Vec3i size = schematic.getSize();
         PreCheck check = new PreCheck(transform.area(size));
         BoundingBox area = check.area;
@@ -68,26 +62,25 @@ public final class PreCheck {
                     + (level.getMaxBuildHeight() - 1) + ").");
             return check;
         }
-        Map<UUID, String> owners = new LinkedHashMap<>();
-        for (BuilderEntity member : crew) {
-            if (member.getOwner() == null) {
-                check.problem(member.getBuilderName() + " has no owner, so it can't take jobs.");
-                return check;
-            }
-            owners.putIfAbsent(member.getOwner(), member.getOwnerName());
+        if (foreman.getOwner() == null) {
+            check.problem(foreman.getJourneymanName() + " has no owner, so he can't take jobs.");
+            return check;
         }
-        UUID ownJob = null;
-        for (BuilderEntity member : crew) {
-            double distance = horizontalDistance(member.blockPosition(), area);
-            if (distance > JourneymenConfig.MAX_SITE_DISTANCE.get()) {
-                check.problem("The site is " + Math.round(distance) + " blocks away from " + member.getBuilderName() + "; the limit is "
-                        + JourneymenConfig.MAX_SITE_DISTANCE.get() + ".");
-            }
-            if (ownJob == null && member.getJob() != null) {
-                ownJob = member.getJob().getId();
-            }
+        double distance = horizontalDistance(foreman.blockPosition(), area);
+        if (distance > JourneymenConfig.MAX_SITE_DISTANCE.get()) {
+            check.problem("The site is " + Math.round(distance) + " blocks away from " + foreman.getJourneymanName() + "; the limit is "
+                    + JourneymenConfig.MAX_SITE_DISTANCE.get() + ".");
         }
-        BuilderRegistry.get(level.getServer()).findOverlappingJob(level.dimension(), area, ownJob)
+        List<BuilderEntity> crew = foreman.loadedCrewHere();
+        List<BuilderEntity> working = crew.stream().filter(member -> ForemanEntity.canTakePart(member, level.dimension(), area)).toList();
+        if (foreman.crewEntries().isEmpty()) {
+            check.problem(foreman.getJourneymanName() + " has no builders. Hire one with /journeymen foreman hire " + foreman.getJourneymanName() + ".");
+        } else if (working.isEmpty()) {
+            check.problem("None of " + foreman.getJourneymanName() + "'s builders can take part: they aren't loaded, are in another dimension or are more than "
+                    + JourneymenConfig.MAX_SITE_DISTANCE.get() + " blocks from the site.");
+        }
+        BuildJob ownJob = foreman.getJob();
+        JourneymanRegistry.get(level.getServer()).findOverlappingJob(level.dimension(), area, ownJob == null ? null : ownJob.getId())
                 .ifPresent(other -> check.problem("The site overlaps the job of " + other + "."));
         if (!BuildPlan.isLoaded(level, area)) {
             check.problem("Part of the site isn't loaded. Go closer to it and try again.");
@@ -125,37 +118,35 @@ public final class PreCheck {
         }
         if (!plan.getFluidsInTheWay().isEmpty()) {
             check.warning("Water or lava is in the way at " + plan.getFluidsInTheWay().size() + " position(s), e.g. "
-                    + positions(plan.getFluidsInTheWay()) + ". " + builder.getBuilderName() + " will stop there and ask you to remove it.");
+                    + positions(plan.getFluidsInTheWay()) + ". The crew will stop there and " + foreman.getJourneymanName() + " will ask you to remove it.");
         }
 
         Set<BlockPos> positions = new LinkedHashSet<>(plan.getToClear());
         plan.getToPlace().forEach(placement -> positions.add(placement.pos()));
-        for (Map.Entry<UUID, String> owner : owners.entrySet()) {
-            ServerPlayer actor = Services.PLATFORM.getFakePlayer(level, new GameProfile(owner.getKey(), owner.getValue()));
-            List<BlockPos> denied = new ArrayList<>();
-            ItemStack held = actor.getMainHandItem();
-            actor.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-            try {
-                for (BlockPos pos : positions) {
-                    if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayStartBreaking(actor, pos)) {
-                        denied.add(pos);
-                    }
+        ServerPlayer actor = Services.PLATFORM.getFakePlayer(level, new GameProfile(foreman.getOwner(), foreman.getOwnerName()));
+        List<BlockPos> denied = new ArrayList<>();
+        ItemStack held = actor.getMainHandItem();
+        actor.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        try {
+            for (BlockPos pos : positions) {
+                if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayStartBreaking(actor, pos)) {
+                    denied.add(pos);
                 }
-            } finally {
-                actor.setItemInHand(InteractionHand.MAIN_HAND, held);
             }
-            if (!denied.isEmpty()) {
-                check.problem(owner.getValue() + " isn't allowed to build at " + denied.size() + " position(s) of the site (spawn protection or a claim), e.g. "
-                        + positions(denied) + ".");
-            }
+        } finally {
+            actor.setItemInHand(InteractionHand.MAIN_HAND, held);
+        }
+        if (!denied.isEmpty()) {
+            check.problem(foreman.getOwnerName() + " isn't allowed to build at " + denied.size() + " position(s) of the site (spawn protection or a claim), e.g. "
+                    + positions(denied) + ".");
         }
 
-        int supplyChests = Crew.countSupplyChests(crew);
-        String counted = crew.size() == 1 ? builder.getBuilderName() + "'s inventory" : "the inventories of " + Crew.names(crew);
-        check.stockNote = "Counted " + counted + (supplyChests == 0
-                ? (crew.size() == 1 ? " (it has no supply chests)." : " (they have no supply chests).")
-                : (crew.size() == 1 ? " and " : ", and ") + supplyChests + " supply chest" + (supplyChests == 1 ? "" : "s") + ".");
-        List<ItemStack> stock = Crew.stock(crew, check.problems);
+        int supplyChests = Crew.countSupplyChests(foreman);
+        String chests = supplyChests == 0 ? "no supply chests" : supplyChests + " supply chest" + (supplyChests == 1 ? "" : "s");
+        String counted = crew.isEmpty() ? "no builder's inventory (none is loaded here)"
+                : crew.size() == 1 ? crew.get(0).getJourneymanName() + "'s inventory" : "the inventories of " + Crew.names(crew);
+        check.stockNote = "Counted " + counted + (crew.size() > 1 ? ", and " : " and ") + foreman.getJourneymanName() + "'s " + chests + ".";
+        List<ItemStack> stock = Crew.stock(foreman, crew, check.problems);
         ItemCounter available = new ItemCounter();
         for (ItemStack stack : stock) {
             available.add(stack, stack.getCount());
@@ -167,7 +158,7 @@ public final class PreCheck {
                 if (ItemMatch.hasVanillaData(entry.getKey())) {
                     line.append(Component.literal(" (with specific data, e.g. patterns or contents)"));
                 }
-                long inDump = Crew.countInDumpChests(crew, entry.getKey());
+                long inDump = Crew.countInDumpChests(foreman, entry.getKey());
                 if (inDump > 0) {
                     line.append(Component.literal(". " + inDump + " are in a dump chest, which doesn't count as stock"));
                 }

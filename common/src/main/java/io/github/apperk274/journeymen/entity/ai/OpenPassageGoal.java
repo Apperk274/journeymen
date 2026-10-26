@@ -1,6 +1,6 @@
 package io.github.apperk274.journeymen.entity.ai;
 
-import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -21,7 +21,7 @@ public class OpenPassageGoal extends Goal {
     private static final double REACH_SQR = 2.25;
     private static final int GIVE_UP_TICKS = 100;
 
-    private final BuilderEntity builder;
+    private final JourneymanEntity builder;
     @Nullable
     private BlockPos passage;
     private double startX;
@@ -29,7 +29,7 @@ public class OpenPassageGoal extends Goal {
     private boolean passed;
     private int ticks;
 
-    public OpenPassageGoal(BuilderEntity builder) {
+    public OpenPassageGoal(JourneymanEntity builder) {
         this.builder = builder;
     }
 

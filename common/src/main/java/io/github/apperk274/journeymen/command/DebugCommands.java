@@ -8,6 +8,8 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.ForemanEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.menu.BuilderMenu;
 import io.github.apperk274.journeymen.menu.BuilderScreenService;
 import io.github.apperk274.journeymen.menu.LinkModeService;
@@ -40,7 +42,7 @@ public class DebugCommands {
                                                 .then(Commands.argument("command", StringArgumentType.greedyString())
                                                         .executes(DebugCommands::runAs))))))
                 .then(Commands.literal("action")
-                        .then(Commands.argument("builder", EntityArgument.entity())
+                        .then(Commands.argument("journeyman", EntityArgument.entity())
                                 .then(Commands.argument("action", StringArgumentType.word())
                                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                                 .then(Commands.argument("text", StringArgumentType.greedyString())
@@ -59,13 +61,15 @@ public class DebugCommands {
 
     private static int action(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        Entity entity = EntityArgument.getEntity(context, "builder");
+        Entity entity = EntityArgument.getEntity(context, "journeyman");
         String text = StringArgumentType.getString(context, "text");
         BuilderScreenService.handle(new ScreenPayloads.BuilderAction(entity.getId(), StringArgumentType.getString(context, "action"),
                 text.equals("-") ? "" : text.replace('|', '\n'), BlockPosArgument.getBlockPos(context, "pos")), player);
-        if (entity instanceof BuilderEntity builder) {
-            Constants.LOG.info("[debug action] {} alive={} following={} job={} chests={}", builder.getBuilderName(), builder.isAlive(),
-                    builder.isFollowing(), builder.getJob() == null ? "-" : builder.getJob().getFile(), builder.getChests());
+        if (entity instanceof JourneymanEntity journeyman) {
+            ForemanEntity foreman = journeyman instanceof ForemanEntity self ? self : ((BuilderEntity) journeyman).foreman();
+            Constants.LOG.info("[debug action] {} alive={} following={} job={} chests={}", journeyman.getJourneymanName(), journeyman.isAlive(),
+                    journeyman.isFollowing(), journeyman.getJob() == null ? "-" : journeyman.getJob().getFile(),
+                    foreman == null ? "-" : foreman.getChests());
         }
         return 1;
     }

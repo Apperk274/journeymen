@@ -224,10 +224,12 @@ Phases 0–4 are built: the mod on both loaders, the builder entity, schematic l
 
 Phase 5 built the shared work list: 5a ✅ the shared job model and pooled pre-check stock; 5b ✅ batch claims and item reservations, for clearing and placing. Both are kept and move to the foreman in phase 6.
 
-Phase 6 is the foreman. The code still gives jobs and chests to builders (with `builder build|check|cancel|chest|supply|join|leave` and comma-separated crews); phase 6 replaces that with the model above. There is no migration (the mod isn't released): builders drop old jobs and chest lists on load, keep their inventories and load as orphans.
+Phase 6 is the foreman, replacing jobs and chests on builders (the old `builder build|check|cancel|chest|supply|join|leave` and comma-separated crews). There is no migration (the mod isn't released): builders drop old jobs and chest lists on load, keep their inventories and load as orphans.
 
-- 6a: the foreman entity, hiring (stall, `foreman hire`, `adopt`, summons), the foreman commands, jobs and chests on the foreman, builders as workers, `/journeymen notices`, old builder job/chest data and commands dropped.
+- 6a ✅: the foreman entity, hiring (stall, `foreman hire`, `adopt`, summons), the foreman commands, jobs and chests on the foreman, builders as workers, `/journeymen notices`, old builder job/chest data and commands dropped. Until 6b, right-clicking a foreman prints his status in chat, and the builder screen keeps its four tabs: its Job and Chests tabs (and placement mode, link mode and the confirmation screen started from them) act on the builder's foreman.
 - 6b: the screens (foreman screen tabs, the slimmer builder screen, placement mode and the confirmation screen from the foreman).
+
+Not built yet, though described above: `build` refusing a site the foreman finds no path to, and the `keep_chunks_loaded` option (the key exists but does nothing).
 
 Not tested yet (no way to test them so far):
 

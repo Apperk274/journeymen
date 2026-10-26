@@ -1,4 +1,5 @@
 forceload add 400 400 432 432
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 fill 400 99 400 430 99 430 minecraft:stone
 fill 400 100 400 430 106 430 minecraft:air
@@ -7,16 +8,17 @@ setblock 412 100 410 minecraft:dirt
 setblock 405 100 405 minecraft:chest
 item replace block 405 100 405 container.0 with minecraft:stone 2
 item replace block 405 100 405 container.1 with minecraft:oak_planks 1
-journeymen debug as Steve 2 406 100 406 journeymen builder summon Skip
-journeymen debug as Steve 0 406 100 406 journeymen builder chest Skip add 405 100 405 supply
-journeymen debug as Steve 0 406 100 406 journeymen builder check Skip test_skip.schem 410 100 410 none corner
+journeymen debug as Steve 2 404 100 408 journeymen foreman summon SkipBoss
+journeymen debug as Steve 2 406 100 406 journeymen builder summon SkipBoss Skip
+journeymen debug as Steve 0 406 100 406 journeymen foreman chest SkipBoss add 405 100 405 supply
+journeymen debug as Steve 0 406 100 406 journeymen foreman check SkipBoss test_skip.schem 410 100 410 none corner
 waitlog x1 \d+ to clear, \d+ to place
-journeymen debug as Steve 0 406 100 406 journeymen builder check Skip test_skip.schem 410 100 410 none corner skip-unplaceable
+journeymen debug as Steve 0 406 100 406 journeymen foreman check SkipBoss test_skip.schem 410 100 410 none corner skip-unplaceable
 waitlog x2 \d+ to clear, \d+ to place
-journeymen debug as Steve 0 406 100 406 journeymen builder build Skip test_skip.schem 410 100 410 none corner skip-unplaceable skip-missing
-waitlog \[Steve\.Skip\] I finished building !!
-journeymen debug as Steve 0 406 100 406 journeymen builder notices
-journeymen debug as Steve 0 406 100 406 journeymen builder check Skip test_skip.schem 410 100 410 none corner skip-unplaceable skip-missing
+journeymen debug as Steve 0 406 100 406 journeymen foreman build SkipBoss test_skip.schem 410 100 410 none corner skip-unplaceable skip-missing
+waitlog \[Steve\.SkipBoss\] I finished building !!
+journeymen debug as Steve 0 406 100 406 journeymen notices
+journeymen debug as Steve 0 406 100 406 journeymen foreman check SkipBoss test_skip.schem 410 100 410 none corner skip-unplaceable skip-missing
 waitlog x4 \d+ to clear, \d+ to place
 execute if block 410 100 410 minecraft:stone
 execute if block 411 100 410 minecraft:stone

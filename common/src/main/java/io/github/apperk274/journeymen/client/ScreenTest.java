@@ -76,10 +76,11 @@ public final class ScreenTest {
                     PreviewBenchmark.command("gamerule doDaylightCycle false");
                     PreviewBenchmark.command("gamerule doWeatherCycle false");
                     PreviewBenchmark.command("time set noon");
-                    PreviewBenchmark.command("journeymen builder summon Shot");
+                    PreviewBenchmark.command("journeymen foreman summon Boss");
+                    PreviewBenchmark.command("journeymen builder summon Boss Shot");
                     for (int i = 0; i < CHESTS; i++) {
                         PreviewBenchmark.command("setblock ~" + (i - 7) + " ~ ~-3 minecraft:chest");
-                        PreviewBenchmark.command("journeymen builder chest Shot add ~" + (i - 7) + " ~ ~-3 supply");
+                        PreviewBenchmark.command("journeymen foreman chest Boss add ~" + (i - 7) + " ~ ~-3 supply");
                     }
                     origin = minecraft.player.blockPosition().offset(-3, 0, 4);
                     next(Step.SETUP);

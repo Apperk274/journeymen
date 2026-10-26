@@ -121,7 +121,7 @@ public final class ChestVisit {
         if (!open) {
             if (builder.getEyePosition().distanceTo(Vec3.atCenterOf(chest)) > REACH) {
                 if (++walkTicks > StuckRecovery.giveUpTicks(GIVE_UP_TICKS)) {
-                    failure = "I can't reach the chest at " + chest.toShortString() + ".";
+                    failure = builder.getJourneymanName() + " can't reach the chest at " + chest.toShortString() + ".";
                     problem = Problem.UNREACHABLE;
                     return Status.FAILED;
                 }

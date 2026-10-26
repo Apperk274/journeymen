@@ -1,4 +1,5 @@
 forceload add 192 -16 271 79
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 ticks 40
 fill 200 199 0 260 199 62 minecraft:stone
@@ -17,20 +18,21 @@ setblock 214 200 2 minecraft:chest[facing=south,type=left]
 setblock 215 200 2 minecraft:chest[facing=south,type=right]
 setblock 217 200 2 minecraft:chest[facing=south,type=left]
 setblock 218 200 2 minecraft:chest[facing=south,type=right]
-journeymen debug as Steve 2 207 200 5 journeymen builder summon Smitty
-journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 202 200 2 supply
-journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 205 200 2 supply
-journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 208 200 2 supply
-journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 211 200 2 supply
-journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 214 200 2 supply
-journeymen debug as Steve 0 207 200 5 journeymen builder chest Smitty add 217 200 2 supply
-journeymen debug as Steve 2 207 200 5 journeymen builder supply Smitty TFC_Smithy_Complex.schem 210 200 20 none corner
+journeymen debug as Steve 2 204 200 6 journeymen foreman summon SmittyBoss
+journeymen debug as Steve 2 207 200 5 journeymen builder summon SmittyBoss Smitty
+journeymen debug as Steve 0 207 200 5 journeymen foreman chest SmittyBoss add 202 200 2 supply
+journeymen debug as Steve 0 207 200 5 journeymen foreman chest SmittyBoss add 205 200 2 supply
+journeymen debug as Steve 0 207 200 5 journeymen foreman chest SmittyBoss add 208 200 2 supply
+journeymen debug as Steve 0 207 200 5 journeymen foreman chest SmittyBoss add 211 200 2 supply
+journeymen debug as Steve 0 207 200 5 journeymen foreman chest SmittyBoss add 214 200 2 supply
+journeymen debug as Steve 0 207 200 5 journeymen foreman chest SmittyBoss add 217 200 2 supply
+journeymen debug as Steve 2 207 200 5 journeymen foreman supply SmittyBoss TFC_Smithy_Complex.schem 210 200 20 none corner
 waitlog \] Supplied \d+ items
-journeymen debug as Steve 0 207 200 5 journeymen builder build Smitty TFC_Smithy_Complex.schem 210 200 20 none corner skip-unplaceable
-waitlog 20 \[Steve\.Smitty\] I finished building !!
-journeymen builder status Steve.Smitty
+journeymen debug as Steve 0 207 200 5 journeymen foreman build SmittyBoss TFC_Smithy_Complex.schem 210 200 20 none corner skip-unplaceable
+waitlog 20 \[Steve\.SmittyBoss\] I finished building !!
+journeymen foreman status Steve.SmittyBoss
 execute if block 247 203 46 tfc:fire_brick_shelf[facing=north]
 execute if block 250 203 46 tfc:fire_brick_shelf[facing=north]
 mark
-journeymen debug as Steve 0 207 200 5 journeymen builder check Smitty TFC_Smithy_Complex.schem 210 200 20 none corner skip-unplaceable
+journeymen debug as Steve 0 207 200 5 journeymen foreman check SmittyBoss TFC_Smithy_Complex.schem 210 200 20 none corner skip-unplaceable
 waitlog \d+ to clear, \d+ to place

@@ -1,21 +1,26 @@
 forceload add 296 296 367 367
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 ticks 40
 fill 300 99 300 360 99 340 minecraft:grass_block
 fill 300 100 300 360 109 340 minecraft:air
 fill 300 110 300 360 110 340 minecraft:air
 kill @e[type=item]
+mark
 journeymen schematic list
 setblock 306 100 312 minecraft:gold_block
 setblock 318 100 305 minecraft:chest
 setblock 336 100 305 minecraft:chest
 setblock 350 100 305 minecraft:chest
-journeymen debug as Steve 2 318 100 306 journeymen builder summon Gil
-journeymen debug as Steve 2 336 100 306 journeymen builder summon Hal
-journeymen debug as Steve 2 350 100 306 journeymen builder summon Ike
-journeymen debug as Steve 0 318 100 306 journeymen builder chest Gil add 318 100 305 supply
-journeymen debug as Steve 0 336 100 306 journeymen builder chest Hal add 336 100 305 supply
-journeymen debug as Steve 0 350 100 306 journeymen builder chest Ike add 350 100 305 supply
+journeymen debug as Steve 2 316 100 303 journeymen foreman summon GilBoss
+journeymen debug as Steve 2 334 100 303 journeymen foreman summon HalBoss
+journeymen debug as Steve 2 352 100 303 journeymen foreman summon IkeBoss
+journeymen debug as Steve 2 318 100 306 journeymen builder summon GilBoss Gil
+journeymen debug as Steve 2 336 100 306 journeymen builder summon HalBoss Hal
+journeymen debug as Steve 2 350 100 306 journeymen builder summon IkeBoss Ike
+journeymen debug as Steve 0 318 100 306 journeymen foreman chest GilBoss add 318 100 305 supply
+journeymen debug as Steve 0 336 100 306 journeymen foreman chest HalBoss add 336 100 305 supply
+journeymen debug as Steve 0 350 100 306 journeymen foreman chest IkeBoss add 350 100 305 supply
 journeymen debug as Steve 2 318 100 306 journeymen schematic materials garden_shed.litematic
 journeymen debug as Steve 2 318 100 306 journeymen schematic materials old_hut.schematic
 journeymen debug as Steve 2 318 100 306 journeymen schematic materials 'uploaded/Steve/watchtower.nbt'
@@ -23,20 +28,20 @@ journeymen debug as Steve 2 318 100 306 journeymen schematic materials {q}upload
 journeymen debug as Steve 2 318 100 306 journeymen schematic materials Blacksmith_1339748.schematic
 journeymen debug as Steve 2 318 100 306 journeymen schematic materials '../server.properties.nbt'
 journeymen debug as Steve 2 318 100 306 journeymen schematic materials 'uploaded/../../server.properties'
-journeymen debug as Steve 2 318 100 306 journeymen builder supply Gil garden_shed.litematic 310 100 310
-journeymen debug as Steve 2 336 100 306 journeymen builder supply Hal old_hut.schematic 330 100 310
-journeymen debug as Steve 2 350 100 306 journeymen builder supply Ike 'uploaded/Steve/watchtower.nbt' 345 100 310
+journeymen debug as Steve 2 318 100 306 journeymen foreman supply GilBoss garden_shed.litematic 310 100 310
+journeymen debug as Steve 2 336 100 306 journeymen foreman supply HalBoss old_hut.schematic 330 100 310
+journeymen debug as Steve 2 350 100 306 journeymen foreman supply IkeBoss 'uploaded/Steve/watchtower.nbt' 345 100 310
 waitlog x3 \] Supplied \d+ items
-journeymen debug as Steve 0 318 100 306 journeymen builder build Gil garden_shed.litematic 310 100 310
-journeymen debug as Steve 0 336 100 306 journeymen builder build Hal old_hut.schematic 330 100 310
-journeymen debug as Steve 0 350 100 306 journeymen builder build Ike {q}uploaded/Steve/watchtower.nbt{q} 345 100 310
-journeymen debug as Steve 0 336 100 306 journeymen builder check Hal Blacksmith_1339748.schematic 300 100 320
-waitlog x3 \[Steve\.(Gil|Hal|Ike)\] I finished building !!
-journeymen builder list
+journeymen debug as Steve 0 318 100 306 journeymen foreman build GilBoss garden_shed.litematic 310 100 310
+journeymen debug as Steve 0 336 100 306 journeymen foreman build HalBoss old_hut.schematic 330 100 310
+journeymen debug as Steve 0 350 100 306 journeymen foreman build IkeBoss {q}uploaded/Steve/watchtower.nbt{q} 345 100 310
+journeymen debug as Steve 0 336 100 306 journeymen foreman check HalBoss Blacksmith_1339748.schematic 300 100 320
+waitlog x3 \[Steve\.(Gil|Hal|Ike)Boss\] I finished building !!
+journeymen builder list all
 mark
-journeymen debug as Steve 0 318 100 306 journeymen builder check Gil garden_shed.litematic 310 100 310
-journeymen debug as Steve 0 336 100 306 journeymen builder check Hal old_hut.schematic 330 100 310
-journeymen debug as Steve 0 350 100 306 journeymen builder check Ike 'uploaded/Steve/watchtower.nbt' 345 100 310
+journeymen debug as Steve 0 318 100 306 journeymen foreman check GilBoss garden_shed.litematic 310 100 310
+journeymen debug as Steve 0 336 100 306 journeymen foreman check HalBoss old_hut.schematic 330 100 310
+journeymen debug as Steve 0 350 100 306 journeymen foreman check IkeBoss 'uploaded/Steve/watchtower.nbt' 345 100 310
 waitlog x3 \d+ to clear, \d+ to place
 execute if block 310 100 310 minecraft:cobblestone
 execute if block 312 101 310 minecraft:spruce_door[half=lower,facing=north]

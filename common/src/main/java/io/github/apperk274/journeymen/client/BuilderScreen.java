@@ -1,7 +1,7 @@
 package io.github.apperk274.journeymen.client;
 
 import io.github.apperk274.journeymen.build.BuildOptions;
-import io.github.apperk274.journeymen.entity.BuilderNames;
+import io.github.apperk274.journeymen.entity.JourneymanNames;
 import io.github.apperk274.journeymen.menu.BuilderMenu;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
@@ -159,7 +159,7 @@ public class BuilderScreen extends AbstractContainerScreen<BuilderMenu> {
             renameText = state.name();
         }
         renameBox = new EditBox(font, leftPos + 8, topPos + 62, 180, 20, Component.literal("Name"));
-        renameBox.setMaxLength(BuilderNames.MAX_LENGTH);
+        renameBox.setMaxLength(JourneymanNames.MAX_LENGTH);
         renameBox.setFilter(text -> text.chars().allMatch(c -> Character.isLetterOrDigit(c) && c < 128 || c == '_' || c == '-'));
         renameBox.setValue(renameText);
         renameBox.setResponder(text -> renameText = text);

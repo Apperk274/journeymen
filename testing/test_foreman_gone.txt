@@ -1,0 +1,83 @@
+forceload add 1856 1856 1935 1935
+forceload add 1856 1840 1871 1855
+forceload add 1896 1984 1903 1999
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 1856 99 1840 1935 99 1935 minecraft:grass_block
+fill 1856 100 1840 1935 102 1935 minecraft:air
+fill 1856 103 1840 1935 105 1935 minecraft:air
+fill 1896 99 1984 1903 99 1999 minecraft:grass_block
+fill 1896 100 1984 1903 103 1999 minecraft:air
+kill @e[type=item]
+setblock 1858 100 1857 minecraft:chest[facing=north,type=right]
+setblock 1859 100 1857 minecraft:chest[facing=north,type=left]
+setblock 1861 100 1857 minecraft:chest[facing=north,type=right]
+setblock 1862 100 1857 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 1862.5 100 1852.5 journeymen foreman summon Away
+journeymen debug as Steve 2 1864 100 1858 journeymen builder summon Away Ama
+journeymen debug as Steve 2 1866 100 1858 journeymen builder summon Away Amy
+journeymen debug as Steve 0 1864 100 1858 journeymen foreman chest Away add 1858 100 1857 supply
+journeymen debug as Steve 0 1864 100 1858 journeymen foreman chest Away add 1861 100 1857 supply
+journeymen debug as Steve 2 1864 100 1858 journeymen foreman supply Away test_box.schem 1860 100 1860 none corner
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 0 1864 100 1858 journeymen foreman build Away test_box.schem 1860 100 1860 none corner
+waitlog Away's crew is on the way: Ama and Amy\. !!
+waitfor 10 journeymen builder status Steve.Ama =~ Task: placing ([4-9]\d|\d{3})/
+forceload remove 1856 1840 1871 1855
+waitfor 5 journeymen builder status Steve.Ama =~ Task: waiting for its foreman
+waitfor 5 journeymen builder status Steve.Amy =~ Task: waiting for its foreman
+ticks 400
+waitfor 5 nosprint journeymen builder status Steve.Ama =~ Task: waiting for its foreman
+waitfor 5 nosprint journeymen builder status Steve.Amy =~ Task: waiting for its foreman
+mark
+forceload add 1856 1840 1871 1855
+waitlog 20 \[Steve\.Away\] I finished building test_box\.schem !!
+mark
+journeymen debug as Steve 0 1864 100 1858 journeymen foreman check Away test_box.schem 1860 100 1860 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+setblock 1894 100 1902 minecraft:chest[facing=north,type=right]
+setblock 1895 100 1902 minecraft:chest[facing=north,type=left]
+setblock 1897 100 1902 minecraft:chest[facing=north,type=right]
+setblock 1898 100 1902 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 1895 100 1898 journeymen foreman summon Doomed
+journeymen debug as Steve 2 1896 100 1899 journeymen builder summon Doomed Dia
+journeymen debug as Steve 2 1897 100 1899 journeymen builder summon Doomed Dob
+journeymen debug as Steve 0 1896 100 1899 journeymen foreman chest Doomed add 1894 100 1902 supply
+journeymen debug as Steve 0 1896 100 1899 journeymen foreman chest Doomed add 1897 100 1902 supply
+journeymen debug as Steve 2 1896 100 1899 journeymen foreman supply Doomed test_box.schem 1900 100 1904 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 1896 100 1899 journeymen foreman build Doomed test_box.schem 1900 100 1904 none corner
+waitlog Doomed's crew is on the way: Dia and Dob\. !!
+waitfor 10 journeymen builder status Steve.Dia =~ Task: placing ([4-9]\d|\d{3})/
+kill @e[type=journeymen:foreman,name=Doomed]
+waitlog \[Steve\.Doomed\] I died, so test_box\.schem at 1900, 100, 1904, rotation none, options corner stopped\. Give the same build to another foreman to continue from what is built: /journeymen foreman build <foreman> test_box\.schem 1900 100 1904 none corner\. Dia and Dob have no foreman now
+waitfor 5 nosprint journeymen builder status Steve.Dia =~ Foreman: none \(orphan
+waitfor 5 nosprint journeymen builder status Steve.Dob =~ Job: none
+ticks 100
+mark
+journeymen debug as Steve 2 1895 100 1898 journeymen foreman summon Heir
+journeymen debug as Steve 0 1895 100 1898 journeymen foreman build Heir test_box.schem 1900 100 1904 none corner
+waitlog Heir has no builders\. Hire one with /journeymen foreman hire Heir\.
+journeymen debug as Steve 0 1895 100 1898 journeymen foreman adopt Heir Dia
+journeymen debug as Steve 0 1895 100 1898 journeymen foreman adopt Heir Dob
+journeymen debug as Steve 0 1895 100 1898 journeymen foreman chest Heir add 1894 100 1902 supply
+journeymen debug as Steve 0 1895 100 1898 journeymen foreman chest Heir add 1897 100 1902 supply
+mark
+journeymen debug as Steve 0 1895 100 1898 journeymen foreman build Heir test_box.schem 1900 100 1904 none corner
+waitlog Heir's crew is on the way: Dia and Dob\. !!
+waitlog 20 \[Steve\.Heir\] I finished building test_box\.schem !!
+mark
+journeymen debug as Steve 0 1895 100 1898 journeymen foreman check Heir test_box.schem 1900 100 1904 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+journeymen debug as Steve 2 1880 100 1880 journeymen foreman summon Lone
+journeymen debug as Steve 2 1900 100 1990 journeymen builder summon Lone Rover
+forceload remove 1896 1984 1903 1999
+waitfor 30 execute if entity @e[type=journeymen:builder,name=Rover] =~ failed
+mark
+kill @e[type=journeymen:foreman,name=Lone]
+waitlog \[Steve\.Lone\] I died\. Rover has no foreman now
+forceload add 1896 1984 1903 1999
+waitfor 30 execute if entity @e[type=journeymen:builder,name=Rover] =~ passed
+waitfor 5 nosprint journeymen builder status Steve.Rover =~ Foreman: none \(orphan

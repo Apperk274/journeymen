@@ -1,6 +1,6 @@
 package io.github.apperk274.journeymen.mixin;
 
-import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -16,10 +16,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class NameTagItemMixin {
 
     @Inject(method = "interactLivingEntity", at = @At("HEAD"), cancellable = true)
-    private void journeymen$renameBuilder(ItemStack stack, Player player, LivingEntity target, InteractionHand hand,
-                                          CallbackInfoReturnable<InteractionResult> cir) {
-        if (target instanceof BuilderEntity builder) {
-            cir.setReturnValue(builder.renameWithNameTag(stack, player));
+    private void journeymen$renameJourneyman(ItemStack stack, Player player, LivingEntity target, InteractionHand hand,
+                                             CallbackInfoReturnable<InteractionResult> cir) {
+        if (target instanceof JourneymanEntity journeyman) {
+            cir.setReturnValue(journeyman.renameWithNameTag(stack, player));
         }
     }
 }

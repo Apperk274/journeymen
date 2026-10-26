@@ -1,4 +1,5 @@
 forceload add 1400 1300 1440 1340
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 ticks 40
 fill 1400 99 1300 1440 99 1340 minecraft:grass_block
@@ -9,15 +10,17 @@ setblock 1405 100 1304 minecraft:chest[facing=north,type=left]
 setblock 1407 100 1304 minecraft:chest[facing=north,type=right]
 setblock 1408 100 1304 minecraft:chest[facing=north,type=left]
 setblock 1401 100 1304 minecraft:chest
-journeymen debug as Steve 2 1406 100 1306 journeymen builder summon Rea
-journeymen debug as Steve 2 1408 100 1306 journeymen builder summon Sam
-journeymen debug as Steve 0 1406 100 1306 journeymen builder chest Rea add 1404 100 1304 supply
-journeymen debug as Steve 0 1406 100 1306 journeymen builder chest Rea add 1407 100 1304 supply
-journeymen debug as Steve 0 1406 100 1306 journeymen builder chest Sam add 1401 100 1304 dump
-journeymen debug as Steve 2 1406 100 1306 journeymen builder supply Rea test_box.schem 1410 100 1310 none corner
+journeymen debug as Steve 2 1402 100 1308 journeymen foreman summon Rook
+journeymen debug as Steve 2 1406 100 1306 journeymen builder summon Rook Rea
+journeymen debug as Steve 2 1408 100 1306 journeymen builder summon Rook Sam
+journeymen debug as Steve 0 1406 100 1306 journeymen foreman chest Rook add 1404 100 1304 supply
+journeymen debug as Steve 0 1406 100 1306 journeymen foreman chest Rook add 1407 100 1304 supply
+journeymen debug as Steve 0 1406 100 1306 journeymen foreman chest Rook add 1401 100 1304 dump
+journeymen debug as Steve 2 1406 100 1306 journeymen foreman supply Rook test_box.schem 1410 100 1310 none corner
 waitlog \] Supplied \d+ items
-journeymen debug as Steve 0 1406 100 1306 journeymen builder build Rea,Sam test_box.schem 1410 100 1310 none corner
-waitlog Rea and Sam are on the way !!
-waitfor 10 journeymen builder status Steve.Rea =~ Placing: [1-9]\d* placed
+journeymen debug as Steve 0 1406 100 1306 journeymen foreman build Rook test_box.schem 1410 100 1310 none corner
+waitlog Rook's crew is on the way: Rea and Sam\. !!
+waitfor 10 journeymen foreman status Steve.Rook =~ Phase: placing [1-9]\d*/
+journeymen foreman status Steve.Rook
 journeymen builder status Steve.Rea
 journeymen builder status Steve.Sam

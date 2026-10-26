@@ -81,7 +81,7 @@ public final class StuckRecovery {
         }
     }
 
-    private final BuilderEntity builder;
+    private final JourneymanEntity builder;
     @Nullable
     private Object goalKey;
     @Nullable
@@ -98,7 +98,7 @@ public final class StuckRecovery {
     @Nullable
     private Escape last;
 
-    StuckRecovery(BuilderEntity builder) {
+    StuckRecovery(JourneymanEntity builder) {
         this.builder = builder;
     }
 
@@ -169,11 +169,11 @@ public final class StuckRecovery {
         BlockPos to = findSpot(level, goal, manual);
         if (to == null) {
             nextAttempt = now + RETRY_TICKS;
-            String problem = "There is no safe spot near " + goal.description() + " for " + builder.getBuilderName() + " to get out to.";
+            String problem = "There is no safe spot near " + goal.description() + " for " + builder.getJourneymanName() + " to get out to.";
             if (!manual && !reportedNoSpot) {
                 reportedNoSpot = true;
                 Constants.LOG.info("[{}.{}] Stuck at {} on the way to {}, but found no safe spot to get out to.", builder.getOwnerName(),
-                        builder.getBuilderName(), from.toShortString(), goal.description());
+                        builder.getJourneymanName(), from.toShortString(), goal.description());
             }
             return problem;
         }
@@ -183,7 +183,7 @@ public final class StuckRecovery {
         goalTarget = null;
         nextAttempt = now + COOLDOWN_TICKS;
         last = new Escape(now, from, to, goal.description());
-        Constants.LOG.info("[{}.{}] {} at {} on the way to {}; teleported to {}.", builder.getOwnerName(), builder.getBuilderName(),
+        Constants.LOG.info("[{}.{}] {} at {} on the way to {}; teleported to {}.", builder.getOwnerName(), builder.getJourneymanName(),
                 manual ? "Unstuck by command" : "Stuck for " + JourneymenConfig.STUCK_TELEPORT_SECONDS.get() + " s",
                 from.toShortString(), goal.description(), to.toShortString());
         recent.addLast(now);
@@ -193,11 +193,9 @@ public final class StuckRecovery {
         long reminderTicks = JourneymenConfig.REMINDER_INTERVAL_SECONDS.get() * 20L;
         if (!manual && recent.size() >= REPEAT_NOTICE_COUNT && (lastRepeatNotice == Long.MIN_VALUE || now - lastRepeatNotice >= reminderTicks)) {
             lastRepeatNotice = now;
-            builder.notifyOwner("I keep getting stuck: I had to find my way out " + recent.size() + " times in the last "
-                    + REPEAT_WINDOW_TICKS / 1200 + " minutes, last at " + from.toShortString() + " on the way to " + goal.description()
-                    + ". Maybe leave me a way through, like a door or a path.");
+            builder.reportRepeatedlyStuck(recent.size() + " times in the last " + REPEAT_WINDOW_TICKS / 1200 + " minutes", from, goal.description());
         }
-        builder.afterEscape();
+        builder.escaped();
         return null;
     }
 

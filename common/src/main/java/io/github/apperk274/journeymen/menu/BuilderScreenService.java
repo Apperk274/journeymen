@@ -1,7 +1,6 @@
 package io.github.apperk274.journeymen.menu;
 
 import io.github.apperk274.journeymen.Constants;
-import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.BlockRequirements;
 import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildOptions;
@@ -10,7 +9,9 @@ import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.build.MaterialSupply;
 import io.github.apperk274.journeymen.command.SchematicCommands;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
-import io.github.apperk274.journeymen.entity.BuilderRegistry;
+import io.github.apperk274.journeymen.entity.ForemanEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
+import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.network.PreviewBlocks;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
@@ -56,17 +57,14 @@ public final class BuilderScreenService {
     }
 
     public static void sendState(ServerPlayer player, BuilderEntity builder) {
-        BuildJob job = builder.getJob();
-        BuilderEntity.Progress progress = builder.progress();
-        String detail = job != null && builder.getWork().getPhase() == BuildJob.Phase.PAUSED && builder.getWork().getPauseReason() != null
-                ? builder.getWork().getPauseReason() : "";
-        List<ScreenPayloads.ChestEntry> chests = new ArrayList<>();
-        for (AssignedChest chest : builder.getChests()) {
-            chests.add(new ScreenPayloads.ChestEntry(chest.pos(), chest.role() == AssignedChest.Role.SUPPLY));
-        }
-        Services.NETWORK.sendToPlayer(player, new ScreenPayloads.BuilderState(builder.getId(), builder.getBuilderName(), builder.getOwnerName(),
-                builder.isFollowing(), builder.getHealth(), builder.getMaxHealth(), job == null ? "" : job.getFile(), progress.text(), detail,
-                progress.done(), progress.total(), chests, job != null));
+        ForemanEntity foreman = builder.foreman();
+        BuildJob job = foreman == null ? null : foreman.getJob();
+        ForemanEntity.JobStatus status = foreman == null || job == null ? null : foreman.jobStatus();
+        String phase = status != null ? status.text() : foreman == null ? "no foreman" : "idle";
+        String detail = status != null && status.phase() == BuildJob.Phase.PAUSED && status.pauseReason() != null ? status.pauseReason() : "";
+        Services.NETWORK.sendToPlayer(player, new ScreenPayloads.BuilderState(builder.getId(), builder.getJourneymanName(), builder.getOwnerName(),
+                builder.isFollowing(), builder.getHealth(), builder.getMaxHealth(), job == null ? "" : job.getFile(), phase, detail,
+                status == null ? 0 : status.done(), status == null ? 0 : status.total(), LinkModeService.chestEntries(foreman), job != null));
     }
 
     public static void sendSchematicList(ServerPlayer player) {
@@ -81,81 +79,102 @@ public final class BuilderScreenService {
 
     public static void handle(ScreenPayloads.BuilderAction action, ServerPlayer player) {
         Entity entity = player.level().getEntity(action.builderId());
-        if (!(entity instanceof BuilderEntity builder) || !builder.isAlive()) {
-            player.sendSystemMessage(Component.literal("That builder is gone.").withStyle(ChatFormatting.RED));
+        if (!(entity instanceof JourneymanEntity journeyman) || !journeyman.isAlive()) {
+            player.sendSystemMessage(Component.literal("That journeyman is gone.").withStyle(ChatFormatting.RED));
             return;
         }
-        if (!builder.canBeCommandedBy(player)) {
-            player.sendSystemMessage(Component.literal(builder.getBuilderName() + " works for someone else.").withStyle(ChatFormatting.RED));
+        if (!journeyman.canBeCommandedBy(player)) {
+            player.sendSystemMessage(Component.literal(journeyman.getJourneymanName() + " works for someone else.").withStyle(ChatFormatting.RED));
             return;
         }
-        String name = builder.getBuilderName();
+        String name = journeyman.getJourneymanName();
         switch (action.action()) {
             case "follow" -> {
-                if (builder.getJob() != null) {
-                    tell(player, name + " is busy with " + builder.getJob().getFile() + ". Cancel the job first.", false);
+                if (journeyman.getJob() != null) {
+                    tell(player, name + " is busy with " + journeyman.getJob().getFile() + ". Cancel the job first.", false);
                 } else {
-                    builder.setFollowing(true);
+                    journeyman.setFollowing(true);
                     tell(player, name + " follows you now.", true);
                 }
             }
             case "stay" -> {
-                builder.setFollowing(false);
-                tell(player, name + " stays here now.", true);
+                if (journeyman.getJob() != null) {
+                    tell(player, name + " is busy with " + journeyman.getJob().getFile() + ". Cancel the job first.", false);
+                } else {
+                    journeyman.setFollowing(false);
+                    tell(player, name + " stays here now.", true);
+                }
             }
             case "rename" -> {
-                String problem = builder.rename(action.text().strip());
-                tell(player, problem != null ? problem : name + " is now called " + builder.getBuilderName() + ".", problem == null);
+                String problem = journeyman.rename(action.text().strip());
+                tell(player, problem != null ? problem : name + " is now called " + journeyman.getJourneymanName() + ".", problem == null);
             }
             case "dismiss" -> {
                 player.closeContainer();
-                builder.kill();
+                journeyman.kill();
                 tell(player, "You dismissed " + name + ".", true);
                 return;
             }
-            case "cancel_job" -> {
-                BuildJob job = builder.getJob();
-                if (job != null) {
-                    boolean crew = job.size() > 1;
-                    builder.cancelJob();
-                    tell(player, (crew ? "The crew" : name) + " stopped working on " + job.getFile() + ".", true);
-                }
-            }
-            case "leave_crew" -> {
-                BuildJob job = builder.getJob();
-                if (job != null) {
-                    builder.leaveJob();
-                    tell(player, name + " left the crew of " + job.getFile() + ".", true);
-                }
-            }
-            case "add_helper" -> {
-                BuilderEntity helper = findBuilder(player, builder, action.text().strip());
-                String problem = helper == null ? "There is no builder named " + action.text().strip() + " nearby."
-                        : Crew.join(helper, builder, player.hasPermissions(2));
-                tell(player, problem != null ? problem : helper.getBuilderName() + " joins the crew of " + builder.getJob().getFile() + ".", problem == null);
-            }
-            case "remove_chest" -> builder.removeChest(action.pos());
-            case "link_supply", "link_dump" -> {
-                player.closeContainer();
-                LinkModeService.start(player, builder, action.action().equals("link_supply"));
-            }
             case "notices" -> {
-                if (!player.getUUID().equals(builder.getOwner())) {
-                    tell(player, "Only " + builder.getOwnerName() + " can read " + name + "'s notices.", false);
+                if (!player.getUUID().equals(journeyman.getOwner())) {
+                    tell(player, "Only " + journeyman.getOwnerName() + " can read " + name + "'s notices.", false);
                 } else {
-                    List<String> notices = BuilderRegistry.get(player.server).takeNotices(player.getUUID());
+                    List<String> notices = JourneymanRegistry.get(player.server).takeNotices(player.getUUID());
                     if (notices.isEmpty()) {
-                        tell(player, "Your builders have nothing new to tell you.", true);
+                        tell(player, "Your journeymen have nothing new to tell you.", true);
                     }
                     notices.forEach(notice -> player.sendSystemMessage(Component.literal(notice)));
                 }
             }
             case "schematic_list" -> sendSchematicList(player);
             case "schematic_info" -> sendSchematicInfo(player, action.text());
-            case "check", "start" -> runJob(player, builder, action, action.action().equals("start") ? JobAction.START : JobAction.CHECK);
+            case "cancel_job", "remove_chest", "link_supply", "link_dump", "check", "start", "supply_missing" -> {
+                ForemanEntity foreman = foremanFor(player, journeyman);
+                if (foreman != null) {
+                    foremanAction(player, journeyman, foreman, action);
+                }
+            }
+            default -> {
+            }
+        }
+        if (journeyman instanceof BuilderEntity builder) {
+            sendState(player, builder);
+        }
+    }
+
+    @Nullable
+    private static ForemanEntity foremanFor(ServerPlayer player, JourneymanEntity journeyman) {
+        if (journeyman instanceof ForemanEntity foreman) {
+            return foreman;
+        }
+        BuilderEntity builder = (BuilderEntity) journeyman;
+        ForemanEntity foreman = builder.foreman();
+        if (foreman == null) {
+            tell(player, builder.getForemanId() == null ? builder.getJourneymanName() + " has no foreman. Another foreman can adopt it with "
+                    + "/journeymen foreman adopt <foreman> " + builder.getJourneymanName() + "."
+                    : builder.getJourneymanName() + "'s foreman isn't loaded.", false);
+        }
+        return foreman;
+    }
+
+    private static void foremanAction(ServerPlayer player, JourneymanEntity source, ForemanEntity foreman, ScreenPayloads.BuilderAction action) {
+        switch (action.action()) {
+            case "cancel_job" -> {
+                BuildJob job = foreman.getJob();
+                if (job != null) {
+                    foreman.cancelJob();
+                    tell(player, foreman.getJourneymanName() + "'s crew stopped working on " + job.getFile() + ".", true);
+                }
+            }
+            case "remove_chest" -> foreman.removeChest(action.pos());
+            case "link_supply", "link_dump" -> {
+                player.closeContainer();
+                LinkModeService.start(player, foreman, action.action().equals("link_supply"));
+            }
+            case "check", "start" -> runJob(player, source, foreman, action, action.action().equals("start") ? JobAction.START : JobAction.CHECK);
             case "supply_missing" -> {
                 if (player.isCreative()) {
-                    runJob(player, builder, action, JobAction.SUPPLY_MISSING);
+                    runJob(player, source, foreman, action, JobAction.SUPPLY_MISSING);
                 } else {
                     tell(player, "Only players in creative mode can supply missing items.", false);
                 }
@@ -163,7 +182,6 @@ public final class BuilderScreenService {
             default -> {
             }
         }
-        sendState(player, builder);
     }
 
     private static void tell(ServerPlayer player, String message, boolean good) {
@@ -176,23 +194,11 @@ public final class BuilderScreenService {
         SUPPLY_MISSING
     }
 
-    private static void runJob(ServerPlayer player, BuilderEntity builder, ScreenPayloads.BuilderAction action, JobAction jobAction) {
+    private static void runJob(ServerPlayer player, JourneymanEntity source, ForemanEntity foreman, ScreenPayloads.BuilderAction action,
+                               JobAction jobAction) {
         String[] parts = action.text().split("\n", -1);
-        if (parts.length != 3 && parts.length != 4) {
+        if (parts.length < 3) {
             return;
-        }
-        List<BuilderEntity> crew = new ArrayList<>(List.of(builder));
-        if (parts.length == 4 && !parts[3].isBlank()) {
-            for (String helperName : parts[3].split(",")) {
-                BuilderEntity helper = findBuilder(player, builder, helperName.strip());
-                if (helper == null) {
-                    tell(player, "There is no builder named " + helperName.strip() + " nearby.", false);
-                    return;
-                }
-                if (!crew.contains(helper)) {
-                    crew.add(helper);
-                }
-            }
         }
         String file = parts[0];
         Rotation rotation = Rotation.NONE;
@@ -218,40 +224,26 @@ public final class BuilderScreenService {
                 lines.addAll(supplied.notes());
                 player.sendSystemMessage(supplied.summary());
                 supplied.notes().forEach(player::sendSystemMessage);
-                Constants.LOG.info("[supply] {} for {}: {} The check {} now.", player.getName().getString(), builder.getBuilderName(),
+                Constants.LOG.info("[supply] {} for {}: {} The check {} now.", player.getName().getString(), foreman.getJourneymanName(),
                         supplied.summary().getString(), result.passed() ? "passes" : "still fails");
             }
             if (result.header() != null) {
                 lines.add(result.header());
             }
             lines.addAll(result.lines());
-            Services.NETWORK.sendToPlayer(player, new ScreenPayloads.CheckResult(builder.getId(), file, origin, finalRotation.getSerializedName(),
+            Services.NETWORK.sendToPlayer(player, new ScreenPayloads.CheckResult(source.getId(), file, origin, finalRotation.getSerializedName(),
                     options.describe().equals("none") ? "" : options.describe(), lines, result.passed(), result.started(),
                     result.error() == null ? "" : result.error(), result.unplaceable(), (int) Math.min(Integer.MAX_VALUE, result.missing()),
                     result.missingTools()));
             if (result.started()) {
-                tell(player, Crew.names(crew) + (crew.size() == 1 ? " is" : " are") + " on the way to build " + file + ".", true);
+                tell(player, foreman.getJourneymanName() + "'s crew is on the way to build " + file + ": " + Crew.list(result.crew()) + ".", true);
             }
         };
         if (jobAction == JobAction.SUPPLY_MISSING) {
-            JobService.supplyMissing(player.server, builder, file, origin, rotation, options, player, done);
+            JobService.supplyMissing(player.server, foreman, file, origin, rotation, options, player, done);
         } else {
-            JobService.run(player.server, crew, file, origin, rotation, options, jobAction == JobAction.START, done);
+            JobService.run(player.server, foreman, file, origin, rotation, options, jobAction == JobAction.START, done);
         }
-    }
-
-    @Nullable
-    private static BuilderEntity findBuilder(ServerPlayer player, BuilderEntity builder, String name) {
-        BuilderRegistry registry = BuilderRegistry.get(player.server);
-        BuilderRegistry.Entry entry = null;
-        int dot = name.indexOf('.');
-        if (dot >= 0 && player.hasPermissions(2)) {
-            entry = registry.findByOwnerName(name.substring(0, dot), name.substring(dot + 1)).stream().findFirst().orElse(null);
-        } else if (builder.getOwner() != null) {
-            entry = registry.find(builder.getOwner(), name).orElse(null);
-        }
-        Entity entity = entry == null ? null : player.serverLevel().getEntity(entry.id());
-        return entity instanceof BuilderEntity found && found.isAlive() && found.canBeCommandedBy(player) ? found : null;
     }
 
     private static void sendSchematicInfo(ServerPlayer player, String file) {

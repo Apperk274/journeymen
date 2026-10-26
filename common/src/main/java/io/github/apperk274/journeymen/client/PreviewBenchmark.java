@@ -91,7 +91,8 @@ public final class PreviewBenchmark {
                     command("gamerule doWeatherCycle false");
                     command("time set noon");
                     command("attribute @s minecraft:player.block_interaction_range base set 256");
-                    command("journeymen builder summon Bench");
+                    command("journeymen foreman summon BenchBoss");
+                    command("journeymen builder summon BenchBoss Bench");
                     next(Step.SETUP);
                 }
             }

@@ -1,4 +1,5 @@
 forceload add 0 0 64 64
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 kill @e[type=journeymen:recruiter]
 fill 0 199 0 60 199 60 minecraft:smooth_stone
@@ -29,18 +30,19 @@ fill 10 200 12 12 200 12 tfc:rock/raw/granite
 ticks 200
 data get block 2 200 2 Items
 data get block 5 201 2 Items
-journeymen debug as Steve 2 4 200 5 journeymen builder summon Tess
-journeymen debug as Steve 0 4 200 5 journeymen builder chest Tess add 2 200 2 supply
-journeymen debug as Steve 0 4 200 5 journeymen builder chest Tess add 5 200 2 supply
-journeymen debug as Steve 0 4 200 5 journeymen builder chest Tess add 8 200 2 dump
-journeymen debug as Steve 0 4 200 5 journeymen builder build Tess tfc_farm.schem 10 200 10 none corner
-waitlog nosprint Tess is on the way !!
-waitlog \[Steve\.Tess\] I finished building !!
-journeymen debug as Steve 0 4 200 5 journeymen builder status Tess
-journeymen debug as Steve 0 4 200 5 journeymen builder status Tess
-journeymen debug as Steve 0 4 200 5 journeymen builder notices
+journeymen debug as Steve 2 6 200 7 journeymen foreman summon TessBoss
+journeymen debug as Steve 2 4 200 5 journeymen builder summon TessBoss Tess
+journeymen debug as Steve 0 4 200 5 journeymen foreman chest TessBoss add 2 200 2 supply
+journeymen debug as Steve 0 4 200 5 journeymen foreman chest TessBoss add 5 200 2 supply
+journeymen debug as Steve 0 4 200 5 journeymen foreman chest TessBoss add 8 200 2 dump
+journeymen debug as Steve 0 4 200 5 journeymen foreman build TessBoss tfc_farm.schem 10 200 10 none corner
+waitlog nosprint TessBoss's crew is on the way !!
+waitlog \[Steve\.TessBoss\] I finished building !!
+journeymen debug as Steve 0 4 200 5 journeymen foreman status TessBoss
+journeymen debug as Steve 0 4 200 5 journeymen foreman status TessBoss
+journeymen debug as Steve 0 4 200 5 journeymen notices
 mark
-journeymen debug as Steve 0 4 200 5 journeymen builder check Tess tfc_farm.schem 10 200 10 none corner
+journeymen debug as Steve 0 4 200 5 journeymen foreman check TessBoss tfc_farm.schem 10 200 10 none corner
 waitlog \d+ to clear, \d+ to place
 waitfor 5 nosprint execute if block 5 200 2 tfc:ceramic/large_vessel =~ passed
 waitfor 5 nosprint execute if block 8 200 2 tfc:ceramic/large_vessel =~ passed
@@ -57,6 +59,8 @@ execute if block 10 201 10 tfc:metal/chain/copper
 execute if block 18 201 18 tfc:pumpkin
 journeymen stall place 30 200 30 south
 ticks 40
-journeymen debug as Steve 2 30 200 33 give @s tfc:gem/emerald 20
-journeymen debug as Steve 0 30 200 33 journeymen recruiter hire Gemma
-journeymen debug as Steve 0 30 200 33 journeymen builder list
+journeymen debug as Gem 2 30 200 33 clear @s
+journeymen debug as Gem 2 30 200 33 give @s tfc:gem/emerald 20
+journeymen debug as Gem 0 30 200 33 journeymen recruiter hire Gemma
+waitlog You hired Gemma for 20
+journeymen debug as Gem 0 30 200 33 journeymen foreman list

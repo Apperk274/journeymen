@@ -3,6 +3,8 @@ package io.github.apperk274.journeymen.menu;
 import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.ForemanEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.ChatFormatting;
@@ -10,6 +12,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,19 +25,19 @@ public final class LinkModeService {
     private static final int SESSION_TICKS = 1200;
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
 
-    private record Session(int builderId, boolean supply, long expiresAt) {
+    private record Session(int foremanId, boolean supply, long expiresAt) {
     }
 
     private LinkModeService() {
     }
 
-    public static void start(ServerPlayer player, BuilderEntity builder, boolean supply) {
-        SESSIONS.put(player.getUUID(), new Session(builder.getId(), supply, player.level().getGameTime() + SESSION_TICKS));
+    public static void start(ServerPlayer player, ForemanEntity foreman, boolean supply) {
+        SESSIONS.put(player.getUUID(), new Session(foreman.getId(), supply, player.level().getGameTime() + SESSION_TICKS));
         player.sendSystemMessage(Component.literal("Right-click chests to link them as " + (supply ? "supply" : "dump") + " chests for "
-                + builder.getBuilderName() + ". Right-click a linked chest again to unlink it. Right-click "
-                + builder.getBuilderName() + " to finish.")
+                + foreman.getJourneymanName() + ". Right-click a linked chest again to unlink it. Right-click "
+                + foreman.getJourneymanName() + " or one of his builders to finish.")
                 .withStyle(ChatFormatting.YELLOW));
-        send(player, builder, true, supply);
+        send(player, foreman, true, supply);
     }
 
     public static boolean onUseBlock(ServerPlayer player, BlockPos pos) {
@@ -42,38 +45,39 @@ public final class LinkModeService {
         if (session == null) {
             return false;
         }
-        Entity entity = player.level().getEntity(session.builderId());
-        if (!(entity instanceof BuilderEntity builder) || !builder.isAlive() || player.level().getGameTime() > session.expiresAt()) {
-            stop(player, entity instanceof BuilderEntity builder ? builder : null, "Linking chests has ended.");
+        Entity entity = player.level().getEntity(session.foremanId());
+        if (!(entity instanceof ForemanEntity foreman) || !foreman.isAlive() || player.level().getGameTime() > session.expiresAt()) {
+            stop(player, "Linking chests has ended.");
             return false;
         }
         if (ItemStores.at(player.level(), pos) == null) {
             player.displayClientMessage(Component.literal("That isn't a chest or other container.").withStyle(ChatFormatting.RED), true);
             return true;
         }
-        AssignedChest existing = builder.chestAt(pos);
+        AssignedChest existing = foreman.chestAt(pos);
         if (existing != null) {
-            builder.removeChest(existing.pos());
-            player.displayClientMessage(Component.literal(builder.getBuilderName() + " no longer uses this " + existing.role().id() + " chest."), true);
+            foreman.removeChest(existing.pos());
+            player.displayClientMessage(Component.literal(foreman.getJourneymanName() + " no longer uses this " + existing.role().id() + " chest."), true);
         } else {
-            String problem = builder.addChest(pos, session.supply() ? AssignedChest.Role.SUPPLY : AssignedChest.Role.DUMP);
+            String problem = foreman.addChest(pos, session.supply() ? AssignedChest.Role.SUPPLY : AssignedChest.Role.DUMP);
             player.displayClientMessage(problem != null
                     ? Component.literal(problem).withStyle(ChatFormatting.RED)
-                    : Component.literal(builder.getBuilderName() + " uses this as a " + (session.supply() ? "supply" : "dump") + " chest.")
+                    : Component.literal(foreman.getJourneymanName() + " uses this as a " + (session.supply() ? "supply" : "dump") + " chest.")
                             .withStyle(ChatFormatting.GREEN), true);
         }
-        SESSIONS.put(player.getUUID(), new Session(session.builderId(), session.supply(), player.level().getGameTime() + SESSION_TICKS));
-        send(player, builder, true, session.supply());
+        SESSIONS.put(player.getUUID(), new Session(session.foremanId(), session.supply(), player.level().getGameTime() + SESSION_TICKS));
+        send(player, foreman, true, session.supply());
         return true;
     }
 
-    public static boolean finish(ServerPlayer player, BuilderEntity builder) {
+    public static boolean finish(ServerPlayer player, JourneymanEntity clicked) {
         Session session = SESSIONS.get(player.getUUID());
         if (session == null) {
             return false;
         }
-        boolean same = session.builderId() == builder.getId();
-        stop(player, builder, same ? "Finished linking chests for " + builder.getBuilderName() + "." : "Linking chests has ended.");
+        ForemanEntity foreman = clicked instanceof ForemanEntity self ? self : clicked instanceof BuilderEntity builder ? builder.foreman() : null;
+        boolean same = foreman != null && session.foremanId() == foreman.getId();
+        stop(player, same ? "Finished linking chests for " + foreman.getJourneymanName() + "." : "Linking chests has ended.");
         return same;
     }
 
@@ -88,23 +92,28 @@ public final class LinkModeService {
     public static void tick(ServerPlayer player) {
         Session session = SESSIONS.get(player.getUUID());
         if (session != null && player.level().getGameTime() > session.expiresAt()) {
-            Entity entity = player.level().getEntity(session.builderId());
-            stop(player, entity instanceof BuilderEntity builder ? builder : null, "Linking chests has ended.");
+            stop(player, "Linking chests has ended.");
         }
     }
 
-    private static void stop(ServerPlayer player, BuilderEntity builder, String message) {
+    private static void stop(ServerPlayer player, String message) {
         Session session = SESSIONS.remove(player.getUUID());
         player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.YELLOW));
-        Services.NETWORK.sendToPlayer(player, new ScreenPayloads.LinkMode(session == null ? -1 : session.builderId(), false,
+        Services.NETWORK.sendToPlayer(player, new ScreenPayloads.LinkMode(session == null ? -1 : session.foremanId(), false,
                 session != null && session.supply(), List.of()));
     }
 
-    private static void send(ServerPlayer player, BuilderEntity builder, boolean active, boolean supply) {
+    private static void send(ServerPlayer player, ForemanEntity foreman, boolean active, boolean supply) {
+        Services.NETWORK.sendToPlayer(player, new ScreenPayloads.LinkMode(foreman.getId(), active, supply, chestEntries(foreman)));
+    }
+
+    public static List<ScreenPayloads.ChestEntry> chestEntries(@Nullable ForemanEntity foreman) {
         List<ScreenPayloads.ChestEntry> chests = new ArrayList<>();
-        for (AssignedChest chest : builder.getChests()) {
-            chests.add(new ScreenPayloads.ChestEntry(chest.pos(), chest.role() == AssignedChest.Role.SUPPLY));
+        if (foreman != null) {
+            for (AssignedChest chest : foreman.getChests()) {
+                chests.add(new ScreenPayloads.ChestEntry(chest.pos(), chest.role() == AssignedChest.Role.SUPPLY));
+            }
         }
-        Services.NETWORK.sendToPlayer(player, new ScreenPayloads.LinkMode(builder.getId(), active, supply, chests));
+        return chests;
     }
 }

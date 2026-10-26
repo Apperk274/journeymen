@@ -1,5 +1,6 @@
 forceload add 1300 1300 1380 1380
 forceload add 1498 1312 1502 1316
+kill @e[type=journeymen:foreman]
 kill @e[type=journeymen:builder]
 ticks 40
 fill 1300 99 1300 1380 99 1380 minecraft:grass_block
@@ -7,6 +8,7 @@ fill 1300 100 1300 1380 103 1380 minecraft:air
 fill 1300 104 1300 1380 106 1380 minecraft:air
 fill 1498 99 1312 1502 99 1316 minecraft:grass_block
 kill @e[type=item]
+mark
 setblock 1320 100 1330 minecraft:chest[facing=north,type=right]
 setblock 1321 100 1330 minecraft:chest[facing=north,type=left]
 setblock 1323 100 1330 minecraft:chest[facing=north,type=right]
@@ -17,99 +19,84 @@ setblock 1346 100 1308 minecraft:chest
 item replace block 1346 100 1306 container.0 with minecraft:oak_planks 2
 item replace block 1346 100 1308 container.0 with minecraft:diamond_pickaxe
 setblock 1350 100 1310 minecraft:obsidian
-journeymen debug as Steve 2 1305 100 1305 journeymen builder summon Bob
-journeymen debug as Steve 2 1308 100 1305 journeymen builder summon Ann
-journeymen debug as Steve 2 1311 100 1305 journeymen builder summon Cid
-journeymen debug as Steve 2 1314 100 1305 journeymen builder summon Dan
-journeymen debug as Steve 2 1317 100 1305 journeymen builder summon Eva
-journeymen debug as Steve 2 1305 100 1308 journeymen builder summon Fay
-journeymen debug as Steve 2 1308 100 1308 journeymen builder summon Gus
-journeymen debug as Steve 2 1311 100 1308 journeymen builder summon Hal
-journeymen debug as Steve 2 1314 100 1308 journeymen builder summon Ivy
-journeymen debug as Alex 2 1317 100 1308 journeymen builder summon Zed
-journeymen debug as Steve 2 1500 100 1314 journeymen builder summon Far
-journeymen debug as Steve 0 1305 100 1305 journeymen builder chest Bob add 1320 100 1330 supply
-journeymen debug as Steve 0 1305 100 1305 journeymen builder chest Bob add 1323 100 1330 supply
-journeymen debug as Steve 0 1305 100 1305 journeymen builder chest Bob add 1326 100 1330 dump
-journeymen debug as Steve 0 1305 100 1305 journeymen builder chest Cid add 1346 100 1306 supply
-journeymen debug as Steve 0 1305 100 1305 journeymen builder chest Dan add 1346 100 1308 supply
-summon item 1317 100 1305 {Item:{id:'minecraft:stone',count:2}}
-ticks 10
+journeymen debug as Steve 2 1344 100 1312 journeymen foreman summon Pool
+journeymen debug as Steve 2 1311 100 1305 journeymen builder summon Pool Cid
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman chest Pool add 1346 100 1306 supply
 mark
-journeymen debug as Steve 0 1305 100 1305 journeymen builder check Cid test_skip.schem 1350 100 1310 none corner skip-unplaceable
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman check Pool test_skip.schem 1350 100 1310 none corner skip-unplaceable
+waitlog Counted Cid's inventory and Pool's 1 supply chest\.
 waitlog No tool that can mine 1 Obsidian
 waitlog Missing 2 Stone
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman chest Pool add 1346 100 1308 supply
 mark
-journeymen debug as Steve 0 1305 100 1305 journeymen builder check Cid,Dan test_skip.schem 1350 100 1310 none corner skip-unplaceable
-waitlog Counted the inventories of Cid and Dan, and 2 supply chests
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman check Pool test_skip.schem 1350 100 1310 none corner skip-unplaceable
+waitlog Counted Cid's inventory and Pool's 2 supply chests\.
 waitlog Missing 2 Stone
+summon item 1317 100 1305 {Item:{id:'minecraft:stone',count:2}}
+journeymen debug as Steve 2 1317 100 1305 journeymen builder summon Pool Eva
+ticks 10
 mark
-journeymen debug as Steve 0 1305 100 1305 journeymen builder check Cid,Dan,Eva test_skip.schem 1350 100 1310 none corner skip-unplaceable
-waitlog Counted the inventories of Cid, Dan and Eva, and 2 supply chests
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman check Pool test_skip.schem 1350 100 1310 none corner skip-unplaceable
+waitlog Counted the inventories of Cid and Eva, and Pool's 2 supply chests\.
 waitlog Everything is ready
-journeymen debug as Steve 0 1305 100 1305 journeymen builder check Bob,Bob test_skip.schem 1350 100 1310 none corner
-waitlog Bob is named twice
-journeymen debug as Steve 0 1305 100 1305 journeymen builder check Bob,Ann,Cid,Dan,Eva,Fay,Gus,Hal,Ivy test_skip.schem 1350 100 1310 none corner
-waitlog A crew can have at most 8 builders
-journeymen debug as Steve 2 1305 100 1305 journeymen builder supply Bob test_solid.schem 1340 100 1340 none corner
+journeymen debug as Steve 2 1340 100 1318 journeymen foreman summon Big
+journeymen debug as Steve 2 1305 100 1305 journeymen builder summon Big Bob
+journeymen debug as Steve 2 1308 100 1305 journeymen builder summon Big Ann
+journeymen debug as Steve 2 1308 100 1305 journeymen builder summon Big Bob
+waitlog You already have a journeyman named Bob\.
+journeymen debug as Steve 2 1308 100 1305 journeymen builder summon Big Pool
+waitlog You already have a journeyman named Pool\.
+journeymen debug as Steve 2 1500 100 1314 journeymen builder summon Big Far
+journeymen debug as Alex 2 1317 100 1308 journeymen foreman summon Zak
+journeymen debug as Alex 2 1317 100 1308 journeymen builder summon Zak Zed
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman chest Big add 1320 100 1330 supply
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman chest Big add 1323 100 1330 supply
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman chest Big add 1326 100 1330 dump
+journeymen debug as Steve 2 1305 100 1305 journeymen foreman supply Big test_solid.schem 1340 100 1340 none corner
 waitlog \] Supplied \d+ items
 mark
-journeymen debug as Steve 0 1305 100 1305 journeymen builder check Ann test_solid.schem 1340 100 1340 none corner
-waitlog Missing \d+
-mark
-journeymen debug as Steve 0 1305 100 1305 journeymen builder build Ann,Bob test_solid.schem 1340 100 1340 none corner
-waitlog Ann and Bob are on the way !!
-waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Bob =~ Crew of 2
-journeymen debug as Steve 0 1305 100 1305 journeymen builder build Cid test_box.schem 1345 100 1345 none corner
-waitlog The site overlaps the job of Steve\.Ann, Steve\.Bob
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Bob Ann
-waitlog Bob is already in the crew of test_solid\.schem
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Far Ann
-waitlog The site of test_solid\.schem is \d+ blocks away from Far; the limit is 128
-journeymen debug as Alex 0 1317 100 1308 journeymen builder join Zed Steve.Ann
-waitlog You can only command your own builders
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Alex.Zed Ann
-waitlog x2 You can only command your own builders
-journeymen debug as Steve 0 1305 100 1305 journeymen builder build Cid test_skip.schem 1350 100 1320 none corner skip-unplaceable skip-missing
-waitlog Cid is on the way !!
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Cid Ann
-waitlog Cid is busy with test_skip\.schem
-journeymen debug as Steve 0 1305 100 1305 journeymen builder cancel Cid
-waitlog Cid stopped working on test_skip\.schem
-journeymen debug as Steve 2 1305 100 1305 journeymen builder join Alex.Zed Ann
-waitlog Zed joins the crew of test_solid\.schem \(Steve\.Ann, Steve\.Bob, Alex\.Zed\)
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Cid Ann
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Dan Ann
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Eva Bob
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Fay Bob
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Gus Bob
-waitlog Gus joins the crew of test_solid\.schem
-journeymen debug as Steve 0 1305 100 1305 journeymen builder join Hal Bob
-waitlog The crew of test_solid\.schem is full \(8 builders\)
-waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Cid =~ Crew of 8
-journeymen debug as Steve 2 1305 100 1305 journeymen builder leave Alex.Zed
-waitlog Zed left the crew of test_solid\.schem\. Steve\.Ann, Steve\.Bob, Steve\.Cid
-journeymen debug as Steve 0 1305 100 1305 journeymen builder leave Dan
-journeymen debug as Steve 0 1305 100 1305 journeymen builder leave Eva
-journeymen debug as Steve 0 1305 100 1305 journeymen builder leave Fay
-journeymen debug as Steve 0 1305 100 1305 journeymen builder leave Gus
-waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Gus =~ Job: none
-waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Ann =~ Crew of 3
-kill @e[type=journeymen:builder,name=Cid]
-waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Ann =~ Crew of 2
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman build Big test_solid.schem 1340 100 1340 none corner
+waitlog Big's crew is on the way: Ann and Bob\. !!
+waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen foreman status Big =~ Crew of 3
+waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen foreman status Big =~ Far: too far from the site
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman build Big test_box.schem 1300 100 1360 none corner
+waitlog Big is already working on test_solid\.schem
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman build Pool test_box.schem 1345 100 1345 none corner
+waitlog The site overlaps the job of Steve\.Big
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman check Pool test_box.schem 1345 100 1500 none corner
+waitlog The site is \d+ blocks away from Pool; the limit is 128
+journeymen debug as Alex 0 1317 100 1308 journeymen foreman cancel Steve.Big
+waitlog You can only command your own journeymen
+journeymen debug as Alex 0 1317 100 1308 journeymen foreman status Big
+waitlog You have no foreman named Big
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman status Bob
+waitlog Bob is a builder, not a foreman
+journeymen debug as Steve 2 1305 100 1305 journeymen foreman status Alex.Zak
+waitlog Zak \(foreman of Alex\)
+journeymen debug as Steve 0 1305 100 1305 journeymen builder follow Bob
+waitlog Bob is busy with test_solid\.schem for Big\. Cancel his job first\.
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman come Big
+waitlog Big is busy with test_solid\.schem\. Cancel the job first\.
+tp @e[type=journeymen:builder,name=Far] 1335 100 1320
+waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen foreman status Big =~ Far: (walking to the site|clearing|placing|waiting)
+kill @e[type=journeymen:builder,name=Ann]
+waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen foreman status Big =~ Crew of 2
 forceload remove 1300 1300 1380 1380
-waitfor 30 execute if entity @e[type=journeymen:builder,name=Bob] =~ failed
+waitfor 30 execute if entity @e[type=journeymen:foreman,name=Big] =~ failed
 forceload add 1300 1300 1380 1380
-waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Bob =~ Crew of 2
-journeymen debug as Steve 0 1305 100 1305 journeymen builder cancel Bob
-waitlog The crew of Steve\.Ann, Steve\.Bob stopped working on test_solid\.schem
-waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Ann =~ Job: none
-journeymen debug as Steve 0 1305 100 1305 journeymen builder build Ann,Bob test_solid.schem 1340 100 1340 none corner
-waitlog x2 Ann and Bob are on the way !!
-waitlog 20 \[Steve\.(Bob|Ann)\] I finished building test_solid\.schem !!
+waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen foreman status Big =~ Job: test_solid\.schem
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman cancel Big
+waitlog Big's crew stopped working on test_solid\.schem
+waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Bob =~ Job: none
+kill @e[type=item]
+mark
+journeymen debug as Steve 2 1305 100 1305 journeymen foreman supply Big test_solid.schem 1340 100 1340 none corner missing-only
+waitlog \] Supplied \d+ missing items
+mark
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman build Big test_solid.schem 1340 100 1340 none corner
+waitlog Big's crew is on the way: Bob and Far\. !!
+waitlog 20 \[Steve\.Big\] I finished building test_solid\.schem !!
 waitfor 5 nosprint journeymen debug as Steve 0 1305 100 1305 journeymen builder status Bob =~ Job: none
 mark
-journeymen debug as Steve 0 1305 100 1305 journeymen builder check Bob test_solid.schem 1340 100 1340 none corner
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman check Big test_solid.schem 1340 100 1340 none corner
 waitlog 10 0 to clear, 0 to place
-summon journeymen:builder 1355 100 1326 {CustomName:'"Old"',Owner:[I;1445453208,-423740383,-1196889821,1142437441],OwnerName:"Steve",Job:{File:"test_skip.schem",Origin:[I;1360,100,1330],Rotation:"NONE",Options:{Corner:1b,SkipUnplaceable:1b,SkipMissing:1b},Area:[I;1360,100,1330,1364,100,1330],Phase:"PLACING",ResumePhase:"PLACING"}}
-waitlog \[Steve\.Old\] I finished building test_skip\.schem !!

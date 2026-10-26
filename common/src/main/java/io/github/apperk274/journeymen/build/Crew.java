@@ -1,8 +1,8 @@
 package io.github.apperk274.journeymen.build;
 
-import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
-import io.github.apperk274.journeymen.entity.BuilderRegistry;
+import io.github.apperk274.journeymen.entity.ForemanEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -16,10 +16,7 @@ import net.minecraft.world.level.block.state.properties.ChestType;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 
 public final class Crew {
@@ -42,39 +39,6 @@ public final class Crew {
         return members;
     }
 
-    public static List<BuilderEntity> of(BuilderEntity builder) {
-        BuildJob job = builder.getJob();
-        if (job == null) {
-            return List.of(builder);
-        }
-        List<BuilderEntity> members = loaded(builder.getServer(), job);
-        if (!members.contains(builder)) {
-            members.add(0, builder);
-        }
-        return members;
-    }
-
-    public static List<AssignedChest> chests(BuilderEntity first, List<BuilderEntity> crew) {
-        List<AssignedChest> result = new ArrayList<>();
-        Set<Long> seen = new HashSet<>();
-        Level level = first.level();
-        addChests(level, first, result, seen);
-        for (BuilderEntity member : crew) {
-            if (member != first && member.level() == level) {
-                addChests(level, member, result, seen);
-            }
-        }
-        return result;
-    }
-
-    private static void addChests(Level level, BuilderEntity member, List<AssignedChest> result, Set<Long> seen) {
-        for (AssignedChest chest : member.getChests()) {
-            if (seen.add(chestKey(level, chest.pos()))) {
-                result.add(chest);
-            }
-        }
-    }
-
     public static long chestKey(Level level, BlockPos pos) {
         BlockPos other = otherChestHalf(level, pos);
         return other == null ? pos.asLong() : Math.min(pos.asLong(), other.asLong());
@@ -92,18 +56,17 @@ public final class Crew {
         return null;
     }
 
-    public static List<ItemStack> stock(List<BuilderEntity> crew, List<Component> problems) {
+    public static List<ItemStack> stock(ForemanEntity foreman, List<BuilderEntity> builders, List<Component> problems) {
         List<ItemStack> stock = new ArrayList<>();
-        for (BuilderEntity member : crew) {
-            for (int slot = 0; slot < member.getInventory().getContainerSize(); slot++) {
-                ItemStack stack = member.getInventory().getItem(slot);
+        for (BuilderEntity builder : builders) {
+            for (int slot = 0; slot < builder.getInventory().getContainerSize(); slot++) {
+                ItemStack stack = builder.getInventory().getItem(slot);
                 if (!stack.isEmpty()) {
                     stock.add(stack.copy());
                 }
             }
         }
-        BuilderEntity first = crew.get(0);
-        stock.addAll(supplyStock(first.level(), chests(first, crew), problems));
+        stock.addAll(supplyStock(foreman.level(), foreman.getChests(), problems));
         return stock;
     }
 
@@ -132,14 +95,14 @@ public final class Crew {
         return stock;
     }
 
-    public static int countSupplyChests(List<BuilderEntity> crew) {
-        return (int) chests(crew.get(0), crew).stream().filter(chest -> chest.role() == AssignedChest.Role.SUPPLY).count();
+    public static int countSupplyChests(ForemanEntity foreman) {
+        return (int) foreman.getChests().stream().filter(chest -> chest.role() == AssignedChest.Role.SUPPLY).count();
     }
 
-    public static long countInDumpChests(List<BuilderEntity> crew, ItemStack template) {
-        Level level = crew.get(0).level();
+    public static long countInDumpChests(ForemanEntity foreman, ItemStack template) {
+        Level level = foreman.level();
         long count = 0;
-        for (AssignedChest chest : chests(crew.get(0), crew)) {
+        for (AssignedChest chest : foreman.getChests()) {
             if (chest.role() != AssignedChest.Role.DUMP || !level.isLoaded(chest.pos())) {
                 continue;
             }
@@ -157,40 +120,11 @@ public final class Crew {
         return count;
     }
 
-    @Nullable
-    public static String join(BuilderEntity helper, BuilderEntity builder, boolean mayMixOwners) {
-        BuildJob job = builder.getJob();
-        if (job == null) {
-            return builder.getBuilderName() + " has no job to help with.";
-        }
-        if (helper == builder || job.hasMember(helper.getUUID())) {
-            return helper.getBuilderName() + " is already in the crew of " + job.getFile() + ".";
-        }
-        if (helper.getJob() != null) {
-            return helper.getBuilderName() + " is busy with " + helper.getJob().getFile() + ". Cancel that job or leave its crew first.";
-        }
-        if (!mayMixOwners && !Objects.equals(helper.getOwner(), builder.getOwner())) {
-            return "Only operators can put builders of different owners in one crew.";
-        }
-        if (helper.level() != builder.level()) {
-            return helper.getBuilderName() + " is in another dimension.";
-        }
-        double distance = PreCheck.horizontalDistance(helper.blockPosition(), job.getArea());
-        if (distance > JourneymenConfig.MAX_SITE_DISTANCE.get()) {
-            return "The site of " + job.getFile() + " is " + Math.round(distance) + " blocks away from " + helper.getBuilderName()
-                    + "; the limit is " + JourneymenConfig.MAX_SITE_DISTANCE.get() + ".";
-        }
-        int max = JourneymenConfig.MAX_CREW_SIZE.get();
-        if (max > 0 && job.size() >= max) {
-            return "The crew of " + job.getFile() + " is full (" + max + " builders).";
-        }
-        BuilderRegistry.get(Objects.requireNonNull(builder.getServer())).joinJob(job, helper.getUUID());
-        helper.beginJob(job);
-        return null;
+    public static String names(List<? extends JourneymanEntity> crew) {
+        return list(crew.stream().map(JourneymanEntity::getJourneymanName).toList());
     }
 
-    public static String names(List<BuilderEntity> crew) {
-        List<String> names = crew.stream().map(BuilderEntity::getBuilderName).toList();
+    public static String list(List<String> names) {
         if (names.size() <= 1) {
             return names.isEmpty() ? "" : names.get(0);
         }

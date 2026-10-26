@@ -1,6 +1,6 @@
 package io.github.apperk274.journeymen.entity.ai;
 
-import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.entity.StuckRecovery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumSet;
 
-public class BuilderMoveGoal extends Goal {
+public class JourneymanMoveGoal extends Goal {
 
     private static final double FOLLOW_START_DISTANCE = 6.0;
     private static final double FOLLOW_STOP_DISTANCE = 3.0;
@@ -18,12 +18,12 @@ public class BuilderMoveGoal extends Goal {
     private static final int REPATH_INTERVAL = 10;
     private static final int GIVE_UP_TICKS = 600;
 
-    private final BuilderEntity builder;
+    private final JourneymanEntity builder;
     private int repathTimer;
     private int ticksWithoutProgress;
     private double bestDistance;
 
-    public BuilderMoveGoal(BuilderEntity builder) {
+    public JourneymanMoveGoal(JourneymanEntity builder) {
         this.builder = builder;
         setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
     }
@@ -31,13 +31,13 @@ public class BuilderMoveGoal extends Goal {
     @Override
     public boolean canUse() {
         Vec3 target = target();
-        return builder.getJob() == null && target != null && builder.position().distanceTo(target) > startDistance();
+        return !builder.isWorking() && target != null && builder.position().distanceTo(target) > startDistance();
     }
 
     @Override
     public boolean canContinueToUse() {
         Vec3 target = target();
-        return builder.getJob() == null && target != null && builder.position().distanceTo(target) > stopDistance()
+        return !builder.isWorking() && target != null && builder.position().distanceTo(target) > stopDistance()
                 && ticksWithoutProgress < StuckRecovery.giveUpTicks(GIVE_UP_TICKS);
     }
 

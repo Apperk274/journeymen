@@ -8,7 +8,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public final class BuilderNames {
+public final class JourneymanNames {
 
     public static final int MAX_LENGTH = 24;
 
@@ -21,7 +21,7 @@ public final class BuilderNames {
             "Rosa", "Rupert", "Ruth", "Silas", "Stella", "Theo", "Tilda", "Ulrich", "Vera", "Walter",
             "Wilma", "Winifred");
 
-    private BuilderNames() {
+    private JourneymanNames() {
     }
 
     public static String random(RandomSource random, Set<String> taken) {
@@ -42,15 +42,15 @@ public final class BuilderNames {
     @Nullable
     public static String validate(String name) {
         if (name.isBlank()) {
-            return "A builder's name can't be empty.";
+            return "A name can't be empty.";
         }
         if (name.length() > MAX_LENGTH) {
-            return "A builder's name can be at most " + MAX_LENGTH + " characters long.";
+            return "A name can be at most " + MAX_LENGTH + " characters long.";
         }
         for (int i = 0; i < name.length(); i++) {
             char c = name.charAt(i);
             if (!(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-')) {
-                return "A builder's name can only contain letters, digits, _ and -.";
+                return "A name can only contain letters, digits, _ and -.";
             }
         }
         return null;

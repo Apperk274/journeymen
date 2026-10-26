@@ -3,6 +3,7 @@ package io.github.apperk274.journeymen;
 import io.github.apperk274.journeymen.client.BuilderRenderer;
 import io.github.apperk274.journeymen.client.BuilderScreen;
 import io.github.apperk274.journeymen.client.ClientState;
+import io.github.apperk274.journeymen.client.ForemanRenderer;
 import io.github.apperk274.journeymen.client.PlacementMode;
 import io.github.apperk274.journeymen.client.RecruiterRenderer;
 import io.github.apperk274.journeymen.entity.ModEntities;
@@ -20,6 +21,7 @@ public class JourneymenFabricClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        EntityRendererRegistry.register(ModEntities.FOREMAN, ForemanRenderer::new);
         EntityRendererRegistry.register(ModEntities.BUILDER, BuilderRenderer::new);
         EntityRendererRegistry.register(ModEntities.RECRUITER, RecruiterRenderer::new);
         JourneymenNetwork.CLIENT_BOUND.forEach(JourneymenFabricClient::registerClientBound);

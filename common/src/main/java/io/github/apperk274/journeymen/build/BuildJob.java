@@ -45,6 +45,7 @@ public final class BuildJob {
     }
 
     private final UUID id;
+    private final UUID foreman;
     private final ResourceKey<Level> dimension;
     private final String file;
     private final BlockPos origin;
@@ -62,8 +63,10 @@ public final class BuildJob {
     private final Set<BlockPos> skippedPositions = new LinkedHashSet<>();
     private final CrewWork crewWork = new CrewWork();
 
-    public BuildJob(UUID id, ResourceKey<Level> dimension, String file, BlockPos origin, Rotation rotation, BuildOptions options, BoundingBox area) {
+    public BuildJob(UUID id, UUID foreman, ResourceKey<Level> dimension, String file, BlockPos origin, Rotation rotation, BuildOptions options,
+                    BoundingBox area) {
         this.id = id;
+        this.foreman = foreman;
         this.dimension = dimension;
         this.file = file;
         this.origin = origin.immutable();
@@ -74,6 +77,10 @@ public final class BuildJob {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getForeman() {
+        return foreman;
     }
 
     public ResourceKey<Level> getDimension() {
@@ -106,10 +113,6 @@ public final class BuildJob {
 
     public boolean hasMember(UUID member) {
         return members.contains(member);
-    }
-
-    public boolean isLeader(UUID member) {
-        return !members.isEmpty() && members.get(0).equals(member);
     }
 
     public int size() {
@@ -186,6 +189,7 @@ public final class BuildJob {
     public CompoundTag save() {
         CompoundTag tag = new CompoundTag();
         tag.putUUID("Id", id);
+        tag.putUUID("Foreman", foreman);
         tag.putString("Dimension", dimension.location().toString());
         tag.putString("File", file);
         tag.putIntArray("Origin", new int[]{origin.getX(), origin.getY(), origin.getZ()});
@@ -201,30 +205,9 @@ public final class BuildJob {
     @Nullable
     public static BuildJob load(CompoundTag tag) {
         ResourceLocation dimension = ResourceLocation.tryParse(tag.getString("Dimension"));
-        if (!tag.hasUUID("Id") || dimension == null) {
+        if (!tag.hasUUID("Id") || !tag.hasUUID("Foreman") || dimension == null) {
             return null;
         }
-        BuildJob job = read(tag, tag.getUUID("Id"), ResourceKey.create(Registries.DIMENSION, dimension));
-        if (job == null) {
-            return null;
-        }
-        ListTag memberList = tag.getList("Members", Tag.TAG_INT_ARRAY);
-        for (int i = 0; i < memberList.size(); i++) {
-            int[] uuid = memberList.getIntArray(i);
-            if (uuid.length == 4) {
-                job.addMember(UUIDUtil.uuidFromIntArray(uuid));
-            }
-        }
-        return job;
-    }
-
-    @Nullable
-    public static BuildJob loadLegacy(CompoundTag tag, ResourceKey<Level> dimension) {
-        return read(tag, UUID.randomUUID(), dimension);
-    }
-
-    @Nullable
-    private static BuildJob read(CompoundTag tag, UUID id, ResourceKey<Level> dimension) {
         int[] origin = tag.getIntArray("Origin");
         int[] area = tag.getIntArray("Area");
         if (origin.length != 3 || area.length != 6 || tag.getString("File").isEmpty()) {
@@ -236,7 +219,16 @@ public final class BuildJob {
         } catch (IllegalArgumentException e) {
             return null;
         }
-        return new BuildJob(id, dimension, tag.getString("File"), new BlockPos(origin[0], origin[1], origin[2]), rotation,
-                BuildOptions.load(tag.getCompound("Options")), new BoundingBox(area[0], area[1], area[2], area[3], area[4], area[5]));
+        BuildJob job = new BuildJob(tag.getUUID("Id"), tag.getUUID("Foreman"), ResourceKey.create(Registries.DIMENSION, dimension), tag.getString("File"),
+                new BlockPos(origin[0], origin[1], origin[2]), rotation, BuildOptions.load(tag.getCompound("Options")),
+                new BoundingBox(area[0], area[1], area[2], area[3], area[4], area[5]));
+        ListTag memberList = tag.getList("Members", Tag.TAG_INT_ARRAY);
+        for (int i = 0; i < memberList.size(); i++) {
+            int[] uuid = memberList.getIntArray(i);
+            if (uuid.length == 4) {
+                job.addMember(UUIDUtil.uuidFromIntArray(uuid));
+            }
+        }
+        return job;
     }
 }

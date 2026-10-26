@@ -7,11 +7,13 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
+import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
 
@@ -19,27 +21,28 @@ public class JourneymenCommand {
 
     private static final List<String[]> HELP = List.of(
             new String[]{"help", "Show this help"},
-            new String[]{"builder summon [name]", "Summon a builder that works for you"},
-            new String[]{"builder list", "List your builders"},
-            new String[]{"builder status <builder>", "Show where a builder is and what it's doing"},
-            new String[]{"builder notices", "Show what your builders said while you were away"},
-            new String[]{"builder rename <builder> <name>", "Rename a builder"},
-            new String[]{"builder come <builder>", "Call a builder to where you stand"},
-            new String[]{"builder follow <builder>", "Make a builder follow you"},
-            new String[]{"builder stay <builder>", "Make a builder stay where it is"},
-            new String[]{"builder kill <builder>", "Kill a builder; it drops its inventory"},
-            new String[]{"builder unstick <builder>", "Get a stuck builder out to a safe spot near where it's going"},
-            new String[]{"builder check <builder>[,<builder>...] <file> [pos] [rotation] [options]", "Run the pre-check for a job without starting it"},
-            new String[]{"builder build <builder>[,<builder>...] <file> [pos] [rotation] [options]", "Give a builder, or a crew of builders, a job"},
-            new String[]{"builder join <helper> <builder>", "Let an idle builder help with another builder's job"},
-            new String[]{"builder leave <builder>", "Take a builder off its crew; the others carry on"},
-            new String[]{"builder cancel <builder>", "Stop a builder's job, and its whole crew's; the half-built structure stays"},
-            new String[]{"builder supply <builder> [<file> [pos] [rotation] [options]]", "Put everything a job needs in the supply chests (ops)"},
-            new String[]{"builder supply <builder> missing-only", "Supply only what the current job's pre-check finds missing (ops); with a file, add missing-only to the options"},
-            new String[]{"builder chest <builder> add <pos> supply|dump", "Give a builder a supply or dump chest"},
-            new String[]{"builder chest <builder> remove <pos>", "Take a chest away from a builder"},
-            new String[]{"builder chest <builder> list", "List a builder's chests"},
-            new String[]{"recruiter hire [name]", "Hire a builder from the nearest recruiter"},
+            new String[]{"notices", "Show what your journeymen said while you were away"},
+            new String[]{"recruiter hire [name]", "Hire a foreman from the nearest recruiter"},
+            new String[]{"foreman summon [name]", "Summon a foreman that works for you (ops)"},
+            new String[]{"foreman hire <foreman> [name]", "Hire a builder into a foreman's crew (stand within 8 blocks of him)"},
+            new String[]{"foreman adopt <foreman> <builder>", "Give an orphaned builder (its foreman died) to another foreman"},
+            new String[]{"foreman check <foreman> <file> [pos] [rotation] [options]", "Run the pre-check for a job without starting it"},
+            new String[]{"foreman build <foreman> <file> [pos] [rotation] [options]", "Give a foreman a job; his crew builds it"},
+            new String[]{"foreman cancel <foreman>", "Stop a foreman's job; the half-built structure stays"},
+            new String[]{"foreman supply <foreman> [<file> [pos] [rotation] [options]]", "Put everything a job needs in his supply chests (ops)"},
+            new String[]{"foreman supply <foreman> missing-only", "Supply only what the current job's pre-check finds missing (ops); with a file, add missing-only to the options"},
+            new String[]{"foreman chest <foreman> add <pos> supply|dump", "Give a foreman a supply or dump chest"},
+            new String[]{"foreman chest <foreman> remove <pos>", "Take a chest away from a foreman"},
+            new String[]{"foreman chest <foreman> list", "List a foreman's chests"},
+            new String[]{"builder summon <foreman> [name]", "Summon a builder into a foreman's crew (ops)"},
+            new String[]{"foreman|builder list", "List your foremen or builders"},
+            new String[]{"foreman|builder status <name>", "Show where a journeyman is and what it's doing"},
+            new String[]{"foreman|builder rename <name> <new name>", "Rename a journeyman"},
+            new String[]{"foreman|builder come <name>", "Call an idle journeyman to where you stand"},
+            new String[]{"foreman|builder follow <name>", "Make an idle journeyman follow you"},
+            new String[]{"foreman|builder stay <name>", "Make an idle journeyman stay where it is"},
+            new String[]{"foreman|builder kill <name>", "Kill a journeyman; a builder drops its inventory, a foreman's job ends"},
+            new String[]{"foreman|builder unstick <name>", "Get a stuck journeyman out to a safe spot near where it's going"},
             new String[]{"stall place <pos> [facing]", "Place a Recruiter's Stall without the item (ops)"},
             new String[]{"schematic list", "List the files in the schematics folder"},
             new String[]{"schematic materials <file>", "Show the materials a schematic needs"},
@@ -49,6 +52,8 @@ public class JourneymenCommand {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(Constants.MOD_ID)
                 .executes(JourneymenCommand::help)
                 .then(Commands.literal("help").executes(JourneymenCommand::help))
+                .then(Commands.literal("notices").executes(JourneymenCommand::notices))
+                .then(ForemanCommands.build())
                 .then(BuilderCommands.build())
                 .then(RecruiterCommands.recruiter())
                 .then(RecruiterCommands.stall())
@@ -77,6 +82,18 @@ public class JourneymenCommand {
                     .append(Component.literal(" - " + entry[1]).withStyle(ChatFormatting.WHITE)));
         }
         return 1;
+    }
+
+    private static int notices(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = source.getPlayerOrException();
+        List<String> notices = JourneymanRegistry.get(source.getServer()).takeNotices(player.getUUID());
+        if (notices.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("Your journeymen have nothing new to tell you."), false);
+            return 0;
+        }
+        notices.forEach(notice -> source.sendSuccess(() -> Component.literal(notice), false));
+        return notices.size();
     }
 
     private static int reloadConfig(CommandContext<CommandSourceStack> context) {

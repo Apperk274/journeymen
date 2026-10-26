@@ -326,7 +326,7 @@ class Runner:
             self.error(str(e))
 
     def reset(self, players):
-        commands = ["tick sprint stop", "tick unfreeze", "kill @e[type=journeymen:builder]"]
+        commands = ["tick sprint stop", "tick unfreeze", "kill @e[type=journeymen:foreman]", "kill @e[type=journeymen:builder]"]
         commands += [f"journeymen debug gamemode {player} survival" for player in sorted(players)]
         for command in commands:
             self.out(f"> {command}")

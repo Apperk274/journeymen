@@ -1,0 +1,100 @@
+forceload add 1760 1760 1840 1840
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+kill @e[type=journeymen:recruiter]
+ticks 40
+fill 1760 99 1760 1840 99 1840 minecraft:grass_block
+fill 1760 100 1760 1840 102 1840 minecraft:air
+fill 1760 103 1760 1840 104 1840 minecraft:air
+kill @e[type=item]
+journeymen stall place 1780 100 1780 south
+ticks 40
+journeymen debug as Hirer 2 1781 100 1784 clear @s
+journeymen debug as Hirer 2 1781 100 1784 give @s minecraft:emerald 55
+journeymen debug as Hirer 0 1781 100 1784 journeymen recruiter hire Hugo
+waitlog \[debug as Hirer\] You hired Hugo for 20 Emerald\. He hires builders for you
+journeymen debug as Hirer 0 1781 100 1784 journeymen recruiter hire Hilda
+waitlog You hired Hilda for 30 Emerald
+journeymen debug as Hirer 0 1781 100 1784 journeymen recruiter hire Hans
+waitlog Hiring a foreman costs 40 Emerald, but you only have 5\.
+journeymen debug as Hirer 2 1781 100 1784 give @s minecraft:emerald 300
+journeymen debug as Hirer 0 1781 100 1784 journeymen recruiter hire Hugo
+waitlog You already have a journeyman named Hugo\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen recruiter hire Hans
+waitlog You hired Hans for 40 Emerald
+journeymen debug as Hirer 0 1781 100 1784 journeymen recruiter hire Henk
+waitlog You already have 3 foremen, the most you can hire\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman list
+waitlog x3 \[debug as Hirer\] H(ugo|ilda|ans) - at .*, idle, crew of 0
+journeymen debug as Hirer 0 1830 100 1830 journeymen foreman hire Hugo Far
+waitlog You need to be within 8 blocks of Hugo to hire a builder\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman hire Hugo Bea
+waitlog Hugo hired Bea for 10 Emerald\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman hire Hugo Ben
+waitlog Hugo hired Ben for 15 Emerald\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman hire Hugo Hilda
+waitlog You already have a journeyman named Hilda\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman hire Hugo Bia
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman hire Hugo Bob
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman hire Hugo Bud
+waitlog Hugo hired Bud for 30 Emerald\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman hire Hugo Bix
+waitlog You already have 5 builders, the most you can hire\.
+journeymen debug as Alex 0 1781 100 1784 journeymen foreman hire Hirer.Hugo Bix
+waitlog You can only command your own journeymen\.
+mark
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman status Hugo
+waitlog Crew of 5:
+journeymen debug as Hirer 0 1781 100 1784 journeymen builder status Bea
+waitlog Foreman: Hugo
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C1
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C2
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C3
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C4
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C5
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C6
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C7
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C8
+waitlog Summoned C8 into Hilda's crew\.
+journeymen debug as Hirer 2 1790 100 1790 journeymen builder summon Hilda C9
+waitlog Hilda's crew is full \(8 builders\)\.
+journeymen debug as Hirer 2 1781 100 1784 journeymen foreman hire Hilda C9
+waitlog Hilda's crew is full \(8 builders\)\.
+mark
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman kill Hugo
+waitlog \[Hirer\.Hugo\] I died\. Bea, Ben, Bia, Bob and Bud have no foreman now; another foreman can adopt them with /journeymen foreman adopt <foreman> <builder>\.
+waitfor 5 nosprint journeymen debug as Hirer 0 1781 100 1784 journeymen builder status Bea =~ Foreman: none \(orphan
+journeymen debug as Hirer 0 1781 100 1784 journeymen builder come Bea
+waitlog Bea is coming to 1781 100 1784
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman adopt Hilda Bea
+waitlog Hilda's crew is full \(8 builders\)\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman adopt Hans Bea
+waitlog Hans adopted Bea\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman adopt Hans Bea
+waitlog Bea is already in Hans's crew\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman adopt Hilda Bea
+waitlog Bea is in Hans's crew\. Crews are fixed\.
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman adopt Hans Hilda
+waitlog Hilda is a foreman, not a builder\.
+journeymen debug as Alex 2 1781 100 1784 journeymen foreman summon Axel
+journeymen debug as Alex 2 1781 100 1784 journeymen foreman adopt Axel Hirer.Ben
+waitlog Ben and Axel work for different players\.
+waitfor 5 nosprint journeymen debug as Hirer 0 1781 100 1784 journeymen builder status Bea =~ Foreman: Hans
+journeymen debug as Hirer 0 1781 100 1784 journeymen builder list
+waitlog \[debug as Hirer\] Ben - at .*, orphan
+waitlog \[debug as Hirer\] Bea - at .*, in Hans's crew
+journeymen debug as Hirer 0 1781 100 1784 journeymen foreman rename Hans Bea
+waitlog Hirer already has a journeyman named Bea\.
+summon journeymen:builder 1800 100 1800 {CustomName:'"Oldie"',Owner:[I;1445453208,-423740383,-1196889821,1142437441],OwnerName:"Steve",Chests:[{Pos:[I;1801,100,1801],Role:"supply"}],JobId:[I;1,2,3,4],Work:{Phase:"PLACING",ResumePhase:"PLACING"},Job:{File:"test_skip.schem",Origin:[I;1805,100,1805],Rotation:"NONE",Options:{Corner:1b},Area:[I;1805,100,1805,1809,100,1805],Phase:"PLACING",ResumePhase:"PLACING"},Inventory:{Items:[{Slot:0b,id:"minecraft:oak_planks",count:12}]}}
+waitfor 5 nosprint journeymen builder status Steve.Oldie =~ Foreman: none \(orphan
+waitfor 5 nosprint journeymen builder status Steve.Oldie =~ Job: none
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Oldie,limit=1] Inventory.Items[{id:"minecraft:oak_planks",count:12}] =~ passed
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Oldie,limit=1] JobId =~ failed
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Oldie,limit=1] Chests =~ failed
+execute if block 1805 100 1805 minecraft:air
+journeymen debug as Steve 2 1798 100 1798 journeymen foreman summon OldBoss
+journeymen debug as Steve 2 1798 100 1798 journeymen foreman adopt OldBoss Oldie
+waitlog OldBoss adopted Oldie\.
+journeymen debug as Steve 0 1798 100 1798 journeymen foreman status OldBoss
+waitlog Oldie: idle
+kill @e[type=journeymen:recruiter]

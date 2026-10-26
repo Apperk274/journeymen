@@ -1,6 +1,6 @@
 package io.github.apperk274.journeymen.client;
 
-import io.github.apperk274.journeymen.entity.BuilderNames;
+import io.github.apperk274.journeymen.entity.JourneymanNames;
 import io.github.apperk274.journeymen.hire.HirePrice;
 import io.github.apperk274.journeymen.network.HireBuilderPayload;
 import io.github.apperk274.journeymen.network.OpenHireScreenPayload;
@@ -31,7 +31,7 @@ public class HireScreen extends Screen {
         int left = (width - WIDTH) / 2;
         int top = height / 2 - 50;
         nameBox = new EditBox(font, left, top + 60, WIDTH, 20, Component.literal("Name"));
-        nameBox.setMaxLength(BuilderNames.MAX_LENGTH);
+        nameBox.setMaxLength(JourneymanNames.MAX_LENGTH);
         nameBox.setFilter(text -> text.chars().allMatch(c -> Character.isLetterOrDigit(c) && c < 128 || c == '_' || c == '-'));
         nameBox.setValue(data.suggestedName());
         addRenderableWidget(nameBox);
@@ -76,15 +76,15 @@ public class HireScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         int left = (width - WIDTH) / 2;
         int top = height / 2 - 50;
-        graphics.drawCenteredString(font, Component.literal("Hire a builder").withStyle(ChatFormatting.BOLD), width / 2, top - 6, 0xFFFFFF);
+        graphics.drawCenteredString(font, Component.literal("Hire a foreman").withStyle(ChatFormatting.BOLD), width / 2, top - 6, 0xFFFFFF);
         ItemStack price = data.price();
         graphics.renderItem(price, left, top + 8);
         graphics.drawString(font, Component.literal(price.getCount() + " × ").append(price.getHoverName()), left + 20, top + 12, 0xFFFFFF);
         Component haveLine = Component.literal("You have " + have())
                 .withStyle(canAfford() ? ChatFormatting.GRAY : ChatFormatting.RED);
         graphics.drawString(font, haveLine, left + 20, top + 24, 0xFFFFFF);
-        String builders = data.max() > 0 ? data.owned() + " of " + data.max() + " builders" : data.owned() + " builders";
-        graphics.drawString(font, Component.literal("You have " + builders).withStyle(atLimit() ? ChatFormatting.RED : ChatFormatting.GRAY),
+        String foremen = data.max() > 0 ? data.owned() + " of " + data.max() + " foremen" : data.owned() + " foremen";
+        graphics.drawString(font, Component.literal("You have " + foremen).withStyle(atLimit() ? ChatFormatting.RED : ChatFormatting.GRAY),
                 left, top + 36, 0xFFFFFF);
         graphics.drawString(font, Component.literal("Name").withStyle(ChatFormatting.GRAY), left, top + 50, 0xFFFFFF);
     }

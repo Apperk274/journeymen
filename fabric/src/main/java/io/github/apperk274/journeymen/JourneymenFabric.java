@@ -2,9 +2,8 @@ package io.github.apperk274.journeymen;
 
 import io.github.apperk274.journeymen.block.ModBlocks;
 import io.github.apperk274.journeymen.client.ClientState;
-import io.github.apperk274.journeymen.command.CrewArgument;
 import io.github.apperk274.journeymen.command.JourneymenCommand;
-import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.entity.ModEntities;
 import io.github.apperk274.journeymen.entity.RecruiterEntity;
 import io.github.apperk274.journeymen.item.ModItems;
@@ -12,7 +11,6 @@ import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.network.JourneymenNetwork;
 import io.github.apperk274.journeymen.platform.FabricMenuHelper;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -21,7 +19,6 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
-import net.minecraft.commands.synchronization.SingletonArgumentInfo;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -40,9 +37,8 @@ public class JourneymenFabric implements ModInitializer {
         ModItems.register((id, item) -> Registry.register(BuiltInRegistries.ITEM, id, item));
         ModEntities.register((id, type) -> Registry.register(BuiltInRegistries.ENTITY_TYPE, id, type));
         Registry.register(BuiltInRegistries.MENU, ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "builder"), FabricMenuHelper.BUILDER_MENU);
-        ArgumentTypeRegistry.registerArgumentType(ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "crew"), CrewArgument.class,
-                SingletonArgumentInfo.contextFree(CrewArgument::crew));
-        FabricDefaultAttributeRegistry.register(ModEntities.BUILDER, BuilderEntity.createAttributes());
+        FabricDefaultAttributeRegistry.register(ModEntities.FOREMAN, JourneymanEntity.createAttributes());
+        FabricDefaultAttributeRegistry.register(ModEntities.BUILDER, JourneymanEntity.createAttributes());
         FabricDefaultAttributeRegistry.register(ModEntities.RECRUITER, RecruiterEntity.createAttributes());
         ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(entries -> entries.accept(ModItems.RECRUITERS_STALL));
         JourneymenNetwork.SERVER_BOUND.forEach(JourneymenFabric::registerServerBound);

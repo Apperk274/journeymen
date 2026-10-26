@@ -23,41 +23,50 @@ public final class JourneymenConfig {
             "How fast builders break and place blocks. 1.0 is a survival player's pace.",
             1.0, Double::parseDouble, value -> value > 0 && value <= 100));
     public static final Entry<Boolean> KEEP_CHUNKS_LOADED = add(new Entry<>("keep_chunks_loaded",
-            "Whether a builder with an active job keeps the chunks it works in loaded, so it builds while nobody is nearby.",
+            "Whether a foreman with an active job keeps the chunks his crew works in loaded, so it builds while nobody is nearby.",
             false, JourneymenConfig::parseBoolean, value -> true));
     public static final Entry<Integer> REDO_LIMIT = add(new Entry<>("redo_limit",
             "How many times a builder fixes the same position after someone changed it during a job.",
             3, Integer::parseInt, value -> value >= 0));
     public static final Entry<Integer> MAX_JOB_VOLUME = add(new Entry<>("max_job_volume",
-            "Largest schematic volume (width x height x length) a builder accepts as a job.",
+            "Largest schematic volume (width x height x length) a foreman accepts as a job.",
             256 * 256 * 256, Integer::parseInt, value -> value > 0));
     public static final Entry<Integer> MAX_SITE_DISTANCE = add(new Entry<>("max_site_distance",
-            "How far, in blocks, a builder may be from a build site when it gets the job.",
+            "How far, in blocks, a foreman, and a builder that takes part, may be from a build site.",
             128, Integer::parseInt, value -> value > 0));
     public static final Entry<Integer> REMINDER_INTERVAL_SECONDS = add(new Entry<>("reminder_interval_seconds",
-            "How often a paused builder reminds its owner, in seconds.",
+            "How often a foreman reminds his owner of a paused job, in seconds.",
             300, Integer::parseInt, value -> value > 0));
     public static final Entry<Integer> WAIT_REPORT_SECONDS = add(new Entry<>("wait_report_seconds",
             "How long a builder waits for someone standing in its way before it tells its owner, in seconds.",
             10, Integer::parseInt, value -> value >= 0));
     public static final Entry<Integer> STUCK_TELEPORT_SECONDS = add(new Entry<>("stuck_teleport_seconds",
-            "How long a builder may be stuck without getting closer to where it is going (a chest, the build site, you) before it teleports to a safe spot next to it, in seconds (0 = never).",
+            "How long a journeyman may be stuck without getting closer to where it is going (a chest, the build site, you) before it teleports to a safe spot next to it, in seconds (0 = never).",
             20, Integer::parseInt, value -> value >= 0));
     public static final Entry<Integer> MAX_CREW_SIZE = add(new Entry<>("max_crew_size",
-            "How many builders can work on one job together (0 = no limit).",
+            "How many builders a foreman can have in his crew (0 = no limit).",
             8, Integer::parseInt, value -> value >= 0));
 
     public static final Entry<String> HIRE_COST_ITEM = add(new Entry<>("hire_cost_item",
-            "The item paid to a recruiter to hire a builder: an item id such as minecraft:emerald, or an item tag such as #c:gems/emerald.",
+            "The item paid to hire a foreman at a recruiter or a builder from a foreman: an item id such as minecraft:emerald, or an item tag such as #c:gems/emerald.",
             "#c:gems/emerald", value -> value, HirePrice::isValidSpec));
+    public static final Entry<Integer> FOREMAN_COST_BASE = add(new Entry<>("foreman_cost_base",
+            "How many of that item the first foreman costs.",
+            20, Integer::parseInt, value -> value >= 0));
+    public static final Entry<Integer> FOREMAN_COST_STEP = add(new Entry<>("foreman_cost_step",
+            "How many more each further foreman costs, for every foreman the player already has.",
+            10, Integer::parseInt, value -> value >= 0));
+    public static final Entry<Integer> MAX_FOREMEN_PER_PLAYER = add(new Entry<>("max_foremen_per_player",
+            "How many foremen one player can hire from recruiters (0 = no limit). Ops summoning by command are not limited.",
+            3, Integer::parseInt, value -> value >= 0));
     public static final Entry<Integer> HIRE_COST_BASE = add(new Entry<>("hire_cost_base",
             "How many of that item the first builder costs.",
             10, Integer::parseInt, value -> value >= 0));
     public static final Entry<Integer> HIRE_COST_STEP = add(new Entry<>("hire_cost_step",
-            "How many more each further builder costs, for every builder the player already has.",
+            "How many more each further builder costs, for every builder the player already has (orphans included).",
             5, Integer::parseInt, value -> value >= 0));
     public static final Entry<Integer> MAX_BUILDERS_PER_PLAYER = add(new Entry<>("max_builders_per_player",
-            "How many builders one player can hire from recruiters (0 = no limit). Ops summoning by command are not limited.",
+            "How many builders one player can hire from foremen (0 = no limit). Ops summoning by command are not limited.",
             5, Integer::parseInt, value -> value >= 0));
 
     private JourneymenConfig() {

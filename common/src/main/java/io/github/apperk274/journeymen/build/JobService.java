@@ -1,9 +1,9 @@
 package io.github.apperk274.journeymen.build;
 
 import io.github.apperk274.journeymen.Constants;
-import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
-import io.github.apperk274.journeymen.entity.BuilderRegistry;
+import io.github.apperk274.journeymen.entity.ForemanEntity;
+import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
 import net.minecraft.ChatFormatting;
@@ -29,58 +29,36 @@ public final class JobService {
     }
 
     public record Result(@Nullable Component header, List<Component> lines, boolean passed, boolean started, @Nullable String error,
-                         int unplaceable, long missing, boolean missingTools, @Nullable MaterialSupply.Outcome supplied) {
+                         int unplaceable, long missing, boolean missingTools, @Nullable MaterialSupply.Outcome supplied,
+                         List<String> crew) {
 
         static Result failure(String error) {
-            return new Result(null, List.of(), false, false, error, 0, 0, false, null);
+            return new Result(null, List.of(), false, false, error, 0, 0, false, null, List.of());
         }
 
         Result withSupplied(MaterialSupply.Outcome outcome) {
-            return new Result(header, lines, passed, started, error, unplaceable, missing, missingTools, outcome);
+            return new Result(header, lines, passed, started, error, unplaceable, missing, missingTools, outcome, crew);
         }
     }
 
-    public static void run(MinecraftServer server, BuilderEntity builder, String file, BlockPos origin, Rotation rotation, BuildOptions options,
+    public static void run(MinecraftServer server, ForemanEntity foreman, String file, BlockPos origin, Rotation rotation, BuildOptions options,
                            boolean start, Consumer<Result> done) {
-        run(server, List.of(builder), file, origin, rotation, options, start, done);
-    }
-
-    public static void run(MinecraftServer server, List<BuilderEntity> crew, String file, BlockPos origin, Rotation rotation, BuildOptions options,
-                           boolean start, Consumer<Result> done) {
-        String problem = crewProblem(crew, start);
-        if (problem != null) {
-            done.accept(Result.failure(problem));
+        if (start && foreman.getJob() != null) {
+            done.accept(Result.failure(foreman.getJourneymanName() + " is already working on " + foreman.getJob().getFile() + ". Cancel that job first."));
             return;
         }
-        load(server, crew, file, done, schematic -> done.accept(check(crew, file, origin, rotation, options, start, schematic)));
+        load(server, foreman, file, done, schematic -> done.accept(check(foreman, file, origin, rotation, options, start, schematic)));
     }
 
-    @Nullable
-    public static String crewProblem(List<BuilderEntity> crew, boolean start) {
-        int max = JourneymenConfig.MAX_CREW_SIZE.get();
-        if (max > 0 && crew.size() > max) {
-            return "A crew can have at most " + max + " builders.";
-        }
-        for (BuilderEntity member : crew) {
-            if (member.level() != crew.get(0).level()) {
-                return member.getBuilderName() + " is in another dimension.";
-            }
-            if (start && member.getJob() != null) {
-                return member.getBuilderName() + " is already working on " + member.getJob().getFile() + ". Cancel that job first.";
-            }
-        }
-        return null;
-    }
-
-    public static void supplyMissing(MinecraftServer server, BuilderEntity builder, String file, BlockPos origin, Rotation rotation,
+    public static void supplyMissing(MinecraftServer server, ForemanEntity foreman, String file, BlockPos origin, Rotation rotation,
                                      BuildOptions options, ServerPlayer player, Consumer<Result> done) {
-        load(server, List.of(builder), file, done, schematic -> {
-            MaterialSupply.Outcome outcome = MaterialSupply.supply(builder, schematic, file, origin, rotation, options, true, player);
-            done.accept(check(List.of(builder), file, origin, rotation, options, false, schematic).withSupplied(outcome));
+        load(server, foreman, file, done, schematic -> {
+            MaterialSupply.Outcome outcome = MaterialSupply.supply(foreman, schematic, file, origin, rotation, options, true, player);
+            done.accept(check(foreman, file, origin, rotation, options, false, schematic).withSupplied(outcome));
         });
     }
 
-    private static void load(MinecraftServer server, List<BuilderEntity> crew, String file, Consumer<Result> done, Consumer<Schematic> loaded) {
+    private static void load(MinecraftServer server, ForemanEntity foreman, String file, Consumer<Result> done, Consumer<Schematic> loaded) {
         CompletableFuture
                 .supplyAsync(() -> {
                     try {
@@ -98,24 +76,21 @@ public final class JobService {
                         done.accept(Result.failure("Could not load " + file + ": " + cause.getMessage()));
                         return;
                     }
-                    for (BuilderEntity member : crew) {
-                        if (!member.isAlive()) {
-                            done.accept(Result.failure(member.getBuilderName() + " is gone."));
-                            return;
-                        }
+                    if (!foreman.isAlive()) {
+                        done.accept(Result.failure(foreman.getJourneymanName() + " is gone."));
+                        return;
                     }
                     loaded.accept(schematic);
                 }, server);
     }
 
-    private static Result check(List<BuilderEntity> crew, String file, BlockPos origin, Rotation rotation, BuildOptions options, boolean start,
+    private static Result check(ForemanEntity foreman, String file, BlockPos origin, Rotation rotation, BuildOptions options, boolean start,
                                 Schematic schematic) {
-        BuilderEntity builder = crew.get(0);
         PlacementTransform transform = PlacementTransform.of(schematic, origin, rotation, options.corner());
-        PreCheck check = PreCheck.run(crew, schematic, transform, options);
+        PreCheck check = PreCheck.run(foreman, schematic, transform, options);
         BoundingBox area = check.getArea();
         Component header = Component.literal((start ? "Build " : "Check ") + file).withStyle(ChatFormatting.GOLD)
-                .append(Component.literal(" for " + Crew.names(crew) + " at " + origin.toShortString() + ", rotation "
+                .append(Component.literal(" for " + foreman.getJourneymanName() + "'s crew at " + origin.toShortString() + ", rotation "
                         + rotation.getSerializedName() + ", options " + options.describe() + "; area "
                         + area.minX() + " " + area.minY() + " " + area.minZ() + " to " + area.maxX() + " " + area.maxY() + " " + area.maxZ())
                         .withStyle(ChatFormatting.GRAY));
@@ -123,24 +98,21 @@ public final class JobService {
         BuildPlan plan = check.getPlan();
         if (!start) {
             return new Result(header, lines, check.passed(), false, null, check.getUnplaceableCount(), check.getMissingCount(),
-                    check.isMissingTools(), null);
+                    check.isMissingTools(), null, List.of());
         }
         if (!check.passed() || plan == null) {
-            String who = crew.size() == 1 ? builder.getBuilderName() : "The crew";
-            return new Result(header, lines, false, false, who + " can't start this job yet.", check.getUnplaceableCount(),
-                    check.getMissingCount(), check.isMissingTools(), null);
+            return new Result(header, lines, false, false, foreman.getJourneymanName() + " can't start this job yet.", check.getUnplaceableCount(),
+                    check.getMissingCount(), check.isMissingTools(), null, List.of());
         }
-        for (BuilderEntity member : crew) {
-            if (member.getJob() != null) {
-                return new Result(header, lines, true, false, member.getBuilderName() + " got another job in the meantime.",
-                        check.getUnplaceableCount(), check.getMissingCount(), check.isMissingTools(), null);
-            }
+        if (foreman.getJob() != null) {
+            return new Result(header, lines, true, false, foreman.getJourneymanName() + " got another job in the meantime.",
+                    check.getUnplaceableCount(), check.getMissingCount(), check.isMissingTools(), null, List.of());
         }
-        BuildJob job = new BuildJob(UUID.randomUUID(), builder.level().dimension(), file, origin, rotation, options, area);
-        crew.forEach(member -> job.addMember(member.getUUID()));
+        BuildJob job = new BuildJob(UUID.randomUUID(), foreman.getUUID(), foreman.level().dimension(), file, origin, rotation, options, area);
         job.setLoaded(schematic, plan);
-        BuilderRegistry.get(builder.getServer()).addJob(job);
-        crew.forEach(member -> member.beginJob(job));
-        return new Result(header, lines, true, true, null, check.getUnplaceableCount(), check.getMissingCount(), check.isMissingTools(), null);
+        JourneymanRegistry.get(foreman.getServer()).addJob(job);
+        foreman.beginJob(job);
+        List<String> crew = Crew.loaded(foreman.getServer(), job).stream().map(BuilderEntity::getJourneymanName).toList();
+        return new Result(header, lines, true, true, null, check.getUnplaceableCount(), check.getMissingCount(), check.isMissingTools(), null, crew);
     }
 }
