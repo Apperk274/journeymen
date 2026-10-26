@@ -100,9 +100,10 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 - **Area:** the rotated bounding box. Schematic air is cleared; structure void and positions without data are left alone.
 - **Options:** `corner`, `allow-breaking-enchanted`, `skip-unplaceable`, `skip-missing` (see Pre-check).
 - **One job per foreman.** `build` is refused while he has one. `foreman cancel <foreman>` stops it: his builders finish the block in hand and stop, the half-built structure stays, and leftovers stay in the builders' inventories and his chests. Issuing the same job again continues from what is in the world, because the plan is a diff.
-- **Who works:** his builders that are loaded, in the site's dimension and within the max site distance of it take part; the others wait (shown in `status`) and join in once they qualify. `build` is refused when none can take part, when the site is farther from the foreman than the max site distance, or when he finds no path to it.
+- **Who works:** his builders that are loaded, in the site's dimension and within the max site distance of it take part; the others wait (shown in `status`) and join in once they qualify. `build` is refused when none can take part, when the site is farther from the foreman than the max site distance, or when he has no way to walk to it (see Pre-check).
 - **Getting there:** each builder fetches what the first stage needs from his supply chests (tools if there is anything to clear, otherwise materials for the first blocks plus any hoe or shovel for farmland and paths), then walks to the site. The foreman walks to his post; builders don't wait for him to arrive.
-- **Chunks:** a journeyman stops when its chunks unload and continues when they load; builders wait while their foreman is unloaded. A config option (off by default) lets a foreman with a job keep his own, the site's and his working builders' chunks loaded. Work goes on while the owner is offline.
+- **Chunks:** a journeyman stops when its chunks unload and continues when they load; builders wait while their foreman is unloaded. Work goes on while the owner is offline. A builder that has just loaded waits 5 s for its crewmates and the supply chests to load before it reports missing items.
+- **Keeping chunks loaded** (`keep_chunks_loaded`, off by default): while a foreman has a job, the mod holds its own chunk tickets (not `/forceload`) on every chunk of the site and on the chunks of the foreman and of each builder on the job, all entity-ticking (a journeyman's ticket also covers the chunks around it, so it keeps ticking when it steps over a chunk edge), and keeps the level's entities ticking with no player online. Builders not on the job (waiting, too far) get none. The tickets follow the journeymen, checked every second (by their last saved position while unloaded), and are dropped within a second when the job finishes, is cancelled or the foreman dies, and when the option is turned off and `/journeymen config reload` runs. They aren't saved: after a restart the jobs in the world's registry get them back within a second, which loads the foreman and his builders where they were saved.
 - Limits: a config cap on job volume (default 256×256×256); two active jobs' areas may not overlap.
 - **Saving:** the job is saved in the world's journeyman registry under the foreman, so the overlap check sees it while he is unloaded. Each builder keeps only its foreman's id and its own task; claims and reservations are rebuilt from a fresh plan when the foreman loads. A builder whose job was cancelled or finished while it was unloaded drops its task when it loads, and one whose foreman died meanwhile loads as an orphan.
 
@@ -120,6 +121,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 `build` and `check` run the same check. A job starts only when everything passes; otherwise it lists every problem at once. The check changes nothing in the world.
 
 - **Crew:** at least one of the foreman's builders can take part (see Build jobs).
+- **Path:** the foreman must be able to walk from where he stands to within 8 blocks (horizontally) of the site, inside it counting too. The check searches with the journeymen's own walking rules (doors and gates open, partial blocks, drops up to his safe fall distance), at most 16,000 steps and no farther than 32 blocks around him and the site. It fails only when it has searched everywhere he can walk without coming within 8 blocks (he is boxed in, or on a ledge or platform he can't get down from). When the search runs out of steps, reaches its edge or an unloaded chunk first, the check passes with a warning and he tries to walk there (getting unstuck if he can't). Builders' paths aren't checked: they walk to the supply chests first, work from where they are when they can't get within reach, and get unstuck like him.
 - **Materials:** every item needed for placing must already be in the foreman's supply chests or his builders' inventories (loaded builders only); drops from clearing don't count. Only plain items count and are used: no custom name, enchantments, contents or other vanilla data (a renamed chest or filled shulker box is never placed). Data other mods add is ignored when matching, so TFC metal items (`tfc:heat`) and TFC food blocks (creation date) count.
 - **Tools:** every block to clear that needs a tool tier needs such a tool, with enough durability for all the blocks it will break, counted conservatively (1 per block, Unbreaking ignored). 10 obsidian and a diamond pickaxe with 9 durability left fails.
 - **Enchanted tools** are never used below 1 durability, so the check counts them as having 1 less; `allow-breaking-enchanted` lifts this. Plain tools can be used up.
@@ -173,7 +175,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 ### Config
 
-A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI. Keys include the speed multiplier, chunk loading (off), the redo limit (3), the max job volume, the max walking distance to a site, the reminder interval, `stuck_teleport_seconds` (20, 0 = off), `max_crew_size` (8, 0 = no limit) and the hire price keys (see Recruiter's Stall).
+A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI. Keys include the speed multiplier, `keep_chunks_loaded` (false), the redo limit (3), the max job volume, the max walking distance to a site, the reminder interval, `stuck_teleport_seconds` (20, 0 = off), `max_crew_size` (8, 0 = no limit) and the hire price keys (see Recruiter's Stall).
 
 ## Survival UI
 
@@ -228,8 +230,6 @@ Phase 6 is the foreman, replacing jobs and chests on builders (the old `builder 
 
 - 6a ✅: the foreman entity, hiring (stall, `foreman hire`, `adopt`, summons), the foreman commands, jobs and chests on the foreman, builders as workers, `/journeymen notices`, old builder job/chest data and commands dropped.
 - 6b ✅: the screens (foreman screen tabs, the slimmer builder screen, placement mode and the confirmation screen from the foreman).
-
-Not built yet, though described above: `build` refusing a site the foreman finds no path to, and the `keep_chunks_loaded` option (the key exists but does nothing).
 
 Not tested yet (no way to test them so far):
 

@@ -13,6 +13,7 @@ import io.github.apperk274.journeymen.platform.FabricMenuHelper;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -56,6 +57,7 @@ public class JourneymenFabric implements ModInitializer {
         });
         ServerLifecycleEvents.SERVER_STARTING.register(CommonClass::onServerStarting);
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> CommonClass.onServerStopped());
+        ServerTickEvents.END_SERVER_TICK.register(CommonClass::onServerTick);
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> CommonClass.onPlayerJoin(handler.player));
     }
 

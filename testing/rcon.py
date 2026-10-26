@@ -325,9 +325,11 @@ class Runner:
         except (ValueError, re.error) as e:
             self.error(str(e))
 
-    def reset(self, players):
+    def reset(self, players, config):
         commands = ["tick sprint stop", "tick unfreeze", "kill @e[type=journeymen:foreman]", "kill @e[type=journeymen:builder]"]
         commands += [f"journeymen debug gamemode {player} survival" for player in sorted(players)]
+        if config:
+            commands.append("journeymen config reload")
         for command in commands:
             self.out(f"> {command}")
             self.out(self.rcon.command(command) or "(no output)")
@@ -354,6 +356,7 @@ class Runner:
         if not stopped:
             self.rcon.command(f"tick rate {rate}")
             players = set()
+            config = False
             remaining = len(lines)
             try:
                 for self.lineno, line in lines:
@@ -361,11 +364,12 @@ class Runner:
                     match = re.match(r"journeymen debug gamemode (\S+) ", line)
                     if match:
                         players.add(match.group(1))
+                    config = config or line.startswith("journeymen debug config ")
                     self.guarded(self.run_line, line)
             except Abort:
                 stopped = True
                 self.out(f"!!! STOPPED {self.file} at line {self.lineno}, skipping its {remaining} remaining line(s)")
-                self.reset(players)
+                self.reset(players, config)
         self.rcon.command("tick sprint stop")
         self.rcon.command("tick rate 20")
         elapsed, ticks = time.time() - file_start, self.gametime() - file_tick

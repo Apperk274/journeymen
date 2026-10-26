@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen;
 
 import io.github.apperk274.journeymen.build.BlockDrops;
+import io.github.apperk274.journeymen.build.ChunkKeeper;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.menu.LinkModeService;
@@ -25,6 +26,11 @@ public class CommonClass {
 
     public static void onServerStopped() {
         BlockDrops.setServer(null);
+        ChunkKeeper.reset();
+    }
+
+    public static void onServerTick(MinecraftServer server) {
+        ChunkKeeper.tick(server);
     }
 
     public static void onPlayerJoin(ServerPlayer player) {

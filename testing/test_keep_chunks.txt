@@ -1,0 +1,94 @@
+forceload add 2560 2560 2623 2623
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+journeymen config reload
+fill 2560 99 2560 2623 99 2623 minecraft:grass_block
+fill 2560 100 2560 2623 102 2623 minecraft:air
+fill 2560 103 2560 2623 105 2623 minecraft:air
+kill @e[type=item]
+setblock 2564 100 2566 minecraft:chest[facing=north,type=right]
+setblock 2565 100 2566 minecraft:chest[facing=north,type=left]
+setblock 2567 100 2566 minecraft:chest[facing=north,type=right]
+setblock 2568 100 2566 minecraft:chest[facing=north,type=left]
+journeymen debug as Steve 2 2594.5 100 2606.5 journeymen foreman summon Keeper
+journeymen debug as Steve 2 2570.5 100 2570.5 journeymen builder summon Keeper Kay
+journeymen debug as Steve 2 2571.5 100 2570.5 journeymen builder summon Keeper Kim
+journeymen debug as Steve 0 2570.5 100 2570.5 journeymen foreman chest Keeper add 2564 100 2566 supply
+journeymen debug as Steve 0 2570.5 100 2570.5 journeymen foreman chest Keeper add 2567 100 2566 supply
+journeymen debug config keep_chunks_loaded true
+waitlog \[debug config\] keep_chunks_loaded = true
+journeymen debug as Steve 2 2570.5 100 2570.5 journeymen foreman supply Keeper test_box.schem 2600 100 2600 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 2570.5 100 2570.5 journeymen foreman build Keeper test_box.schem 2600 100 2600 none corner
+waitlog Keeper's crew is on the way: Kay and Kim\. !!
+waitfor 10 journeymen builder status Steve.Kay =~ Task: placing [1-9]\d*/
+forceload remove all
+journeymen debug chunks
+waitlog \[debug chunks\] Steve\.Keeper keeps 4 site chunks of test_box\.schem in minecraft:overworld and Keeper at \d+ \d+ in minecraft:overworld, Kay at
+ticks 600
+waitfor 5 nosprint execute if loaded 2606 100 2606 =~ passed
+waitfor 5 nosprint execute at @e[type=journeymen:builder,name=Kay,limit=1] if loaded ~ ~ ~ =~ passed
+waitfor 5 nosprint execute at @e[type=journeymen:foreman,name=Keeper,limit=1] if loaded ~ ~ ~ =~ passed
+waitlog 60 \[Steve\.Keeper\] I finished building test_box\.schem !! \[Steve\.Keeper\] (I'm missing|I need)|Exception
+waitfor 10 execute if loaded 2606 100 2606 =~ failed
+waitfor 5 journeymen debug chunks !~ Steve\.Keeper
+forceload add 2560 2560 2623 2623
+mark
+journeymen debug as Steve 0 2570.5 100 2570.5 journeymen foreman check Keeper test_box.schem 2600 100 2600 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+fill 2600 100 2600 2612 104 2612 minecraft:air
+kill @e[type=item]
+journeymen debug config keep_chunks_loaded false
+journeymen debug as Steve 2 2570.5 100 2570.5 journeymen foreman supply Keeper test_box.schem 2600 100 2600 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 2570.5 100 2570.5 journeymen foreman build Keeper test_box.schem 2600 100 2600 none corner
+waitlog Keeper's crew is on the way: Kay and Kim\. !!
+waitfor 10 journeymen builder status Steve.Kay =~ Task: placing [1-9]\d*/
+forceload remove all
+waitfor 30 execute if loaded 2606 100 2606 =~ failed
+waitfor 10 execute if entity @e[type=journeymen:foreman,name=Keeper] =~ failed
+ticks 200
+journeymen debug config keep_chunks_loaded true
+waitfor 30 execute if loaded 2606 100 2606 =~ passed
+waitfor 30 execute if entity @e[type=journeymen:foreman,name=Keeper] =~ passed
+waitlog 60 \[Steve\.Keeper\] I finished building test_box\.schem !! \[Steve\.Keeper\] (I'm missing|I need)|Exception
+waitfor 10 execute if loaded 2606 100 2606 =~ failed
+forceload add 2560 2560 2623 2623
+fill 2600 100 2600 2612 104 2612 minecraft:air
+kill @e[type=item]
+journeymen debug as Steve 2 2570.5 100 2570.5 journeymen foreman supply Keeper test_box.schem 2600 100 2600 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 2570.5 100 2570.5 journeymen foreman build Keeper test_box.schem 2600 100 2600 none corner
+waitlog Keeper's crew is on the way: Kay and Kim\. !!
+waitfor 10 journeymen builder status Steve.Kay =~ Task: placing [1-9]\d*/
+forceload remove all
+ticks 400
+waitfor 5 nosprint execute if loaded 2606 100 2606 =~ passed
+journeymen debug as Steve 0 2570.5 100 2570.5 journeymen foreman cancel Keeper
+waitfor 10 execute if loaded 2606 100 2606 =~ failed
+waitfor 5 journeymen debug chunks !~ Steve\.Keeper
+forceload add 2560 2560 2623 2623
+mark
+journeymen debug as Steve 0 2570.5 100 2570.5 journeymen foreman build Keeper test_box.schem 2600 100 2600 none corner
+waitlog Keeper's crew is on the way: Kay and Kim\. !!
+forceload remove all
+ticks 400
+waitfor 5 nosprint execute if loaded 2606 100 2606 =~ passed
+journeymen config reload
+waitfor 10 execute if loaded 2606 100 2606 =~ failed
+waitfor 5 journeymen debug chunks =~ keep_chunks_loaded=false, tickets held: \[\]
+forceload add 2560 2560 2623 2623
+journeymen debug config keep_chunks_loaded true
+forceload remove all
+ticks 400
+waitfor 5 nosprint execute if loaded 2606 100 2606 =~ passed
+waitfor 5 journeymen debug chunks =~ Steve\.Keeper keeps
+kill @e[type=journeymen:foreman,name=Keeper]
+waitlog \[Steve\.Keeper\] I died, so test_box\.schem
+waitfor 10 execute if loaded 2606 100 2606 =~ failed
+waitfor 5 journeymen debug chunks !~ Steve\.Keeper
+journeymen config reload

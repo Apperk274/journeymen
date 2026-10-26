@@ -7,6 +7,8 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import io.github.apperk274.journeymen.Constants;
+import io.github.apperk274.journeymen.build.ChunkKeeper;
+import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
@@ -32,6 +34,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class DebugCommands {
@@ -60,7 +63,12 @@ public class DebugCommands {
                                 .executes(DebugCommands::use)))
                 .then(Commands.literal("interact")
                         .then(Commands.argument("entity", EntityArgument.entity())
-                                .executes(DebugCommands::interact)));
+                                .executes(DebugCommands::interact)))
+                .then(Commands.literal("config")
+                        .then(Commands.argument("key", StringArgumentType.word())
+                                .then(Commands.argument("value", StringArgumentType.greedyString())
+                                        .executes(DebugCommands::config))))
+                .then(Commands.literal("chunks").executes(DebugCommands::chunks));
     }
 
     private static int action(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -106,6 +114,37 @@ public class DebugCommands {
                 LinkModeService.isLinking(player), player.containerMenu instanceof BuilderMenu menu ? "builder tab " + menu.getActiveTab()
                         : player.containerMenu instanceof ForemanMenu menu ? "foreman tab " + menu.getActiveTab() : "none");
         return 1;
+    }
+
+    private static int config(CommandContext<CommandSourceStack> context) {
+        String key = StringArgumentType.getString(context, "key");
+        String value = StringArgumentType.getString(context, "value");
+        String problem = JourneymenConfig.set(key, value);
+        ChunkKeeper.update(context.getSource().getServer());
+        String result = problem == null ? key + " = " + value + " until the next config reload" : problem;
+        Constants.LOG.info("[debug config] {}", result);
+        context.getSource().sendSuccess(() -> Component.literal(result), false);
+        return problem == null ? 1 : 0;
+    }
+
+    private static int chunks(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        List<String> lines = new ArrayList<>();
+        lines.add("keep_chunks_loaded=" + JourneymenConfig.KEEP_CHUNKS_LOADED.get() + ", tickets held: " + ChunkKeeper.heldTickets().entrySet().stream()
+                .map(entry -> entry.getKey().location() + " " + entry.getValue()).sorted().toList());
+        if (JourneymenConfig.KEEP_CHUNKS_LOADED.get()) {
+            for (ChunkKeeper.Kept kept : ChunkKeeper.kept(source.getServer())) {
+                List<String> spots = kept.journeymen().stream()
+                        .map(spot -> spot.name() + " at " + spot.chunk().x + " " + spot.chunk().z + " in " + spot.dimension().location()).toList();
+                lines.add(kept.foreman() + " keeps " + kept.site().size() + " site chunks of " + kept.file() + " in " + kept.dimension().location()
+                        + " and " + String.join(", ", spots));
+            }
+        }
+        for (String line : lines) {
+            Constants.LOG.info("[debug chunks] {}", line);
+            source.sendSuccess(() -> Component.literal(line), false);
+        }
+        return lines.size();
     }
 
     private static int runAs(CommandContext<CommandSourceStack> context) {

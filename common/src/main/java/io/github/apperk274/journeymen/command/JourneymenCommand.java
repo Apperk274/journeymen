@@ -6,6 +6,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import io.github.apperk274.journeymen.Constants;
+import io.github.apperk274.journeymen.build.ChunkKeeper;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.platform.Services;
@@ -99,6 +100,7 @@ public class JourneymenCommand {
     private static int reloadConfig(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         List<String> problems = JourneymenConfig.load();
+        ChunkKeeper.update(source.getServer());
         if (problems.isEmpty()) {
             source.sendSuccess(() -> Component.literal("Reloaded " + JourneymenConfig.file()), true);
             return 1;

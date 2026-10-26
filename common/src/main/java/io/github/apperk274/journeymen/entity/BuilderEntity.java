@@ -81,6 +81,7 @@ public class BuilderEntity extends JourneymanEntity {
     private static final int HAND_BACK_TICKS = 100;
     private static final int STEP_ASIDE_TICKS = 40;
     private static final int LEAVE_SITE_TICKS = 60;
+    private static final int LOAD_GRACE_TICKS = 100;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -778,6 +779,10 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     private void pauseJob(String reason) {
+        pauseJob(reason, true);
+    }
+
+    private void pauseJob(String reason, boolean tell) {
         if (job == null) {
             return;
         }
@@ -795,7 +800,7 @@ public class BuilderEntity extends JourneymanEntity {
         work.pause(reason);
         pausedTicks = 0;
         int reminderTicks = JourneymenConfig.REMINDER_INTERVAL_SECONDS.get() * 20;
-        if (!reason.equals(lastNotice) || tickCount - lastNoticeTick >= reminderTicks) {
+        if (tell && (!reason.equals(lastNotice) || tickCount - lastNoticeTick >= reminderTicks)) {
             report(reason);
             lastNotice = reason;
             lastNoticeTick = tickCount;
@@ -1332,7 +1337,7 @@ public class BuilderEntity extends JourneymanEntity {
         String list = String.join(", ", missing.subList(0, Math.min(5, missing.size())))
                 + (missing.size() > 5 ? " and " + (missing.size() - 5) + " more kinds of items" : "");
         pauseJob("I'm missing " + list + " for " + job.getFile() + ". We'll continue once they're in a supply chest or a builder's inventory."
-                + supplyChestProblems());
+                + supplyChestProblems(), tickCount >= LOAD_GRACE_TICKS);
     }
 
     private void finishPlacing() {

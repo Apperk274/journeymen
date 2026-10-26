@@ -23,7 +23,7 @@ public final class JourneymenConfig {
             "How fast builders break and place blocks. 1.0 is a survival player's pace.",
             1.0, Double::parseDouble, value -> value > 0 && value <= 100));
     public static final Entry<Boolean> KEEP_CHUNKS_LOADED = add(new Entry<>("keep_chunks_loaded",
-            "Whether a foreman with an active job keeps the chunks his crew works in loaded, so it builds while nobody is nearby.",
+            "Whether a foreman with a job keeps his own chunk, the site's chunks and his working builders' chunks loaded (entities ticking), so the crew builds while nobody is nearby.",
             false, JourneymenConfig::parseBoolean, value -> true));
     public static final Entry<Integer> REDO_LIMIT = add(new Entry<>("redo_limit",
             "How many times a builder fixes the same position after someone changed it during a job.",
@@ -100,6 +100,15 @@ public final class JourneymenConfig {
         }
         problems.forEach(problem -> Constants.LOG.warn("Config: {}", problem));
         return problems;
+    }
+
+    public static String set(String key, String value) {
+        for (Entry<?> entry : ENTRIES) {
+            if (entry.key.equals(key)) {
+                return entry.read(value);
+            }
+        }
+        return "There is no config key " + key + ".";
     }
 
     private static void write(Path file) throws IOException {

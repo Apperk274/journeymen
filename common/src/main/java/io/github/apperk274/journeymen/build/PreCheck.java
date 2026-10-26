@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.build;
 
 import com.mojang.authlib.GameProfile;
+import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
@@ -23,6 +24,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -70,6 +72,8 @@ public final class PreCheck {
         if (distance > JourneymenConfig.MAX_SITE_DISTANCE.get()) {
             check.problem("The site is " + Math.round(distance) + " blocks away from " + foreman.getJourneymanName() + "; the limit is "
                     + JourneymenConfig.MAX_SITE_DISTANCE.get() + ".");
+        } else {
+            check.checkPath(foreman, area);
         }
         List<BuilderEntity> crew = foreman.loadedCrewHere();
         List<BuilderEntity> working = crew.stream().filter(member -> ForemanEntity.canTakePart(member, level.dimension(), area)).toList();
@@ -177,6 +181,24 @@ public final class PreCheck {
         check.problems.addAll(tools.problems());
         check.missingTools = tools.suppliable();
         return check;
+    }
+
+    private void checkPath(ForemanEntity foreman, BoundingBox area) {
+        SitePath.Result path = SitePath.find(foreman, area, ForemanEntity.POST_DISTANCE);
+        BlockPos pos = foreman.blockPosition();
+        if (Services.PLATFORM.isDevelopmentEnvironment()) {
+            Constants.LOG.info("[path] {} to the site: {} after {} nodes in {} ms", foreman.qualifiedName(),
+                    path.outcome().name().toLowerCase(Locale.ROOT), path.visited(), String.format(Locale.ROOT, "%.1f", path.nanos() / 1.0E6));
+        }
+        String from = pos.getX() + " " + pos.getY() + " " + pos.getZ();
+        switch (path.outcome()) {
+            case NONE -> problem(foreman.getJourneymanName() + " can't walk to the site: there is no way from where he stands (" + from
+                    + ") to within " + (int) ForemanEntity.POST_DISTANCE + " blocks of it.");
+            case UNKNOWN -> warning(foreman.getJourneymanName() + " found no way yet from where he stands (" + from + ") to within "
+                    + (int) ForemanEntity.POST_DISTANCE + " blocks of the site, but didn't search everywhere. He'll try to walk there.");
+            default -> {
+            }
+        }
     }
 
     public boolean passed() {

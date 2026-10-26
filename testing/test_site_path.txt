@@ -1,0 +1,70 @@
+forceload add 2432 2432 2527 2527
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 2432 99 2432 2527 99 2527 minecraft:grass_block
+fill 2432 100 2432 2527 102 2527 minecraft:air
+fill 2432 103 2432 2527 105 2527 minecraft:air
+fill 2432 106 2432 2527 108 2527 minecraft:air
+fill 2432 109 2432 2527 111 2527 minecraft:air
+fill 2432 112 2432 2527 114 2527 minecraft:air
+fill 2432 115 2432 2527 117 2527 minecraft:air
+kill @e[type=item]
+setblock 2472 100 2472 minecraft:chest[facing=north]
+journeymen debug as Steve 2 2490.5 100 2476.5 journeymen foreman summon Pathy
+journeymen debug as Steve 2 2479.5 100 2479.5 journeymen builder summon Pathy Pia
+journeymen debug as Steve 0 2479.5 100 2479.5 journeymen foreman chest Pathy add 2472 100 2472 supply
+journeymen debug as Steve 2 2479.5 100 2479.5 journeymen foreman supply Pathy test_missing.schem 2474 100 2474 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 2479.5 100 2479.5 journeymen foreman check Pathy test_missing.schem 2474 100 2474 none corner
+waitlog \[path\] Steve\.Pathy to the site: found after \d+ nodes
+waitlog Everything is ready !! can't walk to the site|found no way yet
+fill 2499 100 2475 2501 103 2477 minecraft:glass hollow
+tp @e[type=journeymen:foreman,name=Pathy] 2500.5 101 2476.5
+mark
+journeymen debug as Steve 0 2479.5 100 2479.5 journeymen foreman check Pathy test_missing.schem 2474 100 2474 none corner
+waitlog \[path\] Steve\.Pathy to the site: none after \d+ nodes
+waitlog Pathy can't walk to the site: there is no way from where he stands \(2500 101 2476\) to within 8 blocks of it\.
+mark
+journeymen debug as Steve 0 2479.5 100 2479.5 journeymen foreman build Pathy test_missing.schem 2474 100 2474 none corner
+waitlog Pathy can't walk to the site: there is no way from where he stands \(2500 101 2476\) to within 8 blocks of it\.
+waitlog Pathy can't start this job yet\.
+waitfor 5 nosprint journeymen foreman status Steve.Pathy =~ Job: none
+setblock 2499 101 2476 minecraft:air
+setblock 2499 102 2476 minecraft:air
+mark
+journeymen debug as Steve 0 2479.5 100 2479.5 journeymen foreman check Pathy test_missing.schem 2474 100 2474 none corner
+waitlog \[path\] Steve\.Pathy to the site: found after \d+ nodes
+waitlog Everything is ready !! can't walk to the site|found no way yet
+fill 2500 111 2496 2504 111 2500 minecraft:stone
+tp @e[type=journeymen:foreman,name=Pathy] 2502.5 112 2498.5
+mark
+journeymen debug as Steve 0 2479.5 100 2479.5 journeymen foreman check Pathy test_missing.schem 2474 100 2474 none corner
+waitlog \[path\] Steve\.Pathy to the site: none after \d+ nodes
+waitlog Pathy can't walk to the site: there is no way from where he stands \(2502 112 2498\) to within 8 blocks of it\.
+fill 2499 100 2498 2499 110 2498 minecraft:stone
+fill 2498 100 2498 2498 109 2498 minecraft:stone
+fill 2497 100 2498 2497 108 2498 minecraft:stone
+fill 2496 100 2498 2496 107 2498 minecraft:stone
+fill 2495 100 2498 2495 106 2498 minecraft:stone
+fill 2494 100 2498 2494 105 2498 minecraft:stone
+fill 2493 100 2498 2493 104 2498 minecraft:stone
+fill 2492 100 2498 2492 103 2498 minecraft:stone
+fill 2491 100 2498 2491 102 2498 minecraft:stone
+fill 2490 100 2498 2490 101 2498 minecraft:stone
+fill 2489 100 2498 2489 100 2498 minecraft:stone
+mark
+journeymen debug as Steve 0 2479.5 100 2479.5 journeymen foreman check Pathy test_missing.schem 2474 100 2474 none corner
+waitlog \[path\] Steve\.Pathy to the site: found after \d+ nodes
+waitlog Everything is ready !! can't walk to the site|found no way yet
+fill 2465 100 2465 2486 102 2465 minecraft:glass
+fill 2465 100 2486 2486 102 2486 minecraft:glass
+fill 2465 100 2465 2465 102 2486 minecraft:glass
+fill 2486 100 2465 2486 102 2486 minecraft:glass
+tp @e[type=journeymen:foreman,name=Pathy] 2510.5 100 2476.5
+mark
+journeymen debug as Steve 0 2479.5 100 2479.5 journeymen foreman check Pathy test_missing.schem 2474 100 2474 none corner
+waitlog \[path\] Steve\.Pathy to the site: unknown after \d+ nodes
+waitlog Pathy found no way yet from where he stands \(2510 100 2476\) to within 8 blocks of the site, but didn't search everywhere\.
+waitlog Everything is ready !! can't walk to the site

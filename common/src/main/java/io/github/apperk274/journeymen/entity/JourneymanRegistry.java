@@ -192,6 +192,10 @@ public final class JourneymanRegistry extends SavedData {
         return jobId == null ? Optional.empty() : Optional.ofNullable(jobs.get(jobId));
     }
 
+    public Collection<BuildJob> jobs() {
+        return Collections.unmodifiableCollection(jobs.values());
+    }
+
     public boolean hasJob(UUID jobId) {
         return jobs.containsKey(jobId);
     }
