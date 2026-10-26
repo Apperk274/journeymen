@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.mixin;
 
+import io.github.apperk274.journeymen.client.ConfigScreenTest;
 import io.github.apperk274.journeymen.client.PlacementMode;
 import io.github.apperk274.journeymen.client.PreviewBenchmark;
 import io.github.apperk274.journeymen.client.ScreenTest;
@@ -23,5 +24,6 @@ public class MinecraftMixin {
     private void journeymen$previewBenchmark(CallbackInfo ci) {
         PreviewBenchmark.tick();
         ScreenTest.tick();
+        ConfigScreenTest.tick();
     }
 }

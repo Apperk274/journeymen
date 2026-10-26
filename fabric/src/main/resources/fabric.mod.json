@@ -15,6 +15,9 @@
         ],
         "client": [
             "io.github.apperk274.journeymen.JourneymenFabricClient"
+        ],
+        "modmenu": [
+            "io.github.apperk274.journeymen.compat.JourneymenModMenu"
         ]
     },
     "mixins": [

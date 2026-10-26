@@ -10,7 +10,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -19,58 +22,58 @@ public final class JourneymenConfig {
 
     private static final List<Entry<?>> ENTRIES = new ArrayList<>();
 
-    public static final Entry<Double> SPEED_MULTIPLIER = add(new Entry<>("speed_multiplier",
+    public static final Entry<Double> SPEED_MULTIPLIER = add(decimal("speed_multiplier",
             "How fast builders break and place blocks. 1.0 is a survival player's pace.",
-            1.0, Double::parseDouble, value -> value > 0 && value <= 100));
-    public static final Entry<Boolean> KEEP_CHUNKS_LOADED = add(new Entry<>("keep_chunks_loaded",
+            1.0, 0, 100));
+    public static final Entry<Boolean> KEEP_CHUNKS_LOADED = add(bool("keep_chunks_loaded",
             "Whether a foreman with a job keeps his own chunk, the site's chunks and his working builders' chunks loaded (entities ticking), so the crew builds while nobody is nearby.",
-            false, JourneymenConfig::parseBoolean, value -> true));
-    public static final Entry<Integer> REDO_LIMIT = add(new Entry<>("redo_limit",
+            false));
+    public static final Entry<Integer> REDO_LIMIT = add(integer("redo_limit",
             "How many times a builder fixes the same position after someone changed it during a job.",
-            3, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> MAX_JOB_VOLUME = add(new Entry<>("max_job_volume",
+            3, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> MAX_JOB_VOLUME = add(integer("max_job_volume",
             "Largest schematic volume (width x height x length) a foreman accepts as a job.",
-            256 * 256 * 256, Integer::parseInt, value -> value > 0));
-    public static final Entry<Integer> MAX_SITE_DISTANCE = add(new Entry<>("max_site_distance",
+            256 * 256 * 256, 1, Integer.MAX_VALUE));
+    public static final Entry<Integer> MAX_SITE_DISTANCE = add(integer("max_site_distance",
             "How far, in blocks, a foreman, and a builder that takes part, may be from a build site.",
-            128, Integer::parseInt, value -> value > 0));
-    public static final Entry<Integer> REMINDER_INTERVAL_SECONDS = add(new Entry<>("reminder_interval_seconds",
+            128, 1, Integer.MAX_VALUE));
+    public static final Entry<Integer> REMINDER_INTERVAL_SECONDS = add(integer("reminder_interval_seconds",
             "How often a foreman reminds his owner of a paused job, in seconds.",
-            300, Integer::parseInt, value -> value > 0));
-    public static final Entry<Integer> WAIT_REPORT_SECONDS = add(new Entry<>("wait_report_seconds",
+            300, 1, Integer.MAX_VALUE));
+    public static final Entry<Integer> WAIT_REPORT_SECONDS = add(integer("wait_report_seconds",
             "How long a builder waits for someone standing in its way before it tells its owner, in seconds.",
-            10, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> STUCK_TELEPORT_SECONDS = add(new Entry<>("stuck_teleport_seconds",
+            10, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> STUCK_TELEPORT_SECONDS = add(integer("stuck_teleport_seconds",
             "How long a journeyman may be stuck without getting closer to where it is going (a chest, the build site, you) before it teleports to a safe spot next to it, in seconds (0 = never).",
-            20, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> MAX_CREW_SIZE = add(new Entry<>("max_crew_size",
+            20, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> MAX_CREW_SIZE = add(integer("max_crew_size",
             "How many builders a foreman can have in his crew (0 = no limit).",
-            8, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> MAX_CHESTS = add(new Entry<>("max_chests",
+            8, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> MAX_CHESTS = add(integer("max_chests",
             "How many supply and dump chests one foreman can have, together (1 to 1024).",
-            128, Integer::parseInt, value -> value > 0 && value <= 1024));
+            128, 1, 1024));
 
     public static final Entry<String> HIRE_COST_ITEM = add(new Entry<>("hire_cost_item",
             "The item paid to hire a foreman at a recruiter or a builder from a foreman: an item id such as minecraft:emerald, or an item tag such as #c:gems/emerald.",
-            "#c:gems/emerald", value -> value, HirePrice::isValidSpec));
-    public static final Entry<Integer> FOREMAN_COST_BASE = add(new Entry<>("foreman_cost_base",
+            "#c:gems/emerald", value -> value, HirePrice::isValidSpec, Type.TEXT, "an item id or #tag"));
+    public static final Entry<Integer> FOREMAN_COST_BASE = add(integer("foreman_cost_base",
             "How many of that item the first foreman costs.",
-            20, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> FOREMAN_COST_STEP = add(new Entry<>("foreman_cost_step",
+            20, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> FOREMAN_COST_STEP = add(integer("foreman_cost_step",
             "How many more each further foreman costs, for every foreman the player already has.",
-            10, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> MAX_FOREMEN_PER_PLAYER = add(new Entry<>("max_foremen_per_player",
+            10, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> MAX_FOREMEN_PER_PLAYER = add(integer("max_foremen_per_player",
             "How many foremen one player can hire from recruiters (0 = no limit). Ops summoning by command are not limited.",
-            3, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> HIRE_COST_BASE = add(new Entry<>("hire_cost_base",
+            3, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> HIRE_COST_BASE = add(integer("hire_cost_base",
             "How many of that item the first builder costs.",
-            10, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> HIRE_COST_STEP = add(new Entry<>("hire_cost_step",
+            10, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> HIRE_COST_STEP = add(integer("hire_cost_step",
             "How many more each further builder costs, for every builder the player already has (orphans included).",
-            5, Integer::parseInt, value -> value >= 0));
-    public static final Entry<Integer> MAX_BUILDERS_PER_PLAYER = add(new Entry<>("max_builders_per_player",
+            5, 0, Integer.MAX_VALUE));
+    public static final Entry<Integer> MAX_BUILDERS_PER_PLAYER = add(integer("max_builders_per_player",
             "How many builders one player can hire from foremen (0 = no limit). Ops summoning by command are not limited.",
-            5, Integer::parseInt, value -> value >= 0));
+            5, 0, Integer.MAX_VALUE));
 
     private JourneymenConfig() {
     }
@@ -79,16 +82,17 @@ public final class JourneymenConfig {
         return Services.PLATFORM.getGameDirectory().resolve("config").resolve(Constants.MOD_ID + ".toml");
     }
 
+    public static List<Entry<?>> entries() {
+        return Collections.unmodifiableList(ENTRIES);
+    }
+
     public static List<String> load() {
         List<String> problems = new ArrayList<>();
         Path file = file();
         Properties properties = new Properties();
-        if (Files.exists(file)) {
-            try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-                properties.load(reader);
-            } catch (IOException | IllegalArgumentException e) {
-                problems.add("Could not read " + file + ": " + e.getMessage());
-            }
+        String readProblem = read(file, properties);
+        if (readProblem != null) {
+            problems.add(readProblem);
         }
         for (Entry<?> entry : ENTRIES) {
             String problem = entry.read(properties.getProperty(entry.key));
@@ -97,7 +101,7 @@ public final class JourneymenConfig {
             }
         }
         try {
-            write(file);
+            write(file, Entry::text);
         } catch (IOException e) {
             problems.add("Could not write " + file + ": " + e.getMessage());
         }
@@ -106,21 +110,78 @@ public final class JourneymenConfig {
     }
 
     public static String set(String key, String value) {
-        for (Entry<?> entry : ENTRIES) {
-            if (entry.key.equals(key)) {
-                return entry.read(value);
-            }
-        }
-        return "There is no config key " + key + ".";
+        Entry<?> entry = entry(key);
+        return entry == null ? "There is no config key " + key + "." : entry.read(value);
     }
 
-    private static void write(Path file) throws IOException {
+    public static Map<String, String> fileValues() {
+        Properties properties = new Properties();
+        read(file(), properties);
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Entry<?> entry : ENTRIES) {
+            String raw = properties.getProperty(entry.key);
+            values.put(entry.key, raw == null ? entry.text() : raw.trim());
+        }
+        return values;
+    }
+
+    public static Saved save(Map<String, String> values) {
+        Map<String, String> merged = fileValues();
+        List<String> problems = new ArrayList<>();
+        for (Map.Entry<String, String> value : values.entrySet()) {
+            Entry<?> entry = entry(value.getKey());
+            if (entry == null) {
+                problems.add("There is no config key " + value.getKey() + ".");
+            } else {
+                merged.put(entry.key, value.getValue().trim());
+            }
+        }
+        for (Entry<?> entry : ENTRIES) {
+            String problem = entry.check(merged.get(entry.key));
+            if (problem != null) {
+                problems.add(problem);
+            }
+        }
+        if (!problems.isEmpty()) {
+            return new Saved(false, problems);
+        }
+        Path file = file();
+        try {
+            write(file, entry -> merged.get(entry.key));
+        } catch (IOException e) {
+            return new Saved(false, List.of("Could not write " + file + ": " + e.getMessage()));
+        }
+        return new Saved(true, load());
+    }
+
+    private static Entry<?> entry(String key) {
+        for (Entry<?> entry : ENTRIES) {
+            if (entry.key.equals(key)) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private static String read(Path file, Properties properties) {
+        if (!Files.exists(file)) {
+            return null;
+        }
+        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            properties.load(reader);
+            return null;
+        } catch (IOException | IllegalArgumentException e) {
+            return "Could not read " + file + ": " + e.getMessage();
+        }
+    }
+
+    private static void write(Path file, Function<Entry<?>, String> valueOf) throws IOException {
         StringBuilder text = new StringBuilder("# Journeymen config. Changes apply after /journeymen config reload or a restart.\n");
         for (Entry<?> entry : ENTRIES) {
             text.append('\n')
                     .append("# ").append(entry.comment).append('\n')
                     .append("# Default: ").append(entry.defaultValue).append('\n')
-                    .append(entry.key).append(" = ").append(entry.get()).append('\n');
+                    .append(entry.key).append(" = ").append(valueOf.apply(entry)).append('\n');
         }
         Files.createDirectories(file.getParent());
         Files.writeString(file, text, StandardCharsets.UTF_8);
@@ -134,9 +195,30 @@ public final class JourneymenConfig {
         };
     }
 
+    private static Entry<Integer> integer(String key, String comment, int defaultValue, int min, int max) {
+        return new Entry<>(key, comment, defaultValue, Integer::parseInt, value -> value >= min && value <= max, Type.INTEGER,
+                max == Integer.MAX_VALUE ? min + " or more" : min + " to " + max);
+    }
+
+    private static Entry<Double> decimal(String key, String comment, double defaultValue, int above, int max) {
+        return new Entry<>(key, comment, defaultValue, Double::parseDouble, value -> value > above && value <= max, Type.DECIMAL,
+                "above " + above + ", at most " + max);
+    }
+
+    private static Entry<Boolean> bool(String key, String comment, boolean defaultValue) {
+        return new Entry<>(key, comment, defaultValue, JourneymenConfig::parseBoolean, value -> true, Type.BOOLEAN, "true or false");
+    }
+
     private static <T> Entry<T> add(Entry<T> entry) {
         ENTRIES.add(entry);
         return entry;
+    }
+
+    public enum Type {
+        BOOLEAN, INTEGER, DECIMAL, TEXT
+    }
+
+    public record Saved(boolean saved, List<String> problems) {
     }
 
     public static final class Entry<T> {
@@ -146,14 +228,18 @@ public final class JourneymenConfig {
         private final T defaultValue;
         private final Function<String, T> parser;
         private final Predicate<T> validator;
+        private final Type type;
+        private final String range;
         private volatile T value;
 
-        private Entry(String key, String comment, T defaultValue, Function<String, T> parser, Predicate<T> validator) {
+        private Entry(String key, String comment, T defaultValue, Function<String, T> parser, Predicate<T> validator, Type type, String range) {
             this.key = key;
             this.comment = comment;
             this.defaultValue = defaultValue;
             this.parser = parser;
             this.validator = validator;
+            this.type = type;
+            this.range = range;
             this.value = defaultValue;
         }
 
@@ -161,18 +247,56 @@ public final class JourneymenConfig {
             return value;
         }
 
+        public String key() {
+            return key;
+        }
+
+        public String comment() {
+            return comment;
+        }
+
+        public Type type() {
+            return type;
+        }
+
+        public String range() {
+            return range;
+        }
+
+        public String defaultText() {
+            return String.valueOf(defaultValue);
+        }
+
+        public String text() {
+            return String.valueOf(value);
+        }
+
+        public boolean isValid(String raw) {
+            return parse(raw) != null;
+        }
+
+        private String check(String raw) {
+            return parse(raw) == null ? key + " = " + raw + " is not valid (" + range + ")" : null;
+        }
+
+        private T parse(String raw) {
+            try {
+                T parsed = parser.apply(raw.trim());
+                return validator.test(parsed) ? parsed : null;
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        }
+
         private String read(String raw) {
             if (raw == null) {
                 value = defaultValue;
                 return null;
             }
-            try {
-                T parsed = parser.apply(raw.trim());
-                if (validator.test(parsed)) {
-                    value = parsed;
-                    return null;
-                }
-            } catch (IllegalArgumentException ignored) {
+            T parsed = parse(raw);
+            if (parsed != null) {
+                value = parsed;
+                return null;
             }
             value = defaultValue;
             return key + " = " + raw.trim() + " is not valid, using " + defaultValue;

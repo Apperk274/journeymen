@@ -174,7 +174,7 @@ Prefer `server_test.ps1`. If you need a server for an investigation:
 
 ## Client checks
 
-A dev client opens a game window. `smoke.ps1` checks that it starts. Two hook files in the client's run dir (`neoforge/run`, `neoforge/run-tfc` or `fabric/runs/client`; dev environment only) drive a client without a person, save screenshots to `screenshots/` and quit. Delete the file and the world afterwards, or every dev client launch runs it again.
+A dev client opens a game window. `smoke.ps1` checks that it starts. Three hook files in the client's run dir (`neoforge/run`, `neoforge/run-tfc` or `fabric/runs/client`; dev environment only) drive a client without a person, save screenshots to `screenshots/` and quit. Delete the file and the world afterwards, or every dev client launch runs it again.
 
 ### Placement preview: `journeymen-preview-test.properties`
 
@@ -185,6 +185,10 @@ Keys: `schematic` (comma-separated files), `options`, `rotations` (comma-separat
 ### Builder and confirmation screens: `journeymen-screen-test.properties`
 
 Keys: `schematic` (default `cottage.schem`), `out` (default `screen`), `world` (default `jm-screen-test`), `start` (default `true`), `quit`. The client creates a flat creative world, summons a foreman `Boss` with 14 supply chests and two builders (`Shot`, `Ann`), and two orphans (`Orph`, `Ivy`, whose foreman is killed). It right-clicks the foreman, picks the schematic on the Job tab, drags the material scrollbar to the end and scrolls the file list (`<out>_job.png`), scrolls the Chests tab (`<out>_chests.png`), shows the Crew tab (`<out>_crew.png`) and the Orders tab (`<out>_orders.png`), then right-clicks the builder for its Inventory and Orders tabs (`<out>_builder_inventory.png`, `<out>_builder_orders.png`). It runs the foreman's pre-check (`<out>_confirm.png`), drags its scrollbar to the end (`<out>_confirm_scrolled.png`), clicks "Supply missing (creative)" and waits for Start to turn on (`<out>_confirm_supplied.png`), and unless `start=false` presses Start and reopens the foreman's Job tab with the job running (`<out>_job_running.png`) and his Crew tab (`<out>_crew_running.png`), logging `[screen test]` lines. Scrollbars only show when a list is longer than its box, so use a small window (the default 854×480) to see the confirmation screen's.
+
+### Config screen: `journeymen-config-test.properties`
+
+Keys: `out` (default `config`), `world` (default `jm-config-test`), `quit`. On the title screen the client presses Mods, types `Journeymen` in the search box and clicks the first entry (`<out>_mods_filtered.png` before the click). On NeoForge that selects the mod (`<out>_mods.png`, the Config button's label and `active` state logged) and the hook presses Config; on Fabric (run with `-Pwith_modmenu=true`) Mod Menu's click on the mod's icon opens the screen directly. In the config screen (`<out>_menu.png`) it enters invalid values for `max_chests`, `speed_multiplier` and an unknown item for `hire_cost_item` (`<out>_menu_invalid.png`, Save off), then valid ones and Save; it logs the live values and the file's keys. It then creates a flat world, opens the screen in single player (`<out>_singleplayer.png`), saves `max_crew_size = 2` and `keep_chunks_loaded = true`, logs what the server thread sees and summons a foreman with three builders (the third is refused, `crew is full (2 builders)` in the log's chat lines). Last it shows the read-only screen used on a remote server (`<out>_server_readonly.png`) and the editable one scrolled to the end (`<out>_scrolled.png`), writes the config file back to what it was before the run and quits. Lines start with `[config test]`; the screen itself logs `Config saved from the config screen (<mode>): {key=old -> new, …}`. The config file is shared with the dev server in `neoforge/run`, so keep a copy if a run might not finish.
 
 ## TerraFirmaCraft
 

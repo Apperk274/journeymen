@@ -10,6 +10,22 @@ dependencies {
     }
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+    modCompileOnly("com.terraformersmc:modmenu:${modmenu_version}") { transitive = false }
+    if (findProperty('with_modmenu') == 'true') {
+        modLocalRuntime("com.terraformersmc:modmenu:${modmenu_version}") { transitive = false }
+    }
+}
+
+repositories {
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'TerraformersMC'
+                url = 'https://maven.terraformersmc.com/releases/'
+            }
+        }
+        filter { includeGroup('com.terraformersmc') }
+    }
 }
 
 loom {
