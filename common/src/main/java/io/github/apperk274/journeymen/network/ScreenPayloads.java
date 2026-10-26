@@ -94,20 +94,21 @@ public final class ScreenPayloads {
         }
     }
 
-    public record Hiring(ItemStack price, int have, boolean affordable, int builders, int maxBuilders, int maxCrew, String suggestedName,
-                         String problem) {
+    public record Hiring(ItemStack price, int have, boolean affordable, boolean free, int builders, int maxBuilders, int maxCrew,
+                         String suggestedName, String problem) {
 
         static final StreamCodec<RegistryFriendlyByteBuf, Hiring> CODEC = StreamCodec.of((buf, value) -> {
             ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, value.price);
             buf.writeVarInt(value.have);
             buf.writeBoolean(value.affordable);
+            buf.writeBoolean(value.free);
             buf.writeVarInt(value.builders);
             buf.writeVarInt(value.maxBuilders);
             buf.writeVarInt(value.maxCrew);
             buf.writeUtf(value.suggestedName);
             buf.writeUtf(value.problem);
-        }, buf -> new Hiring(ItemStack.OPTIONAL_STREAM_CODEC.decode(buf), buf.readVarInt(), buf.readBoolean(), buf.readVarInt(), buf.readVarInt(),
-                buf.readVarInt(), buf.readUtf(), buf.readUtf()));
+        }, buf -> new Hiring(ItemStack.OPTIONAL_STREAM_CODEC.decode(buf), buf.readVarInt(), buf.readBoolean(), buf.readBoolean(), buf.readVarInt(),
+                buf.readVarInt(), buf.readVarInt(), buf.readUtf(), buf.readUtf()));
     }
 
     public record ForemanState(int foremanId, String name, String owner, boolean following, boolean working, float health, float maxHealth,

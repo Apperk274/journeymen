@@ -229,8 +229,8 @@ public final class PreCheck {
     public List<Component> lines() {
         List<Component> lines = new ArrayList<>();
         if (plan != null) {
-            lines.add(Component.literal(plan.getToClear().size() + " to clear, " + plan.getToPlace().size() + " to place, "
-                    + (plan.getToFix().size() + plan.getToWaterlog().size()) + " to adjust, " + plan.getDoneCount() + " already done.")
+            lines.add(Component.literal(plan.getToClear().size() + " to clear, " + plan.getPlaceCount() + " to place, "
+                    + plan.getAdjustCount() + " to adjust, " + plan.getDoneCount() + " already done.")
                     .withStyle(ChatFormatting.GRAY));
         }
         if (stockNote != null) {

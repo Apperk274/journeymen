@@ -91,7 +91,7 @@ public final class ForemanScreenService {
         String name = suggestedName(player, foreman);
         HirePrice cost = HireService.cost();
         if (cost == null) {
-            return new ScreenPayloads.Hiring(ItemStack.EMPTY, 0, false, builders, maxBuilders, maxCrew, name,
+            return new ScreenPayloads.Hiring(ItemStack.EMPTY, 0, false, false, builders, maxBuilders, maxCrew, name,
                     "The hire price item in the Journeymen config doesn't exist.");
         }
         int price = HireService.builderPrice(builders);
@@ -103,7 +103,8 @@ public final class ForemanScreenService {
             problem = (player.getUUID().equals(owner) ? "You have " : foreman.getOwnerName() + " has ") + builders
                     + " builders, the most you can hire.";
         }
-        return new ScreenPayloads.Hiring(cost.display(player.getInventory(), price), have, player.getAbilities().instabuild || have >= price,
+        boolean free = player.getAbilities().instabuild;
+        return new ScreenPayloads.Hiring(cost.display(player.getInventory(), price), have, free || have >= price, free,
                 builders, maxBuilders, maxCrew, name, problem);
     }
 

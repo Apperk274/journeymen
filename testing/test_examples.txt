@@ -32,6 +32,9 @@ journeymen debug as Steve 2 224 100 197 journeymen foreman supply ColeBoss cotta
 journeymen debug as Steve 2 200 100 212 journeymen foreman supply DeeBoss decor_corner.nbt 200 100 215
 journeymen debug as Steve 2 210 100 212 journeymen foreman supply RedBoss redstone_demo.nbt 210 100 215
 waitlog x4 \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 224 100 197 journeymen foreman check ColeBoss cottage.schem 225 100 200
+waitlog 10 0 to clear, 231 to place, 0 to adjust
 journeymen debug as Steve 0 198 100 198 journeymen foreman build FayBoss wheat_farm.nbt 200 100 200
 journeymen debug as Steve 0 224 100 197 journeymen foreman build ColeBoss cottage.schem 225 100 200
 journeymen debug as Steve 0 200 100 212 journeymen foreman build DeeBoss decor_corner.nbt 200 100 215
@@ -39,6 +42,7 @@ journeymen debug as Steve 0 210 100 212 journeymen foreman build RedBoss redston
 journeymen debug as Steve 0 210 100 212 journeymen foreman check RedBoss test_nether_portal.nbt 230 100 220
 journeymen debug as Steve 0 210 100 212 journeymen foreman check RedBoss test_old_version_and_missing_mod.schem 230 100 225
 journeymen schematic materials test_broken.schem
+waitfor 20 journeymen foreman status Steve.ColeBoss =~ placing \d+/231\b
 waitlog x4 \[Steve\.(Fay|Cole|Dee|Red)Boss\] I finished building !!
 journeymen foreman list all
 journeymen builder list all

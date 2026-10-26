@@ -135,7 +135,7 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 
 ### Supply and dump chests
 
-- They belong to the foreman: `/journeymen foreman chest <foreman> add <x y z> supply|dump`, plus `remove` and `list`. Several chests per role are used in order. Both halves of a double chest count as one. Any block with an item inventory works, including modded storage that only offers the loader's item API (TFC barrels and large vessels, drawers). In survival they are assigned with link mode (see Foreman screen).
+- They belong to the foreman: `/journeymen foreman chest <foreman> add <x y z> supply|dump`, plus `remove` and `list`. Several chests per role are used in order, up to `max_chests` (128) in all; TFC's stack caps make big builds need many (TFC_Home_P5_Industry fills 27 single chests, or roughly 80 large vessels). Both halves of a double chest count as one. Any block with an item inventory works, including modded storage that only offers the loader's item API (TFC barrels and large vessels, drawers). In survival they are assigned with link mode (see Foreman screen).
 - **Supply chests** are stock: his builders take the materials and tools they need from them, and they count in the pre-check. Builders never build from a dump chest and never dump into a supply chest.
 - **Dump chests** take builders' drops when their inventories are full, and whatever they don't need once the site is clear. With no dump chest, or none a builder can use, the crew pauses and the foreman asks, naming each dump chest that is full, gone, not loaded or out of reach.
 - `/journeymen foreman supply <foreman> [<file> [pos] [rotation] [options]]` (ops only, creates items) puts a job's full material list into his supply chests, plus the cheapest plain tools that cover the job's tool uses (enough wooden pickaxes for the stone, a diamond pickaxe for obsidian, a hoe for farmland). Without a file it uses the current job. What doesn't fit goes to the player's inventory. All or nothing: if anything doesn't fit it gives nothing and says how much didn't fit.
@@ -170,12 +170,12 @@ All commands live under `/journeymen`, with each trade as a subcommand (`/journe
 ### Feedback
 
 - `/journeymen foreman status <foreman>`: the job (file, phase: walking, clearing, building, paused; percent done; what it is waiting for) and a `Crew of N` list with what each builder is doing (or `not loaded`, `too far`). `/journeymen builder status <builder>`: its foreman (or orphan) and its current task. Both show how long it has been stuck, and when, from where and to where it last got unstuck (saved with the world).
-- One boss bar per job shows progress to the owner within 64 blocks of the foreman, e.g. `Ann's crew · house2.nbt · placing 45/92`: green while working, yellow while paused.
+- One boss bar per job shows progress to the owner within 64 blocks of the foreman, e.g. `Ann's crew · house2.nbt · placing 45/92`: green while working, yellow while paused. The placing total is the pre-check's "to place" plus "to adjust", and both count what builders do: a door or bed is one placement (its other half isn't counted), and waterlogging a newly placed block is one adjustment. Blocks skipped or found already done come off the total, so progress ends at its total.
 - Messages (pauses, missing items, chests gone, finished, a foreman's death) go to the owner in chat at any distance and to the server log. If the owner is offline they are saved with the world and delivered on login (repeats collapsed, at most 20 kept); `/journeymen notices` shows them too. While paused the foreman reminds every few minutes.
 
 ### Config
 
-A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI. Keys include the speed multiplier, `keep_chunks_loaded` (false), the redo limit (3), the max job volume, the max walking distance to a site, the reminder interval, `stuck_teleport_seconds` (20, 0 = off), `max_crew_size` (8, 0 = no limit) and the hire price keys (see Recruiter's Stall).
+A small config file read by `common/`, same format on both loaders, no library dependency and no in-game GUI. Keys include the speed multiplier, `keep_chunks_loaded` (false), the redo limit (3), the max job volume, the max walking distance to a site, the reminder interval, `stuck_teleport_seconds` (20, 0 = off), `max_crew_size` (8, 0 = no limit), `max_chests` (128 per foreman, 1 to 1024) and the hire price keys (see Recruiter's Stall).
 
 ## Survival UI
 
@@ -186,7 +186,7 @@ Everything below also stays possible with a command (see Architecture rules).
 - A craftable item (shaped data recipe so modpacks can replace it: wool across the top, planks + emerald + planks, sticks at the bottom corners; the emerald is the `c:gems/emerald` tag so TFC's cut emerald works). Placed like a bed: one right-click builds a 3 wide, 2 deep, 3 tall stall facing the player, if the space is free. Vanilla textures only: plank counter, spruce posts, striped wool awning.
 - Breaking any part removes the whole stall and drops one stall item, explosions too.
 - Placing it spawns a **Recruiter** (villager look) behind the counter, who disappears with the stall. The recruiter can be killed; break and replace the stall for a new one.
-- The stall hires **foremen** only (builders are hired by a foreman). Anyone can hire from any stall. Right-clicking the recruiter opens the hiring screen: price, an editable random name, and Hire. The new foreman appears in front of the counter and belongs to the payer.
+- The stall hires **foremen** only (builders are hired by a foreman). Anyone can hire from any stall. Right-clicking the recruiter opens the hiring screen: price ("Free in creative" for a creative player), an editable random name, and Hire. The new foreman appears in front of the counter and belongs to the payer.
 - Prices (config) are paid in `hire_cost_item`, an item id or tag (default `#c:gems/emerald`). A foreman costs `foreman_cost_base` (20) plus `foreman_cost_step` (10) per foreman the player already has, capped by `max_foremen_per_player` (3, 0 = no cap). A builder costs `hire_cost_base` (10) plus `hire_cost_step` (5) per builder the player already has (orphans included), capped by `max_builders_per_player` (5, 0 = no cap). Ops summoning by command bypass the per-player caps but not `max_crew_size`.
 - Commands: `/journeymen recruiter hire [name]` hires a foreman from the nearest recruiter (within 8 blocks) at the same price; `/journeymen stall place <pos> [facing]` (ops) places a stall without the item.
 
@@ -196,7 +196,7 @@ Right-clicking your foreman (owner or op) opens one screen with tabs:
 
 - **Job:** with a job: file, phase, progress, what it's waiting for, and Cancel job (click twice). Without one: a schematic picker (server `schematics/`) with the material list, the `corner` and `allow-breaking-enchanted` options, and Place (starts placement mode).
 - **Chests:** assigned supply and dump chests with remove buttons. Link mode: click "Link supply chests" or "Link dump chests", then right-click chests in the world (each click toggles; linked chests are outlined, supply green and dump orange). Right-clicking the foreman ends it and reopens his screen on the Chests tab; right-clicking another foreman ends it and opens his screen. It ends by itself after a minute without a click.
-- **Crew:** his builders with what each is doing, Hire builder (price, editable random name; the builder appears next to him) and the owner's orphans with Adopt.
+- **Crew:** his builders with what each is doing, Hire builder (price, editable random name; the builder appears next to him; "Free in creative" for a creative player) and the owner's orphans with Adopt.
 - **Orders:** follow / stay, rename, notices, dismiss (kill, with confirmation).
 
 ### Builder screen

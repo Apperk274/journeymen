@@ -46,6 +46,9 @@ public final class JourneymenConfig {
     public static final Entry<Integer> MAX_CREW_SIZE = add(new Entry<>("max_crew_size",
             "How many builders a foreman can have in his crew (0 = no limit).",
             8, Integer::parseInt, value -> value >= 0));
+    public static final Entry<Integer> MAX_CHESTS = add(new Entry<>("max_chests",
+            "How many supply and dump chests one foreman can have, together (1 to 1024).",
+            128, Integer::parseInt, value -> value > 0 && value <= 1024));
 
     public static final Entry<String> HIRE_COST_ITEM = add(new Entry<>("hire_cost_item",
             "The item paid to hire a foreman at a recruiter or a builder from a foreman: an item id such as minecraft:emerald, or an item tag such as #c:gems/emerald.",

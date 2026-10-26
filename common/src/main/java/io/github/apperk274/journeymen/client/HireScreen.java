@@ -80,8 +80,8 @@ public class HireScreen extends Screen {
         ItemStack price = data.price();
         graphics.renderItem(price, left, top + 8);
         graphics.drawString(font, Component.literal(price.getCount() + " × ").append(price.getHoverName()), left + 20, top + 12, 0xFFFFFF);
-        Component haveLine = Component.literal("You have " + have())
-                .withStyle(canAfford() ? ChatFormatting.GRAY : ChatFormatting.RED);
+        Component haveLine = minecraft.player.getAbilities().instabuild ? Component.literal("Free in creative").withStyle(ChatFormatting.GREEN)
+                : Component.literal("You have " + have()).withStyle(canAfford() ? ChatFormatting.GRAY : ChatFormatting.RED);
         graphics.drawString(font, haveLine, left + 20, top + 24, 0xFFFFFF);
         String foremen = data.max() > 0 ? data.owned() + " of " + data.max() + " foremen" : data.owned() + " foremen";
         graphics.drawString(font, Component.literal("You have " + foremen).withStyle(atLimit() ? ChatFormatting.RED : ChatFormatting.GRAY),

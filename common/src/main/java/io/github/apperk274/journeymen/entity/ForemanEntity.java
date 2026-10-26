@@ -45,7 +45,6 @@ public class ForemanEntity extends JourneymanEntity {
     public static final double POST_DISTANCE = 8.0;
     private static final double POST_RETURN_DISTANCE = 5.0;
     private static final int POST_OUTSIDE = 2;
-    private static final int MAX_CHESTS = 16;
     private static final int RECRUIT_INTERVAL = 20;
     private static final double PROGRESS_BAR_RANGE = 64.0;
 
@@ -98,8 +97,9 @@ public class ForemanEntity extends JourneymanEntity {
 
     @Nullable
     public String addChest(BlockPos pos, AssignedChest.Role role) {
-        if (chests.size() >= MAX_CHESTS) {
-            return "A foreman can have at most " + MAX_CHESTS + " chests.";
+        int max = JourneymenConfig.MAX_CHESTS.get();
+        if (chests.size() >= max) {
+            return "A foreman can have at most " + max + " chests (max_chests in the Journeymen config).";
         }
         if (ItemStores.at(level(), pos) == null) {
             return "There is no chest or other container at " + pos.toShortString() + ".";

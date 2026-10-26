@@ -11,6 +11,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
@@ -171,6 +172,28 @@ public final class BuildPlan {
 
     public List<Placement> getToPlace() {
         return toPlace;
+    }
+
+    public int getPlaceCount() {
+        int count = 0;
+        for (Placement placement : toPlace) {
+            if (!PlacingWork.placedWithOtherPart(placement.target())) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int getAdjustCount() {
+        int count = toFix.size() + toWaterlog.size();
+        for (Placement placement : toPlace) {
+            BlockState target = placement.target();
+            if (!(target.getBlock() instanceof LiquidBlock) && !PlacingWork.placedWithOtherPart(target)
+                    && target.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public List<Placement> getToFix() {

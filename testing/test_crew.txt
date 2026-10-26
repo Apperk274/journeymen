@@ -32,6 +32,11 @@ mark
 journeymen debug as Steve 0 1305 100 1305 journeymen foreman check Pool test_skip.schem 1350 100 1310 none corner skip-unplaceable
 waitlog Counted Cid's inventory and Pool's 2 supply chests\.
 waitlog Missing 2 Stone
+journeymen debug config max_chests 2
+waitlog \[debug config\] max_chests = 2
+journeymen debug as Steve 0 1305 100 1305 journeymen foreman chest Pool add 1326 100 1330 dump
+waitlog A foreman can have at most 2 chests \(max_chests in the Journeymen config\)\.
+journeymen config reload
 summon item 1317 100 1305 {Item:{id:'minecraft:stone',count:2}}
 journeymen debug as Steve 2 1317 100 1305 journeymen builder summon Pool Eva
 ticks 10

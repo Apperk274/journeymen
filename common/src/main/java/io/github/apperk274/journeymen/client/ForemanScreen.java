@@ -593,7 +593,8 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
         } else {
             String crewSize = hiring.maxCrew() > 0 ? state.crew().size() + "/" + hiring.maxCrew() : String.valueOf(state.crew().size());
             String builders = hiring.maxBuilders() > 0 ? hiring.builders() + "/" + hiring.maxBuilders() : String.valueOf(hiring.builders());
-            second = Component.literal("You have " + hiring.have()).withStyle(hiring.affordable() ? ChatFormatting.DARK_GREEN : ChatFormatting.DARK_RED)
+            second = (hiring.free() ? Component.literal("Free in creative").withStyle(ChatFormatting.DARK_GREEN)
+                    : Component.literal("You have " + hiring.have()).withStyle(hiring.affordable() ? ChatFormatting.DARK_GREEN : ChatFormatting.DARK_RED))
                     .append(Component.literal(" · crew " + crewSize + " · builders " + builders).withStyle(ChatFormatting.DARK_GRAY));
         }
         List<FormattedCharSequence> parts = font.split(second, RIGHT - 28);
