@@ -1,0 +1,37 @@
+forceload add 2688 2688 2879 2719
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 2688 99 2688 2879 99 2719 minecraft:grass_block
+fill 2688 100 2688 2879 103 2719 minecraft:air
+fill 2688 104 2688 2879 107 2719 minecraft:air
+kill @e[type=item]
+setblock 2860 100 2700 minecraft:chest
+journeymen debug as Steve 2 2700.5 100 2706.5 journeymen foreman summon FarBoss
+journeymen debug as Steve 2 2702.5 100 2702.5 journeymen builder summon FarBoss Walker
+journeymen debug as Steve 0 2700.5 100 2706.5 journeymen foreman chest FarBoss add 2860 100 2700 supply
+journeymen debug as Steve 2 2700.5 100 2706.5 journeymen foreman supply FarBoss test_row.schem 2700 100 2700 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 2700.5 100 2706.5 journeymen foreman build FarBoss test_row.schem 2700 100 2700 none corner
+waitlog nosprint FarBoss's crew is on the way: Walker\. !!
+waitlog 30 \[Steve\.FarBoss\] I finished building test_row\.schem !! can't get to|can't reach|I'm missing|Exception
+fill 2780 100 2712 2780 105 2712 minecraft:stone
+setblock 2780 106 2712 minecraft:chest
+setblock 2780 107 2712 minecraft:stone
+setblock 2860 100 2712 minecraft:chest
+item replace block 2780 106 2712 container.0 with minecraft:oak_planks 64
+item replace block 2860 100 2712 container.0 with minecraft:oak_planks 64
+journeymen debug as Steve 2 2700.5 100 2718.5 journeymen foreman summon PillarBoss
+journeymen debug as Steve 2 2702.5 100 2714.5 journeymen builder summon PillarBoss Pia
+journeymen debug as Steve 2 2703.5 100 2714.5 journeymen builder summon PillarBoss Pete
+journeymen debug as Steve 0 2700.5 100 2718.5 journeymen foreman chest PillarBoss add 2780 106 2712 supply
+journeymen debug as Steve 0 2700.5 100 2718.5 journeymen foreman chest PillarBoss add 2860 100 2712 supply
+mark
+journeymen debug as Steve 0 2700.5 100 2718.5 journeymen foreman build PillarBoss test_row.schem 2700 100 2712 none corner
+waitlog nosprint PillarBoss's crew is on the way: Pete and Pia\. !!
+waitlog 30 \[Steve\.PillarBoss\] My builders can't get to the supply chest at 2780, 106, 2712\. Clear a way to it \(they need to get within 4 blocks of it\) or move it; until then they use my other supply chests\.$ !! I finished building|I'm missing|Exception
+journeymen foreman status Steve.PillarBoss
+waitlog 30 \[Steve\.PillarBoss\] I finished building test_row\.schem !! can't get to|can't reach|I'm missing|Exception
+data get block 2780 106 2712 Items
+waitfor 5 nosprint data get block 2780 106 2712 Items =~ count: 64

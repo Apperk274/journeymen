@@ -57,6 +57,10 @@ public final class Crew {
     }
 
     public static List<ItemStack> stock(ForemanEntity foreman, List<BuilderEntity> builders, List<Component> problems) {
+        return stock(foreman.level(), foreman.getChests(), builders, problems);
+    }
+
+    public static List<ItemStack> stock(Level level, List<AssignedChest> chests, List<BuilderEntity> builders, List<Component> problems) {
         List<ItemStack> stock = new ArrayList<>();
         for (BuilderEntity builder : builders) {
             for (int slot = 0; slot < builder.getInventory().getContainerSize(); slot++) {
@@ -66,7 +70,7 @@ public final class Crew {
                 }
             }
         }
-        stock.addAll(supplyStock(foreman.level(), foreman.getChests(), problems));
+        stock.addAll(supplyStock(level, chests, problems));
         return stock;
     }
 

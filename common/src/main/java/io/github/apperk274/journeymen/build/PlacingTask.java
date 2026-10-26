@@ -170,13 +170,29 @@ public final class PlacingTask {
         if (!actual.isAir() && !actual.canBeReplaced()) {
             return finish(false);
         }
+        BlockState placeState = StateRules.forPlacement(target);
+        BlockRequirements.Requirement requirement = BlockRequirements.of(placeState, entry.placement().blockEntity(), registries);
+        if (!requirement.obtainable()) {
+            work.skipped.add(pos);
+            return finish(false);
+        }
+        if (!builder.hasItems(requirement.items())) {
+            neededItems = requirement.items();
+            return Status.NEEDS_ITEMS;
+        }
+        Predicate<ItemStack> usable = requirement.toolUse() == null ? null : toolFor(requirement.toolUse(), job.getOptions().allowBreakingEnchanted());
+        if (usable != null && builder.findSlot(usable) < 0) {
+            neededTool = usable;
+            neededToolDescription = requirement.toolUse().description() + " to make " + target.getBlock().getName().getString()
+                    + " at " + pos.toShortString();
+            return Status.NEEDS_TOOL;
+        }
         if (!reach.approach(builder, pos)) {
             return Status.WORKING;
         }
         if (currentGroup == work.dependents && !canGoInNow(entry)) {
             return putBack();
         }
-        BlockState placeState = StateRules.forPlacement(target);
         if (!placeState.getCollisionShape(level, pos).isEmpty() && !level.isUnobstructed(placeState, pos, CollisionContext.empty())) {
             AABB box = placeState.getCollisionShape(level, pos).bounds().move(pos);
             if (box.intersects(builder.getBoundingBox())) {
@@ -191,25 +207,9 @@ public final class PlacingTask {
             return Status.WAITING;
         }
         waitingAt = null;
-        BlockRequirements.Requirement requirement = BlockRequirements.of(placeState, entry.placement().blockEntity(), registries);
-        if (!requirement.obtainable()) {
-            work.skipped.add(pos);
-            return finish(false);
-        }
-        if (!builder.hasItems(requirement.items())) {
-            neededItems = requirement.items();
-            return Status.NEEDS_ITEMS;
-        }
-        int toolSlot = -1;
-        if (requirement.toolUse() != null) {
-            Predicate<ItemStack> usable = toolFor(requirement.toolUse(), job.getOptions().allowBreakingEnchanted());
-            toolSlot = builder.findSlot(usable);
-            if (toolSlot < 0) {
-                neededTool = usable;
-                neededToolDescription = requirement.toolUse().description() + " to make " + target.getBlock().getName().getString()
-                        + " at " + pos.toShortString();
-                return Status.NEEDS_TOOL;
-            }
+        int toolSlot = usable == null ? -1 : builder.findSlot(usable);
+        if (usable != null && toolSlot < 0) {
+            return Status.WORKING;
         }
         ServerPlayer actor = builder.actor();
         if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayPlace(actor, pos, placeState)) {

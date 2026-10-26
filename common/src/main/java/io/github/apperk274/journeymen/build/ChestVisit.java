@@ -20,6 +20,7 @@ public final class ChestVisit {
     public static final double REACH = 4.0;
     private static final int OPEN_TICKS = 10;
     private static final int GIVE_UP_TICKS = 400;
+    private static final double PROGRESS_STEP = 0.5;
 
     public enum Kind {
         DUMP,
@@ -46,8 +47,10 @@ public final class ChestVisit {
     private final ItemCounter amounts;
     private final boolean oneEach;
     private boolean open;
+    private boolean started;
     private int timer;
-    private int walkTicks;
+    private double best = Double.MAX_VALUE;
+    private int stalledTicks;
     private int repathTimer;
     @Nullable
     private String failure;
@@ -117,11 +120,23 @@ public final class ChestVisit {
             problem = Problem.GONE;
             return Status.FAILED;
         }
+        if (!started) {
+            started = true;
+            if (kind == Kind.FETCH && !containsWanted(store)) {
+                return Status.DONE;
+            }
+        }
         builder.getLookControl().setLookAt(Vec3.atCenterOf(chest));
         if (!open) {
-            if (builder.getEyePosition().distanceTo(Vec3.atCenterOf(chest)) > REACH) {
-                if (++walkTicks > StuckRecovery.giveUpTicks(GIVE_UP_TICKS)) {
-                    failure = builder.getJourneymanName() + " can't reach the chest at " + chest.toShortString() + ".";
+            double distance = builder.getEyePosition().distanceTo(Vec3.atCenterOf(chest));
+            if (distance > REACH) {
+                if (distance < best - PROGRESS_STEP) {
+                    best = distance;
+                    stalledTicks = 0;
+                } else if (++stalledTicks > StuckRecovery.giveUpTicks(GIVE_UP_TICKS)) {
+                    failure = "My builders can't get to the " + (kind == Kind.DUMP ? "dump" : "supply") + " chest at " + chest.toShortString()
+                            + ". Clear a way to it (they need to get within " + (int) REACH + " blocks of it) or move it; until then they use my other "
+                            + (kind == Kind.DUMP ? "dump" : "supply") + " chests.";
                     problem = Problem.UNREACHABLE;
                     return Status.FAILED;
                 }
@@ -152,6 +167,16 @@ public final class ChestVisit {
         store.setChanged();
         setOpen(level, false);
         return Status.DONE;
+    }
+
+    private boolean containsWanted(ItemStore store) {
+        for (int slot = 0; slot < store.size(); slot++) {
+            ItemStack stack = store.get(slot);
+            if (!stack.isEmpty() && wanted.test(stack)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void abort(ServerLevel level) {

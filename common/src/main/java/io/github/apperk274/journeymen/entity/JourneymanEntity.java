@@ -32,6 +32,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.level.pathfinder.PathFinder;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -44,6 +45,7 @@ public abstract class JourneymanEntity extends PathfinderMob {
     private static final int REGISTRY_SYNC_INTERVAL = 40;
     private static final int REGENERATION_INTERVAL = 80;
     private static final double LONG_WALK_DISTANCE = 40.0;
+    private static final double LONG_WALK_STEP = 8.0;
     private static final double COME_ARRIVE_DISTANCE = 1.5;
 
     @Nullable
@@ -201,6 +203,15 @@ public abstract class JourneymanEntity extends PathfinderMob {
 
     public void walkTowards(Vec3 target) {
         if (distanceToSqr(target) > LONG_WALK_DISTANCE * LONG_WALK_DISTANCE) {
+            double distance = Math.sqrt(distanceToSqr(target));
+            if (leadsCloser(getNavigation().getPath(), target, distance)) {
+                return;
+            }
+            Path direct = getNavigation().createPath(BlockPos.containing(target), 0);
+            if (leadsCloser(direct, target, distance)) {
+                getNavigation().moveTo(direct, 1.0);
+                return;
+            }
             Vec3 step = LandRandomPos.getPosTowards(this, 32, 10, target);
             if (step != null) {
                 getNavigation().moveTo(step.x, step.y, step.z, 1.0);
@@ -208,6 +219,11 @@ public abstract class JourneymanEntity extends PathfinderMob {
             }
         }
         getNavigation().moveTo(target.x, target.y, target.z, 1.0);
+    }
+
+    private static boolean leadsCloser(@Nullable Path path, Vec3 target, double distance) {
+        return path != null && !path.isDone() && path.getEndNode() != null
+                && Vec3.atBottomCenterOf(path.getEndNode().asBlockPos()).distanceTo(target) < distance - LONG_WALK_STEP;
     }
 
     public void notifyOwner(String message) {

@@ -12,6 +12,8 @@ import java.util.UUID;
 
 public final class CrewWork {
 
+    public static final int UNREACHABLE_TICKS = 6000;
+
     @Nullable
     private ClearingWork clearing;
     @Nullable
@@ -21,6 +23,7 @@ public final class CrewWork {
     private final Map<BlockPos, UUID> claims = new HashMap<>();
     private final Map<UUID, ItemCounter> reservations = new HashMap<>();
     private final Set<UUID> starving = new HashSet<>();
+    private final Map<BlockPos, Long> unreachable = new HashMap<>();
 
     @Nullable
     public ClearingWork getClearing() {
@@ -118,6 +121,22 @@ public final class CrewWork {
             }
         }
         return false;
+    }
+
+    public void markUnreachable(BlockPos chest, long now) {
+        unreachable.put(chest.immutable(), now);
+    }
+
+    public boolean isUnreachable(BlockPos chest, long now) {
+        Long since = unreachable.get(chest);
+        if (since == null) {
+            return false;
+        }
+        if (now - since >= UNREACHABLE_TICKS) {
+            unreachable.remove(chest);
+            return false;
+        }
+        return true;
     }
 
     public ItemCounter reservationOf(UUID member) {

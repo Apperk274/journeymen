@@ -255,8 +255,16 @@ public class BuilderEntity extends JourneymanEntity {
                 stock.add(stack.copy());
             }
         }
-        stock.addAll(Crew.supplyStock(level(), jobChests(), problems));
+        stock.addAll(Crew.supplyStock(level(), reachableChests(), problems));
         return stock;
+    }
+
+    private List<AssignedChest> reachableChests() {
+        return jobChests().stream().filter(chest -> !isUnreachable(chest.pos())).toList();
+    }
+
+    private boolean isUnreachable(BlockPos chest) {
+        return job != null && job.getCrewWork().isUnreachable(chest, level().getGameTime());
     }
 
     @Nullable
@@ -312,7 +320,7 @@ public class BuilderEntity extends JourneymanEntity {
 
     public ItemCounter fetchableStock() {
         ItemCounter stock = new ItemCounter();
-        Crew.supplyStock(level(), jobChests(), new ArrayList<>()).forEach(stack -> stock.add(stack, stack.getCount()));
+        Crew.supplyStock(level(), reachableChests(), new ArrayList<>()).forEach(stack -> stock.add(stack, stack.getCount()));
         if (job != null) {
             for (Map.Entry<ItemStack, Long> entry : job.getCrewWork().reservedByOthers(getUUID()).entries()) {
                 stock.remove(entry.getKey(), entry.getValue());
@@ -338,7 +346,7 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     public boolean supplyHas(Predicate<ItemStack> wanted) {
-        for (AssignedChest chest : jobChests()) {
+        for (AssignedChest chest : reachableChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
@@ -468,7 +476,7 @@ public class BuilderEntity extends JourneymanEntity {
 
     private void queueToolFetch(Predicate<ItemStack> useful) {
         toolsFetched = true;
-        for (AssignedChest chest : jobChests()) {
+        for (AssignedChest chest : reachableChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
@@ -830,6 +838,9 @@ public class BuilderEntity extends JourneymanEntity {
                 }
                 case FAILED -> {
                     visits.poll();
+                    if (visit.getProblem() == ChestVisit.Problem.UNREACHABLE) {
+                        job.getCrewWork().markUnreachable(visit.getChest(), level().getGameTime());
+                    }
                     if (visit.getKind() == ChestVisit.Kind.DUMP && visit.getProblem() != null) {
                         dumpProblems.put(visit.getChest(), visit.getProblem());
                     }
@@ -837,6 +848,8 @@ public class BuilderEntity extends JourneymanEntity {
                         queueEmptyingOut();
                     } else if (visit.getKind() == ChestVisit.Kind.DUMP) {
                         startDump();
+                    } else if (visit.getProblem() == ChestVisit.Problem.UNREACHABLE) {
+                        report(visit.getFailure());
                     } else {
                         pauseJob(visit.getFailure() == null ? getJourneymanName() + " couldn't get to a supply chest." : visit.getFailure());
                     }
@@ -972,11 +985,10 @@ public class BuilderEntity extends JourneymanEntity {
 
     private void queueEmptyingOut() {
         if (hasDumpableItems()) {
-            for (AssignedChest chest : jobChests()) {
-                if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
-                    queueVisit(ChestVisit.dump(chest.pos()));
-                    return;
-                }
+            BlockPos dump = nextDumpChest();
+            if (dump != null) {
+                queueVisit(ChestVisit.dump(dump));
+                return;
             }
             if (!triedDumpChests.isEmpty()) {
                 String problems = describeDumpProblems(" " + getJourneymanName() + " keeps the rest of what it cleared.");
@@ -1104,7 +1116,8 @@ public class BuilderEntity extends JourneymanEntity {
             }
         }
         int freeSlots = freeSlots();
-        if (take.slotsBeyond(inInventory) > freeSlots) {
+        if (take.slotsBeyond(inInventory) > freeSlots
+                && (freeSlots == 0 || hasDumpableItems() || tickCount >= storeBlockedUntil && hasSpareItems(needs))) {
             makeRoom(needs);
             return;
         }
@@ -1125,7 +1138,7 @@ public class BuilderEntity extends JourneymanEntity {
         for (BlockRequirements.ToolUse use : placing.batchToolUses()) {
             Predicate<ItemStack> usable = PlacingTask.toolFor(use, job.getOptions().allowBreakingEnchanted());
             if (findSlot(usable) < 0) {
-                for (AssignedChest chest : jobChests()) {
+                for (AssignedChest chest : reachableChests()) {
                     if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                         continue;
                     }
@@ -1140,7 +1153,7 @@ public class BuilderEntity extends JourneymanEntity {
         if (take.isEmpty()) {
             return;
         }
-        for (AssignedChest chest : jobChests()) {
+        for (AssignedChest chest : reachableChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
@@ -1199,7 +1212,7 @@ public class BuilderEntity extends JourneymanEntity {
         for (BlockRequirements.ToolUse use : placing.remainingToolUses()) {
             Predicate<ItemStack> usable = PlacingTask.toolFor(use, job.getOptions().allowBreakingEnchanted());
             if (findSlot(usable) < 0) {
-                for (AssignedChest chest : jobChests()) {
+                for (AssignedChest chest : reachableChests()) {
                     if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                         continue;
                     }
@@ -1215,7 +1228,7 @@ public class BuilderEntity extends JourneymanEntity {
             return;
         }
         boolean queued = false;
-        for (AssignedChest chest : jobChests()) {
+        for (AssignedChest chest : reachableChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
@@ -1258,7 +1271,7 @@ public class BuilderEntity extends JourneymanEntity {
     private boolean queueUnload(ItemCounter keep) {
         boolean queued = false;
         if (hasDumpableItems()) {
-            for (AssignedChest chest : jobChests()) {
+            for (AssignedChest chest : reachableChests()) {
                 if (chest.role() == AssignedChest.Role.DUMP && level().isLoaded(chest.pos())) {
                     queueVisit(ChestVisit.dump(chest.pos()));
                     queued = true;
@@ -1288,7 +1301,7 @@ public class BuilderEntity extends JourneymanEntity {
 
     @Nullable
     private AssignedChest firstSupplyChest() {
-        for (AssignedChest chest : jobChests()) {
+        for (AssignedChest chest : reachableChests()) {
             if (chest.role() == AssignedChest.Role.SUPPLY && level().isLoaded(chest.pos())) {
                 return chest;
             }
@@ -1322,7 +1335,7 @@ public class BuilderEntity extends JourneymanEntity {
         ItemCounter available = new ItemCounter();
         List<Component> ignored = new ArrayList<>();
         ForemanEntity foreman = foreman();
-        (foreman != null ? Crew.stock(foreman, Crew.loaded(getServer(), job), ignored) : collectStock(ignored))
+        (foreman != null ? Crew.stock(level(), reachableChests(), Crew.loaded(getServer(), job), ignored) : collectStock(ignored))
                 .forEach(stack -> available.add(stack, stack.getCount()));
         List<String> missing = new ArrayList<>();
         for (Map.Entry<ItemStack, Long> entry : placing.remainingNeeds().sorted()) {
@@ -1399,11 +1412,10 @@ public class BuilderEntity extends JourneymanEntity {
                 return;
             }
         }
-        for (AssignedChest chest : jobChests()) {
-            if (chest.role() == AssignedChest.Role.DUMP && triedDumpChests.add(chest.pos())) {
-                queueVisit(ChestVisit.dump(chest.pos()));
-                return;
-            }
+        BlockPos dump = nextDumpChest();
+        if (dump != null) {
+            queueVisit(ChestVisit.dump(dump));
+            return;
         }
         String problems = describeDumpProblems("");
         resetDumpTries();
@@ -1412,6 +1424,20 @@ public class BuilderEntity extends JourneymanEntity {
                 : hasDumpChest
                 ? getJourneymanName() + "'s inventory is full and my dump chests are full too. Please empty them or give me another one."
                 : getJourneymanName() + "'s inventory is full. Give me a dump chest with " + chestCommand() + ".");
+    }
+
+    @Nullable
+    private BlockPos nextDumpChest() {
+        for (AssignedChest chest : jobChests()) {
+            if (chest.role() != AssignedChest.Role.DUMP || !triedDumpChests.add(chest.pos())) {
+                continue;
+            }
+            if (!isUnreachable(chest.pos())) {
+                return chest.pos();
+            }
+            dumpProblems.put(chest.pos(), ChestVisit.Problem.UNREACHABLE);
+        }
+        return null;
     }
 
     private void resetDumpTries() {
@@ -1438,7 +1464,7 @@ public class BuilderEntity extends JourneymanEntity {
         failed.forEach((problem, positions) -> sentences.add(switch (problem) {
             case GONE -> dumpChests("My", positions) + (positions.size() == 1 ? " is gone." : " are gone.");
             case UNLOADED -> dumpChests("My", positions) + (positions.size() == 1 ? " isn't loaded." : " aren't loaded.");
-            case UNREACHABLE -> dumpChests(getJourneymanName() + " can't reach my", positions) + ".";
+            case UNREACHABLE -> dumpChests("My builders can't get to my", positions) + ".";
         }));
         if (!full.isEmpty()) {
             sentences.add(dumpChests("My", full) + (full.size() == 1 ? " is full." : " are full."));
@@ -1449,7 +1475,8 @@ public class BuilderEntity extends JourneymanEntity {
                 : switch (failed.keySet().iterator().next()) {
                     case GONE -> "Give me another one with " + command + ".";
                     case UNLOADED -> "Load " + (several ? "their" : "its") + " area or give me another one with " + command + ".";
-                    case UNREACHABLE -> "Clear the way or give me another one with " + command + ".";
+                    case UNREACHABLE -> "Clear a way to " + (several ? "them" : "it") + " (they need to get within " + (int) ChestVisit.REACH
+                            + " blocks) or give me another one with " + command + ".";
                 };
         return String.join(" ", sentences) + consequence + " " + fix;
     }
@@ -1476,6 +1503,9 @@ public class BuilderEntity extends JourneymanEntity {
                 problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" isn't loaded.");
             } else if (ItemStores.at(level(), chest.pos()) == null) {
                 problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" is gone.");
+            } else if (isUnreachable(chest.pos())) {
+                problems.append(" My builders can't get to my supply chest at ").append(chest.pos().toShortString())
+                        .append(": clear a way to it (they need to get within ").append((int) ChestVisit.REACH).append(" blocks of it) or move it.");
             }
         }
         return problems.toString();
@@ -1483,7 +1513,7 @@ public class BuilderEntity extends JourneymanEntity {
 
     private void startFetch(Predicate<ItemStack> wanted, String description) {
         boolean crew = inCrewMode();
-        for (AssignedChest chest : jobChests()) {
+        for (AssignedChest chest : reachableChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
