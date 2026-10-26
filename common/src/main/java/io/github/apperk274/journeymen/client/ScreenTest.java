@@ -30,7 +30,7 @@ public final class ScreenTest {
     private enum Step {
         OFF, START, LOADING, SETUP, OPEN, PICK, JOB_SHOT, CHESTS_TAB, CHESTS_SHOT, CREW_TAB, CREW_SHOT, ORDERS_TAB, ORDERS_SHOT,
         BUILDER_OPEN, BUILDER_SHOT, BUILDER_ORDERS, BUILDER_ORDERS_SHOT, CHECK, CONFIRM_SHOT, SCROLLED_SHOT, SUPPLY, SUPPLIED_SHOT, STARTED,
-        RUNNING, RUNNING_SHOT, DONE
+        RUNNING, RUNNING_SHOT, CREW_RUNNING, CREW_RUNNING_SHOT, DONE
     }
 
     private static Step step;
@@ -267,6 +267,18 @@ public final class ScreenTest {
             case RUNNING_SHOT -> {
                 if (ticks > 10) {
                     shot(minecraft, "job_running");
+                    press(screen, "Crew");
+                    next(Step.CREW_RUNNING);
+                }
+            }
+            case CREW_RUNNING -> {
+                if (ticks > 40) {
+                    next(Step.CREW_RUNNING_SHOT);
+                }
+            }
+            case CREW_RUNNING_SHOT -> {
+                if (ticks > 10) {
+                    shot(minecraft, "crew_running");
                     minecraft.setScreen(null);
                     finish("done");
                 }

@@ -69,6 +69,10 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
     private EditBox renameBox;
     @Nullable
     private EditBox hireBox;
+    @Nullable
+    private Checkbox cornerBox;
+    @Nullable
+    private Checkbox enchantedBox;
 
     public ForemanScreen(ForemanMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -110,6 +114,8 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
         hireButton = null;
         renameBox = null;
         hireBox = null;
+        cornerBox = null;
+        enchantedBox = null;
         for (int i = 0; i < ForemanMenu.TAB_COUNT; i++) {
             int index = i;
             Button button = addRenderableWidget(Button.builder(Component.literal(ForemanMenu.TAB_NAMES[i]), b -> switchTab(index))
@@ -156,10 +162,10 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
             }).bounds(leftPos + 8, topPos + 178, 118, 20).build());
             return;
         }
-        addRenderableWidget(Checkbox.builder(Component.literal("Corner"), font).pos(leftPos + 8, topPos + 155).selected(corner)
-                .onValueChange((box, value) -> corner = value).build());
-        addRenderableWidget(Checkbox.builder(Component.literal("Allow breaking enchanted"), font).pos(leftPos + 70, topPos + 155)
-                .selected(allowBreakingEnchanted).onValueChange((box, value) -> allowBreakingEnchanted = value).build());
+        cornerBox = addRenderableWidget(ScreenParts.checkbox(font, Component.literal("Corner"), leftPos + 8, topPos + 155, corner,
+                (box, value) -> corner = value));
+        enchantedBox = addRenderableWidget(ScreenParts.checkbox(font, Component.literal("Allow breaking enchanted"), leftPos + 70, topPos + 155,
+                allowBreakingEnchanted, (box, value) -> allowBreakingEnchanted = value));
         placeButton = addRenderableWidget(Button.builder(Component.literal("Place…"), b -> place())
                 .bounds(leftPos + 8, topPos + 178, 118, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Refresh"), b -> send("schematic_list"))
@@ -307,11 +313,11 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
     private List<CrewRow> crewRows(ScreenPayloads.ForemanState state) {
         List<CrewRow> rows = new ArrayList<>();
         if (state.crew().isEmpty()) {
-            rows.add(new CrewRow(Component.literal("No builders yet.").withStyle(ChatFormatting.GRAY), null));
+            rows.add(new CrewRow(Component.literal("No builders yet."), null));
         }
         for (ScreenPayloads.CrewEntry entry : state.crew()) {
             rows.add(new CrewRow(Component.literal(entry.name()).withStyle(ChatFormatting.WHITE)
-                    .append(Component.literal(": " + entry.doing()).withStyle(entry.available() ? ChatFormatting.GRAY : ChatFormatting.GOLD)), null));
+                    .append(Component.literal(": " + entry.doing()).withStyle(entry.available() ? ChatFormatting.WHITE : ChatFormatting.GOLD)), null));
         }
         if (!state.orphans().isEmpty()) {
             rows.add(new CrewRow(Component.literal("Your builders without a foreman:").withStyle(ChatFormatting.YELLOW), null));
@@ -514,7 +520,10 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
             } else if (hovered) {
                 graphics.fill(8, y, right, y + ROW, 0xFF6F6F6F);
             }
-            graphics.drawString(font, font.plainSubstrByWidth(file, right - 12), 10, y + 2, 0xFFFFFF, false);
+            graphics.drawString(font, ScreenParts.fit(font, Component.literal(file), right - 12), 10, y + 2, 0xFFFFFF, false);
+            if (hovered && font.width(file) > right - 12) {
+                setTooltipForNextRenderPass(Component.literal(file));
+            }
         }
         List<FormattedCharSequence> lines = materialLines();
         int materialScroll = materialBar.offset();
@@ -558,9 +567,9 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
             CrewRow row = rows.get(scroll + i);
             int y = LIST_TOP + i * ROW;
             int textRight = row.adopt() != null ? right - ADOPT_WIDTH - 2 : right;
-            List<FormattedCharSequence> parts = font.split(row.text(), textRight - 12);
-            if (!parts.isEmpty()) {
-                graphics.drawString(font, parts.get(0), 10, y + 2, 0xFFFFFF, false);
+            graphics.drawString(font, ScreenParts.fit(font, row.text(), textRight - 12), 10, y + 2, 0xFFFFFF, false);
+            if (font.width(row.text()) > textRight - 12 && mouseX >= 8 && mouseX < textRight && mouseY >= y && mouseY < y + ROW) {
+                setTooltipForNextRenderPass(row.text());
             }
             if (row.adopt() != null) {
                 boolean hovered = mouseX >= right - ADOPT_WIDTH && mouseX < right && mouseY >= y && mouseY < y + ROW;
@@ -606,6 +615,11 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
+        for (Checkbox box : new Checkbox[]{cornerBox, enchantedBox}) {
+            if (box != null) {
+                ScreenParts.checkboxLabel(graphics, font, box);
+            }
+        }
         renderTooltip(graphics, mouseX, mouseY);
     }
 }
