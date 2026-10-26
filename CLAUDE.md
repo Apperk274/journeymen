@@ -226,8 +226,8 @@ Phase 5 built the shared work list: 5a ✅ the shared job model and pooled pre-c
 
 Phase 6 is the foreman, replacing jobs and chests on builders (the old `builder build|check|cancel|chest|supply|join|leave` and comma-separated crews). There is no migration (the mod isn't released): builders drop old jobs and chest lists on load, keep their inventories and load as orphans.
 
-- 6a ✅: the foreman entity, hiring (stall, `foreman hire`, `adopt`, summons), the foreman commands, jobs and chests on the foreman, builders as workers, `/journeymen notices`, old builder job/chest data and commands dropped. Until 6b, right-clicking a foreman prints his status in chat, and the builder screen keeps its four tabs: its Job and Chests tabs (and placement mode, link mode and the confirmation screen started from them) act on the builder's foreman.
-- 6b: the screens (foreman screen tabs, the slimmer builder screen, placement mode and the confirmation screen from the foreman).
+- 6a ✅: the foreman entity, hiring (stall, `foreman hire`, `adopt`, summons), the foreman commands, jobs and chests on the foreman, builders as workers, `/journeymen notices`, old builder job/chest data and commands dropped.
+- 6b ✅: the screens (foreman screen tabs, the slimmer builder screen, placement mode and the confirmation screen from the foreman).
 
 Not built yet, though described above: `build` refusing a site the foreman finds no path to, and the `keep_chunks_loaded` option (the key exists but does nothing).
 
@@ -236,7 +236,7 @@ Not tested yet (no way to test them so far):
 - Other players hurting a journeyman when PvP is off (it should take no damage).
 - A following journeyman getting unstuck towards its owner: the owner must be a real player in the player list, which a `debug as` fake player isn't. The same recovery is tested with `come`, chests, the site and `unstick`.
 - Spawn protection and claim mods (FTB Chunks, Open Parties and Claims, …) blocking the pre-check and the builders' breaking and placing. Claiming in FTB Chunks needs a real player in a team.
-- The survival UI by a person in game: the Inventory tab's slots and shift-click, armor rendering, link mode outlines, rotating with sneak + scroll, and using the screens with mouse and keyboard. Server side is tested with the debug commands; the Job and Chests tabs, the confirmation screen and the placement preview are rendered and screenshotted by the client test hooks.
+- The survival UI by a person in game: the Inventory tab's slots and shift-click, armor rendering, link mode outlines, rotating with sneak + scroll, and using the screens with mouse and keyboard. Server side is tested with the debug commands; the foreman screen's four tabs, the builder screen's two tabs, the confirmation screen and the placement preview are rendered and screenshotted by the client test hooks.
 - The placement preview with Sodium/Embeddium or Iris shader packs. It draws its own vertex buffer with the translucent block shader in the loader's after-translucent hook and uses no vanilla renderer internals, but nobody has looked.
 
 Backlog: a hauler journeyman that carries materials for a crew, mirroring schematics, counting Unbreaking in the pre-check durability estimate, placing entities from schematics (item frames, paintings, armor stands), a job queue per foreman, an early have/need material check in the Job tab (design not decided).

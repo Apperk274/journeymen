@@ -26,6 +26,8 @@ waitlog x2 \[debug action\] Gustav alive=true
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] rename ~ ~ ~ GusBoss
 waitlog x3 \[debug action\] Gustav alive=true
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] link_supply ~ ~ ~ -
+waitlog \[debug reply\] Builders take no orders about jobs, chests or crews\. Ask GusBoss\.
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] link_supply ~ ~ ~ -
 journeymen debug as Steve 2 302 100 302 journeymen debug use 300 100 305
 journeymen debug as Steve 2 302 100 302 journeymen debug use 305 100 305
 journeymen debug as Steve 2 302 100 302 journeymen debug use 307 100 305
@@ -38,23 +40,24 @@ waitlog supply chest at 300, 100, 305
 journeymen debug as Alex 2 302 100 302 journeymen debug use 302 100 305
 journeymen debug as Alex 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] follow ~ ~ ~ -
 waitlog \[debug action\] Gustav alive=true following=false
-journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] remove_chest 305 100 305 -
-waitlog \[debug action\] Gustav alive=true following=false job=- chests=\[AssignedChest\[pos=BlockPos\{x=300, y=100, z=305\}, role=SUPPLY\]\]$
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] remove_chest 305 100 305 -
+waitlog \[debug action\] GusBoss alive=true following=false job=- crew=\[Gustav\] chests=\[AssignedChest\[pos=BlockPos\{x=300, y=100, z=305\}, role=SUPPLY\]\]$
 journeymen debug as Steve 2 302 100 302 journeymen foreman supply GusBoss wheat_farm.nbt 310 100 310
 waitlog \] Supplied \d+ items
-journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] check 310 100 310 wheat_farm.nbt|none|
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] check 310 100 310 wheat_farm.nbt|none|
+waitlog \[check\] Steve for GusBoss: Check wheat_farm\.nbt .* -> passes
 ticks 40
 journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav
-journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] start 310 100 310 wheat_farm.nbt|clockwise_90|corner
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] start 310 100 310 wheat_farm.nbt|clockwise_90|corner
 waitfor journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav =~ Job: wheat_farm
 journeymen debug as Steve 2 302 100 302 journeymen builder status Gustav
 journeymen debug as Steve 2 302 100 302 journeymen foreman status GusBoss
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] follow ~ ~ ~ -
 waitlog \[debug action\] Gustav alive=true following=false job=wheat_farm\.nbt
 mark
-journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] cancel_job ~ ~ ~ -
-waitlog \[debug action\] Gustav alive=true following=false job=- 
-journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] notices ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] cancel_job ~ ~ ~ -
+waitlog \[debug action\] GusBoss alive=true following=false job=- 
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] notices ~ ~ ~ -
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] schematic_info ~ ~ ~ cottage.schem
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gustav,limit=1] dismiss ~ ~ ~ -
 ticks 40

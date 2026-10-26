@@ -31,7 +31,7 @@ import java.util.List;
 public final class PlacementMode {
 
     private static boolean active;
-    private static int builderId;
+    private static int foremanId;
     @Nullable
     private static ScreenPayloads.SchematicInfo info;
     private static Rotation rotation = Rotation.NONE;
@@ -46,19 +46,19 @@ public final class PlacementMode {
     private PlacementMode() {
     }
 
-    public static void start(int builderId, ScreenPayloads.SchematicInfo info, String options) {
+    public static void start(int foremanId, ScreenPayloads.SchematicInfo info, String options) {
         if (mesh != null && !mesh.isFor(info)) {
             freeMesh();
         }
         PlacementMode.active = true;
-        PlacementMode.builderId = builderId;
+        PlacementMode.foremanId = foremanId;
         PlacementMode.info = info;
         PlacementMode.options = options.strip();
         PlacementMode.lastHint = 0;
     }
 
-    public static void resume(int builderId, ScreenPayloads.SchematicInfo info, Rotation rotation, String options) {
-        start(builderId, info, options);
+    public static void resume(int foremanId, ScreenPayloads.SchematicInfo info, Rotation rotation, String options) {
+        start(foremanId, info, options);
         PlacementMode.rotation = rotation;
     }
 
@@ -118,7 +118,7 @@ public final class PlacementMode {
             minecraft.player.displayClientMessage(Component.literal("Look at a block to place the schematic there.").withStyle(ChatFormatting.RED), true);
             return true;
         }
-        Services.NETWORK.sendToServer(new ScreenPayloads.BuilderAction(builderId, "check",
+        Services.NETWORK.sendToServer(new ScreenPayloads.Action(foremanId, "check",
                 info.file() + "\n" + rotation.getSerializedName() + "\n" + options, origin));
         return true;
     }

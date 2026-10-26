@@ -1,6 +1,6 @@
 package io.github.apperk274.journeymen.network;
 
-import io.github.apperk274.journeymen.menu.BuilderScreenService;
+import io.github.apperk274.journeymen.menu.ScreenActions;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -24,11 +24,12 @@ public final class JourneymenNetwork {
 
     public static final List<ServerBound<?>> SERVER_BOUND = List.of(
             new ServerBound<>(HireBuilderPayload.TYPE, HireBuilderPayload.CODEC, ServerHandlers::hireBuilder),
-            new ServerBound<>(ScreenPayloads.BuilderAction.TYPE, ScreenPayloads.BuilderAction.CODEC, BuilderScreenService::handle));
+            new ServerBound<>(ScreenPayloads.Action.TYPE, ScreenPayloads.Action.CODEC, ScreenActions::handle));
 
     public static final List<ClientBound<?>> CLIENT_BOUND = List.of(
             new ClientBound<>(OpenHireScreenPayload.TYPE, OpenHireScreenPayload.CODEC, payload -> ClientHandlers.openHireScreen(payload)),
             new ClientBound<>(ScreenPayloads.BuilderState.TYPE, ScreenPayloads.BuilderState.CODEC, payload -> ClientHandlers.builderState(payload)),
+            new ClientBound<>(ScreenPayloads.ForemanState.TYPE, ScreenPayloads.ForemanState.CODEC, payload -> ClientHandlers.foremanState(payload)),
             new ClientBound<>(ScreenPayloads.SchematicList.TYPE, ScreenPayloads.SchematicList.CODEC, payload -> ClientHandlers.schematicList(payload)),
             new ClientBound<>(ScreenPayloads.SchematicInfo.TYPE, ScreenPayloads.SchematicInfo.CODEC, payload -> ClientHandlers.schematicInfo(payload)),
             new ClientBound<>(ScreenPayloads.SchematicBlocks.TYPE, ScreenPayloads.SchematicBlocks.CODEC, payload -> ClientHandlers.schematicBlocks(payload)),

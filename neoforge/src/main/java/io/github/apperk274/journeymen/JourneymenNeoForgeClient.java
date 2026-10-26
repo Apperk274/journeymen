@@ -4,6 +4,7 @@ import io.github.apperk274.journeymen.client.BuilderRenderer;
 import io.github.apperk274.journeymen.client.BuilderScreen;
 import io.github.apperk274.journeymen.client.ClientState;
 import io.github.apperk274.journeymen.client.ForemanRenderer;
+import io.github.apperk274.journeymen.client.ForemanScreen;
 import io.github.apperk274.journeymen.client.PlacementMode;
 import io.github.apperk274.journeymen.client.RecruiterRenderer;
 import io.github.apperk274.journeymen.entity.ModEntities;
@@ -26,7 +27,10 @@ public class JourneymenNeoForgeClient {
             event.registerEntityRenderer(ModEntities.BUILDER, BuilderRenderer::new);
             event.registerEntityRenderer(ModEntities.RECRUITER, RecruiterRenderer::new);
         });
-        eventBus.addListener((RegisterMenuScreensEvent event) -> event.register(NeoForgeMenuHelper.BUILDER_MENU, BuilderScreen::new));
+        eventBus.addListener((RegisterMenuScreensEvent event) -> {
+            event.register(NeoForgeMenuHelper.BUILDER_MENU, BuilderScreen::new);
+            event.register(NeoForgeMenuHelper.FOREMAN_MENU, ForemanScreen::new);
+        });
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> ClientState.reset());
         NeoForge.EVENT_BUS.addListener((RenderLevelStageEvent event) -> {
             if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {

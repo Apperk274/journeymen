@@ -22,10 +22,8 @@ import org.jetbrains.annotations.Nullable;
 public class BuilderMenu extends AbstractContainerMenu {
 
     public static final int INVENTORY_TAB = 0;
-    public static final int JOB_TAB = 1;
-    public static final int CHESTS_TAB = 2;
-    public static final int ORDERS_TAB = 3;
-    public static final int TAB_COUNT = 4;
+    public static final int ORDERS_TAB = 1;
+    public static final int TAB_COUNT = 2;
     public static final int BUILDER_SLOTS = BuilderEntity.INVENTORY_SIZE;
     public static final int ARMOR_SLOTS = 4;
     public static final int PLAYER_SLOTS = 36;

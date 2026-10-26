@@ -4,6 +4,7 @@ import io.github.apperk274.journeymen.client.BuilderRenderer;
 import io.github.apperk274.journeymen.client.BuilderScreen;
 import io.github.apperk274.journeymen.client.ClientState;
 import io.github.apperk274.journeymen.client.ForemanRenderer;
+import io.github.apperk274.journeymen.client.ForemanScreen;
 import io.github.apperk274.journeymen.client.PlacementMode;
 import io.github.apperk274.journeymen.client.RecruiterRenderer;
 import io.github.apperk274.journeymen.entity.ModEntities;
@@ -26,6 +27,7 @@ public class JourneymenFabricClient implements ClientModInitializer {
         EntityRendererRegistry.register(ModEntities.RECRUITER, RecruiterRenderer::new);
         JourneymenNetwork.CLIENT_BOUND.forEach(JourneymenFabricClient::registerClientBound);
         MenuScreens.register(FabricMenuHelper.BUILDER_MENU, BuilderScreen::new);
+        MenuScreens.register(FabricMenuHelper.FOREMAN_MENU, ForemanScreen::new);
         WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> PlacementMode.render(context.camera()));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(ClientState::reset));
     }

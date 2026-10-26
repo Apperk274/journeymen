@@ -37,6 +37,7 @@ public class JourneymenFabric implements ModInitializer {
         ModItems.register((id, item) -> Registry.register(BuiltInRegistries.ITEM, id, item));
         ModEntities.register((id, type) -> Registry.register(BuiltInRegistries.ENTITY_TYPE, id, type));
         Registry.register(BuiltInRegistries.MENU, ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "builder"), FabricMenuHelper.BUILDER_MENU);
+        Registry.register(BuiltInRegistries.MENU, ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "foreman"), FabricMenuHelper.FOREMAN_MENU);
         FabricDefaultAttributeRegistry.register(ModEntities.FOREMAN, JourneymanEntity.createAttributes());
         FabricDefaultAttributeRegistry.register(ModEntities.BUILDER, JourneymanEntity.createAttributes());
         FabricDefaultAttributeRegistry.register(ModEntities.RECRUITER, RecruiterEntity.createAttributes());

@@ -40,8 +40,10 @@ public class JourneymenNeoForge {
             event.register(Registries.BLOCK, helper -> ModBlocks.register(helper::register));
             event.register(Registries.ITEM, helper -> ModItems.register(helper::register));
             event.register(Registries.ENTITY_TYPE, helper -> ModEntities.register(helper::register));
-            event.register(Registries.MENU, helper -> helper.register(ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "builder"),
-                    NeoForgeMenuHelper.BUILDER_MENU));
+            event.register(Registries.MENU, helper -> {
+                helper.register(ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "builder"), NeoForgeMenuHelper.BUILDER_MENU);
+                helper.register(ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "foreman"), NeoForgeMenuHelper.FOREMAN_MENU);
+            });
         });
         eventBus.addListener((EntityAttributeCreationEvent event) -> {
             event.put(ModEntities.FOREMAN, JourneymanEntity.createAttributes().build());

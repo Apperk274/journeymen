@@ -1,7 +1,7 @@
 package io.github.apperk274.journeymen.client;
 
 import io.github.apperk274.journeymen.Constants;
-import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.client.Minecraft;
@@ -27,11 +27,16 @@ public final class ScreenTest {
     private static final String FILE = "journeymen-screen-test.properties";
     private static final int CHESTS = 14;
 
-    private enum Step { OFF, START, LOADING, SETUP, OPEN, JOB_TAB, PICK, JOB_SHOT, CHESTS_TAB, CHESTS_SHOT, CHECK, CONFIRM_SHOT, SCROLLED_SHOT, SUPPLY, SUPPLIED_SHOT, DONE }
+    private enum Step {
+        OFF, START, LOADING, SETUP, OPEN, PICK, JOB_SHOT, CHESTS_TAB, CHESTS_SHOT, CREW_TAB, CREW_SHOT, ORDERS_TAB, ORDERS_SHOT,
+        BUILDER_OPEN, BUILDER_SHOT, BUILDER_ORDERS, BUILDER_ORDERS_SHOT, CHECK, CONFIRM_SHOT, SCROLLED_SHOT, SUPPLY, SUPPLIED_SHOT, STARTED,
+        RUNNING, RUNNING_SHOT, DONE
+    }
 
     private static Step step;
     private static Properties settings;
     private static int ticks;
+    private static int foremanId = -1;
     private static int builderId = -1;
     private static BlockPos origin = BlockPos.ZERO;
 
@@ -63,6 +68,7 @@ public final class ScreenTest {
             return;
         }
         Screen screen = minecraft.screen;
+        String schematic = settings.getProperty("schematic", "cottage.schem");
         switch (step) {
             case START -> {
                 if (minecraft.level == null && minecraft.getOverlay() == null && screen instanceof TitleScreen) {
@@ -78,6 +84,11 @@ public final class ScreenTest {
                     PreviewBenchmark.command("time set noon");
                     PreviewBenchmark.command("journeymen foreman summon Boss");
                     PreviewBenchmark.command("journeymen builder summon Boss Shot");
+                    PreviewBenchmark.command("journeymen builder summon Boss Ann");
+                    PreviewBenchmark.command("journeymen foreman summon Gone");
+                    PreviewBenchmark.command("journeymen builder summon Gone Orph");
+                    PreviewBenchmark.command("journeymen builder summon Gone Ivy");
+                    PreviewBenchmark.command("journeymen foreman kill Gone");
                     for (int i = 0; i < CHESTS; i++) {
                         PreviewBenchmark.command("setblock ~" + (i - 7) + " ~ ~-3 minecraft:chest");
                         PreviewBenchmark.command("journeymen foreman chest Boss add ~" + (i - 7) + " ~ ~-3 supply");
@@ -88,50 +99,39 @@ public final class ScreenTest {
             }
             case SETUP -> {
                 if (ticks > 60) {
-                    for (Entity entity : minecraft.level.entitiesForRendering()) {
-                        if (entity instanceof BuilderEntity) {
-                            builderId = entity.getId();
-                        }
-                    }
-                    if (builderId < 0) {
-                        finish("no builder found");
+                    foremanId = find(minecraft, "Boss");
+                    builderId = find(minecraft, "Shot");
+                    if (foremanId < 0 || builderId < 0) {
+                        finish("no foreman or builder found");
                         return;
                     }
-                    Services.NETWORK.sendToServer(new ScreenPayloads.BuilderAction(builderId, "schematic_list", "", BlockPos.ZERO));
-                    minecraft.gameMode.interact(minecraft.player, minecraft.level.getEntity(builderId), InteractionHand.MAIN_HAND);
+                    interact(minecraft, foremanId);
                     next(Step.OPEN);
                 }
             }
             case OPEN -> {
-                if (screen instanceof BuilderScreen && ticks > 10) {
-                    clickTab(screen, 1);
-                    next(Step.JOB_TAB);
-                }
-            }
-            case JOB_TAB -> {
                 List<String> files = ClientState.schematics;
-                String wanted = settings.getProperty("schematic", "cottage.schem");
-                int index = files.indexOf(wanted);
-                if (ticks > 10 && index >= 0) {
+                int index = files.indexOf(schematic);
+                if (screen instanceof ForemanScreen foremanScreen && ticks > 10 && index >= 0) {
                     int rows = 11;
                     int offset = Math.max(0, Math.min(index, files.size() - rows));
                     for (int i = 0; i < offset; i++) {
-                        screen.mouseScrolled(left(screen) + 20, top(screen) + 40, 0, -1);
+                        screen.mouseScrolled(foremanScreen.panelLeft() + 20, foremanScreen.panelTop() + 40, 0, -1);
                     }
-                    click(screen, left(screen) + 20, top(screen) + 20 + (index - offset) * 11 + 5);
+                    click(screen, foremanScreen.panelLeft() + 20, foremanScreen.panelTop() + 20 + (index - offset) * 11 + 5);
                     next(Step.PICK);
                 }
             }
             case PICK -> {
                 ScreenPayloads.SchematicInfo info = ClientState.info;
-                if (info != null && info.file().equals(settings.getProperty("schematic", "cottage.schem")) && ticks > 10) {
-                    int barX = left(screen) + 248 - 3;
-                    int trackTop = top(screen) + 20;
+                if (screen instanceof ForemanScreen foremanScreen && info != null && info.file().equals(schematic) && ticks > 10) {
+                    int barX = foremanScreen.panelLeft() + 248 - 3;
+                    int trackTop = foremanScreen.panelTop() + 20;
                     screen.mouseClicked(barX, trackTop + 2, 0);
                     screen.mouseDragged(barX, trackTop + 60, 0, 0, 58);
                     screen.mouseReleased(barX, trackTop + 60, 0);
                     for (int i = 0; i < 3; i++) {
-                        screen.mouseScrolled(left(screen) + 20, top(screen) + 40, 0, -1);
+                        screen.mouseScrolled(foremanScreen.panelLeft() + 20, foremanScreen.panelTop() + 40, 0, -1);
                     }
                     next(Step.JOB_SHOT);
                 }
@@ -139,22 +139,70 @@ public final class ScreenTest {
             case JOB_SHOT -> {
                 if (ticks > 20) {
                     shot(minecraft, "job");
-                    clickTab(screen, 2);
+                    press(screen, "Chests");
                     next(Step.CHESTS_TAB);
                 }
             }
             case CHESTS_TAB -> {
-                if (ticks > 10) {
-                    screen.mouseScrolled(left(screen) + 40, top(screen) + 40, 0, -1);
+                if (screen instanceof ForemanScreen foremanScreen && ticks > 10) {
+                    screen.mouseScrolled(foremanScreen.panelLeft() + 40, foremanScreen.panelTop() + 40, 0, -1);
                     next(Step.CHESTS_SHOT);
                 }
             }
             case CHESTS_SHOT -> {
                 if (ticks > 20) {
                     shot(minecraft, "chests");
+                    press(screen, "Crew");
+                    next(Step.CREW_TAB);
+                }
+            }
+            case CREW_TAB -> {
+                if (ticks > 20) {
+                    next(Step.CREW_SHOT);
+                }
+            }
+            case CREW_SHOT -> {
+                if (ticks > 10) {
+                    shot(minecraft, "crew");
+                    press(screen, "Orders");
+                    next(Step.ORDERS_TAB);
+                }
+            }
+            case ORDERS_TAB -> {
+                if (ticks > 20) {
+                    next(Step.ORDERS_SHOT);
+                }
+            }
+            case ORDERS_SHOT -> {
+                if (ticks > 10) {
+                    shot(minecraft, "orders");
                     minecraft.setScreen(null);
-                    Services.NETWORK.sendToServer(new ScreenPayloads.BuilderAction(builderId, "check",
-                            settings.getProperty("schematic", "cottage.schem") + "\nnone\n", origin));
+                    next(Step.BUILDER_OPEN);
+                }
+            }
+            case BUILDER_OPEN -> {
+                if (ticks > 10) {
+                    interact(minecraft, builderId);
+                    next(Step.BUILDER_SHOT);
+                }
+            }
+            case BUILDER_SHOT -> {
+                if (screen instanceof BuilderScreen && ticks > 30) {
+                    shot(minecraft, "builder_inventory");
+                    press(screen, "Orders");
+                    next(Step.BUILDER_ORDERS);
+                }
+            }
+            case BUILDER_ORDERS -> {
+                if (ticks > 20) {
+                    next(Step.BUILDER_ORDERS_SHOT);
+                }
+            }
+            case BUILDER_ORDERS_SHOT -> {
+                if (ticks > 10) {
+                    shot(minecraft, "builder_orders");
+                    minecraft.setScreen(null);
+                    Services.NETWORK.sendToServer(new ScreenPayloads.Action(foremanId, "check", schematic + "\nnone\n", origin));
                     next(Step.CHECK);
                 }
             }
@@ -191,6 +239,35 @@ public final class ScreenTest {
             case SUPPLIED_SHOT -> {
                 if (ticks > 20) {
                     shot(minecraft, "confirm_supplied");
+                    if ("false".equals(settings.getProperty("start", "true"))) {
+                        finish("done");
+                        return;
+                    }
+                    Button start = button(screen, "Start");
+                    if (start == null || !start.active) {
+                        finish("start not possible");
+                        return;
+                    }
+                    start.onPress();
+                    next(Step.STARTED);
+                }
+            }
+            case STARTED -> {
+                if (screen == null && ticks > 60) {
+                    interact(minecraft, foremanId);
+                    next(Step.RUNNING);
+                }
+            }
+            case RUNNING -> {
+                ScreenPayloads.ForemanState state = ClientState.FOREMEN.get(foremanId);
+                if (screen instanceof ForemanScreen && state != null && state.working() && ticks > 30) {
+                    next(Step.RUNNING_SHOT);
+                }
+            }
+            case RUNNING_SHOT -> {
+                if (ticks > 10) {
+                    shot(minecraft, "job_running");
+                    minecraft.setScreen(null);
                     finish("done");
                 }
             }
@@ -199,16 +276,29 @@ public final class ScreenTest {
         }
     }
 
-    private static int left(Screen screen) {
-        return (screen.width - 256) / 2;
+    private static int find(Minecraft minecraft, String name) {
+        for (Entity entity : minecraft.level.entitiesForRendering()) {
+            if (entity instanceof JourneymanEntity && entity.getCustomName() != null && entity.getCustomName().getString().equals(name)) {
+                return entity.getId();
+            }
+        }
+        return -1;
     }
 
-    private static int top(Screen screen) {
-        return (screen.height - 204) / 2;
+    private static void interact(Minecraft minecraft, int id) {
+        Entity entity = minecraft.level.getEntity(id);
+        if (entity != null) {
+            minecraft.gameMode.interact(minecraft.player, entity, InteractionHand.MAIN_HAND);
+        }
     }
 
-    private static void clickTab(Screen screen, int tab) {
-        click(screen, left(screen) + tab * 64 + 31, top(screen) - 11);
+    private static void press(@Nullable Screen screen, String label) {
+        Button button = button(screen, label);
+        if (button != null) {
+            button.onPress();
+        } else {
+            log("no button " + label);
+        }
     }
 
     private static void click(Screen screen, double x, double y) {

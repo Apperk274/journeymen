@@ -6,8 +6,9 @@ import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.build.CrewWork;
 import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.build.PreCheck;
-import io.github.apperk274.journeymen.command.Status;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
+import io.github.apperk274.journeymen.menu.ForemanMenu;
+import io.github.apperk274.journeymen.menu.ForemanScreenService;
 import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
 import net.minecraft.Util;
@@ -439,6 +440,7 @@ public class ForemanEntity extends JourneymanEntity {
     protected void tickPeriodic() {
         if (tickCount % 10 == 0) {
             updateProgressBar();
+            ForemanScreenService.tick(this);
         }
         if (tickCount % 20 == 0) {
             ServerPlayer ownerPlayer = getOwnerPlayer();
@@ -452,8 +454,8 @@ public class ForemanEntity extends JourneymanEntity {
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (!level().isClientSide) {
             if (canBeCommandedBy(player) && player instanceof ServerPlayer serverPlayer) {
-                LinkModeService.finish(serverPlayer, this);
-                Status.foreman(serverPlayer.server, this).forEach(serverPlayer::sendSystemMessage);
+                boolean linked = LinkModeService.finish(serverPlayer, this);
+                ForemanScreenService.open(serverPlayer, this, linked ? ForemanMenu.CHESTS_TAB : ForemanMenu.JOB_TAB);
             } else {
                 player.displayClientMessage(Component.literal(getJourneymanName() + " works for someone else."), true);
             }

@@ -9,7 +9,8 @@ import java.util.Map;
 
 public final class ClientState {
 
-    public static final Map<Integer, ScreenPayloads.BuilderState> STATES = new HashMap<>();
+    public static final Map<Integer, ScreenPayloads.BuilderState> BUILDERS = new HashMap<>();
+    public static final Map<Integer, ScreenPayloads.ForemanState> FOREMEN = new HashMap<>();
     public static List<String> schematics = List.of();
     @Nullable
     public static ScreenPayloads.SchematicInfo info;
@@ -44,7 +45,8 @@ public final class ClientState {
     }
 
     public static void reset() {
-        STATES.clear();
+        BUILDERS.clear();
+        FOREMEN.clear();
         schematics = List.of();
         info = null;
         link = null;

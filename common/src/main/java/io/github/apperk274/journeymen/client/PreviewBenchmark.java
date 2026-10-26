@@ -1,7 +1,7 @@
 package io.github.apperk274.journeymen.client;
 
 import io.github.apperk274.journeymen.Constants;
-import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.client.Minecraft;
@@ -37,7 +37,7 @@ public final class PreviewBenchmark {
     private static Step step;
     private static Properties settings;
     private static int ticks;
-    private static int builderId = -1;
+    private static int foremanId = -1;
     private static int rotationIndex;
     private static List<Rotation> rotations = List.of();
     private static List<String> schematics = List.of();
@@ -107,12 +107,12 @@ public final class PreviewBenchmark {
                 fly(minecraft);
                 if (ticks > 300) {
                     for (Entity entity : minecraft.level.entitiesForRendering()) {
-                        if (entity instanceof BuilderEntity) {
-                            builderId = entity.getId();
+                        if (entity instanceof ForemanEntity) {
+                            foremanId = entity.getId();
                         }
                     }
-                    if (builderId < 0) {
-                        finish("no builder found");
+                    if (foremanId < 0) {
+                        finish("no foreman found");
                         return;
                     }
                     requestInfo();
@@ -218,7 +218,7 @@ public final class PreviewBenchmark {
 
     private static void requestInfo() {
         ClientState.info = null;
-        Services.NETWORK.sendToServer(new ScreenPayloads.BuilderAction(builderId, "schematic_info", schematic(), BlockPos.ZERO));
+        Services.NETWORK.sendToServer(new ScreenPayloads.Action(foremanId, "schematic_info", schematic(), BlockPos.ZERO));
         waitStart = System.nanoTime();
         next(Step.INFO);
     }
@@ -226,7 +226,7 @@ public final class PreviewBenchmark {
     private static void beginRotation() {
         ScreenPayloads.SchematicInfo info = ClientState.info;
         recording = false;
-        PlacementMode.resume(builderId, info, rotations.get(rotationIndex), settings.getProperty("options", ""));
+        PlacementMode.resume(foremanId, info, rotations.get(rotationIndex), settings.getProperty("options", ""));
         waitStart = System.nanoTime();
         next(Step.WAIT_MESH);
     }

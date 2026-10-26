@@ -13,8 +13,6 @@ import io.github.apperk274.journeymen.build.BuildOptions;
 import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.build.MaterialSupply;
-import io.github.apperk274.journeymen.config.JourneymenConfig;
-import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.hire.HireService;
@@ -137,22 +135,9 @@ public class ForemanCommands {
         CommandSourceStack source = context.getSource();
         ForemanEntity foreman = Targets.foreman(context, FOREMAN);
         JourneymanRegistry.Entry entry = Targets.resolve(context, Targets.BUILDER, JourneymanRegistry.Kind.BUILDER);
-        JourneymanRegistry registry = JourneymanRegistry.get(source.getServer());
-        if (!entry.owner().equals(foreman.getOwner())) {
-            throw JourneymenCommand.fail(entry.name() + " and " + foreman.getJourneymanName() + " work for different players.");
-        }
-        if (entry.foreman() != null) {
-            String current = registry.get(entry.foreman()).map(JourneymanRegistry.Entry::name).orElse("another foreman");
-            throw JourneymenCommand.fail(entry.name() + (entry.foreman().equals(foreman.getUUID()) ? " is already in "
-                    + foreman.getJourneymanName() + "'s crew." : " is in " + current + "'s crew. Crews are fixed."));
-        }
-        if (foreman.isCrewFull()) {
-            throw JourneymenCommand.fail(foreman.getJourneymanName() + "'s crew is full (" + JourneymenConfig.MAX_CREW_SIZE.get() + " builders).");
-        }
-        if (Targets.find(source.getServer(), entry) instanceof BuilderEntity builder) {
-            builder.setForeman(foreman);
-        } else {
-            registry.setForeman(entry.id(), foreman.getUUID());
+        String problem = HireService.adopt(source.getServer(), foreman, entry);
+        if (problem != null) {
+            throw JourneymenCommand.fail(problem);
         }
         source.sendSuccess(() -> Component.literal(foreman.getJourneymanName() + " adopted " + entry.name() + ".").withStyle(ChatFormatting.GREEN), false);
         return 1;

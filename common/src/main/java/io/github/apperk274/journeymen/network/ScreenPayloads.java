@@ -10,6 +10,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -49,27 +50,92 @@ public final class ScreenPayloads {
         }
     }
 
-    public record BuilderState(int builderId, String name, String owner, boolean following, float health, float maxHealth,
-                               String jobFile, String phase, String detail, int done, int total, List<ChestEntry> chests,
-                               boolean hasJob) implements CustomPacketPayload {
+    public record CrewEntry(String name, String doing, boolean available) {
+
+        static void write(RegistryFriendlyByteBuf buf, List<CrewEntry> crew) {
+            buf.writeVarInt(crew.size());
+            for (CrewEntry entry : crew) {
+                buf.writeUtf(entry.name);
+                buf.writeUtf(entry.doing);
+                buf.writeBoolean(entry.available);
+            }
+        }
+
+        static List<CrewEntry> read(RegistryFriendlyByteBuf buf) {
+            int size = buf.readVarInt();
+            List<CrewEntry> crew = new ArrayList<>();
+            for (int i = 0; i < size; i++) {
+                crew.add(new CrewEntry(buf.readUtf(), buf.readUtf(), buf.readBoolean()));
+            }
+            return crew;
+        }
+    }
+
+    public record BuilderState(int builderId, String name, String owner, String foreman, boolean following, boolean working, float health,
+                               float maxHealth, String task) implements CustomPacketPayload {
 
         public static final Type<BuilderState> TYPE = payloadType("builder_state");
         public static final StreamCodec<RegistryFriendlyByteBuf, BuilderState> CODEC = StreamCodec.of((buf, value) -> {
             buf.writeVarInt(value.builderId);
             buf.writeUtf(value.name);
             buf.writeUtf(value.owner);
+            buf.writeUtf(value.foreman);
             buf.writeBoolean(value.following);
+            buf.writeBoolean(value.working);
+            buf.writeFloat(value.health);
+            buf.writeFloat(value.maxHealth);
+            buf.writeUtf(value.task);
+        }, buf -> new BuilderState(buf.readVarInt(), buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readBoolean(), buf.readBoolean(),
+                buf.readFloat(), buf.readFloat(), buf.readUtf()));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record Hiring(ItemStack price, int have, boolean affordable, int builders, int maxBuilders, int maxCrew, String suggestedName,
+                         String problem) {
+
+        static final StreamCodec<RegistryFriendlyByteBuf, Hiring> CODEC = StreamCodec.of((buf, value) -> {
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, value.price);
+            buf.writeVarInt(value.have);
+            buf.writeBoolean(value.affordable);
+            buf.writeVarInt(value.builders);
+            buf.writeVarInt(value.maxBuilders);
+            buf.writeVarInt(value.maxCrew);
+            buf.writeUtf(value.suggestedName);
+            buf.writeUtf(value.problem);
+        }, buf -> new Hiring(ItemStack.OPTIONAL_STREAM_CODEC.decode(buf), buf.readVarInt(), buf.readBoolean(), buf.readVarInt(), buf.readVarInt(),
+                buf.readVarInt(), buf.readUtf(), buf.readUtf()));
+    }
+
+    public record ForemanState(int foremanId, String name, String owner, boolean following, boolean working, float health, float maxHealth,
+                               String jobFile, String jobWhere, String phase, String detail, int done, int total, List<ChestEntry> chests,
+                               List<CrewEntry> crew, List<String> orphans, Hiring hiring) implements CustomPacketPayload {
+
+        public static final Type<ForemanState> TYPE = payloadType("foreman_state");
+        public static final StreamCodec<RegistryFriendlyByteBuf, ForemanState> CODEC = StreamCodec.of((buf, value) -> {
+            buf.writeVarInt(value.foremanId);
+            buf.writeUtf(value.name);
+            buf.writeUtf(value.owner);
+            buf.writeBoolean(value.following);
+            buf.writeBoolean(value.working);
             buf.writeFloat(value.health);
             buf.writeFloat(value.maxHealth);
             buf.writeUtf(value.jobFile);
+            buf.writeUtf(value.jobWhere);
             buf.writeUtf(value.phase);
             buf.writeUtf(value.detail);
             buf.writeVarInt(value.done);
             buf.writeVarInt(value.total);
             ChestEntry.write(buf, value.chests);
-            buf.writeBoolean(value.hasJob);
-        }, buf -> new BuilderState(buf.readVarInt(), buf.readUtf(), buf.readUtf(), buf.readBoolean(), buf.readFloat(), buf.readFloat(),
-                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readVarInt(), buf.readVarInt(), ChestEntry.read(buf), buf.readBoolean()));
+            CrewEntry.write(buf, value.crew);
+            buf.writeCollection(value.orphans, (b, s) -> b.writeUtf(s));
+            Hiring.CODEC.encode(buf, value.hiring);
+        }, buf -> new ForemanState(buf.readVarInt(), buf.readUtf(), buf.readUtf(), buf.readBoolean(), buf.readBoolean(), buf.readFloat(),
+                buf.readFloat(), buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readVarInt(), buf.readVarInt(), ChestEntry.read(buf),
+                CrewEntry.read(buf), buf.readList(b -> b.readUtf()), Hiring.CODEC.decode(buf)));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {
@@ -137,13 +203,13 @@ public final class ScreenPayloads {
         }
     }
 
-    public record CheckResult(int builderId, String file, BlockPos origin, String rotation, String options, List<Component> lines,
+    public record CheckResult(int foremanId, String file, BlockPos origin, String rotation, String options, List<Component> lines,
                               boolean passed, boolean started, String error, int unplaceable, int missing, boolean missingTools)
             implements CustomPacketPayload {
 
         public static final Type<CheckResult> TYPE = payloadType("check_result");
         public static final StreamCodec<RegistryFriendlyByteBuf, CheckResult> CODEC = StreamCodec.of((buf, value) -> {
-            buf.writeVarInt(value.builderId);
+            buf.writeVarInt(value.foremanId);
             buf.writeUtf(value.file);
             buf.writeBlockPos(value.origin);
             buf.writeUtf(value.rotation);
@@ -164,11 +230,11 @@ public final class ScreenPayloads {
         }
     }
 
-    public record LinkMode(int builderId, boolean active, boolean supply, List<ChestEntry> chests) implements CustomPacketPayload {
+    public record LinkMode(int foremanId, boolean active, boolean supply, List<ChestEntry> chests) implements CustomPacketPayload {
 
         public static final Type<LinkMode> TYPE = payloadType("link_mode");
         public static final StreamCodec<RegistryFriendlyByteBuf, LinkMode> CODEC = StreamCodec.of((buf, value) -> {
-            buf.writeVarInt(value.builderId);
+            buf.writeVarInt(value.foremanId);
             buf.writeBoolean(value.active);
             buf.writeBoolean(value.supply);
             ChestEntry.write(buf, value.chests);
@@ -180,15 +246,15 @@ public final class ScreenPayloads {
         }
     }
 
-    public record BuilderAction(int builderId, String action, String text, BlockPos pos) implements CustomPacketPayload {
+    public record Action(int journeymanId, String action, String text, BlockPos pos) implements CustomPacketPayload {
 
-        public static final Type<BuilderAction> TYPE = payloadType("builder_action");
-        public static final StreamCodec<RegistryFriendlyByteBuf, BuilderAction> CODEC = StreamCodec.of((buf, value) -> {
-            buf.writeVarInt(value.builderId);
+        public static final Type<Action> TYPE = payloadType("journeyman_action");
+        public static final StreamCodec<RegistryFriendlyByteBuf, Action> CODEC = StreamCodec.of((buf, value) -> {
+            buf.writeVarInt(value.journeymanId);
             buf.writeUtf(value.action, 64);
             buf.writeUtf(value.text, 1024);
             buf.writeBlockPos(value.pos);
-        }, buf -> new BuilderAction(buf.readVarInt(), buf.readUtf(64), buf.readUtf(1024), buf.readBlockPos()));
+        }, buf -> new Action(buf.readVarInt(), buf.readUtf(64), buf.readUtf(1024), buf.readBlockPos()));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

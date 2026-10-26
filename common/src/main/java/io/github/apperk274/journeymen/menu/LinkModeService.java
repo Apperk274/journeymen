@@ -2,7 +2,6 @@ package io.github.apperk274.journeymen.menu;
 
 import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.ItemStores;
-import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
@@ -35,7 +34,7 @@ public final class LinkModeService {
         SESSIONS.put(player.getUUID(), new Session(foreman.getId(), supply, player.level().getGameTime() + SESSION_TICKS));
         player.sendSystemMessage(Component.literal("Right-click chests to link them as " + (supply ? "supply" : "dump") + " chests for "
                 + foreman.getJourneymanName() + ". Right-click a linked chest again to unlink it. Right-click "
-                + foreman.getJourneymanName() + " or one of his builders to finish.")
+                + foreman.getJourneymanName() + " to finish.")
                 .withStyle(ChatFormatting.YELLOW));
         send(player, foreman, true, supply);
     }
@@ -75,9 +74,8 @@ public final class LinkModeService {
         if (session == null) {
             return false;
         }
-        ForemanEntity foreman = clicked instanceof ForemanEntity self ? self : clicked instanceof BuilderEntity builder ? builder.foreman() : null;
-        boolean same = foreman != null && session.foremanId() == foreman.getId();
-        stop(player, same ? "Finished linking chests for " + foreman.getJourneymanName() + "." : "Linking chests has ended.");
+        boolean same = clicked instanceof ForemanEntity && session.foremanId() == clicked.getId();
+        stop(player, same ? "Finished linking chests for " + clicked.getJourneymanName() + "." : "Linking chests has ended.");
         return same;
     }
 

@@ -78,18 +78,26 @@ public final class Status {
         }
         lines.add(line("Crew of " + crew.size() + ":"));
         for (JourneymanRegistry.Entry member : crew) {
-            JourneymanEntity loaded = Targets.find(server, member);
-            String doing;
-            if (!(loaded instanceof BuilderEntity builder)) {
-                doing = "not loaded";
-            } else if (job != null && builder.getJob() != job) {
-                doing = !builder.level().dimension().equals(job.getDimension()) ? "in another dimension"
-                        : ForemanEntity.canTakePart(builder, job.getDimension(), job.getArea()) ? "joining" : "too far from the site";
-            } else {
-                doing = task(builder);
-            }
-            lines.add(line("  " + member.name() + ": " + doing));
+            lines.add(line("  " + member.name() + ": " + crewMember(server, job, member).doing()));
         }
+    }
+
+    public record CrewMember(String doing, boolean available) {
+    }
+
+    public static CrewMember crewMember(MinecraftServer server, @Nullable BuildJob job, JourneymanRegistry.Entry member) {
+        JourneymanEntity loaded = Targets.find(server, member);
+        if (!(loaded instanceof BuilderEntity builder)) {
+            return new CrewMember("not loaded", false);
+        }
+        if (job != null && builder.getJob() != job) {
+            if (!builder.level().dimension().equals(job.getDimension())) {
+                return new CrewMember("in another dimension", false);
+            }
+            boolean close = ForemanEntity.canTakePart(builder, job.getDimension(), job.getArea());
+            return new CrewMember(close ? "joining" : "too far from the site", close);
+        }
+        return new CrewMember(task(builder), true);
     }
 
     private static void builderJob(BuilderEntity builder, List<Component> lines) {
@@ -103,7 +111,7 @@ public final class Status {
         lines.add(line("Task: " + task(builder)));
     }
 
-    private static String task(BuilderEntity builder) {
+    public static String task(BuilderEntity builder) {
         if (builder.getJob() != null && builder.getWork().getPhase() == BuildJob.Phase.PAUSED && builder.getWork().getPauseReason() != null) {
             return "paused: " + builder.getWork().getPauseReason();
         }
@@ -134,7 +142,7 @@ public final class Status {
         return "at " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " in " + entry.dimension().location();
     }
 
-    static String activity(@Nullable JourneymanEntity journeyman) {
+    public static String activity(@Nullable JourneymanEntity journeyman) {
         if (journeyman == null) {
             return "not loaded";
         }

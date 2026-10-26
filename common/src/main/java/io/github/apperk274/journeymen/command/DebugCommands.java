@@ -10,9 +10,11 @@ import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
+import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.menu.BuilderMenu;
-import io.github.apperk274.journeymen.menu.BuilderScreenService;
+import io.github.apperk274.journeymen.menu.ForemanMenu;
 import io.github.apperk274.journeymen.menu.LinkModeService;
+import io.github.apperk274.journeymen.menu.ScreenActions;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.commands.CommandSource;
@@ -29,6 +31,8 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.List;
 
 public class DebugCommands {
 
@@ -63,12 +67,16 @@ public class DebugCommands {
         ServerPlayer player = context.getSource().getPlayerOrException();
         Entity entity = EntityArgument.getEntity(context, "journeyman");
         String text = StringArgumentType.getString(context, "text");
-        BuilderScreenService.handle(new ScreenPayloads.BuilderAction(entity.getId(), StringArgumentType.getString(context, "action"),
-                text.equals("-") ? "" : text.replace('|', '\n'), BlockPosArgument.getBlockPos(context, "pos")), player);
+        ScreenActions.handle(new ScreenPayloads.Action(entity.getId(), StringArgumentType.getString(context, "action"),
+                text.equals("-") ? "" : text.replace('|', '\n'), BlockPosArgument.getBlockPos(context, "pos")), player, message -> {
+            Constants.LOG.info("[debug reply] {}", message.getString());
+            player.sendSystemMessage(message);
+        });
         if (entity instanceof JourneymanEntity journeyman) {
             ForemanEntity foreman = journeyman instanceof ForemanEntity self ? self : ((BuilderEntity) journeyman).foreman();
-            Constants.LOG.info("[debug action] {} alive={} following={} job={} chests={}", journeyman.getJourneymanName(), journeyman.isAlive(),
-                    journeyman.isFollowing(), journeyman.getJob() == null ? "-" : journeyman.getJob().getFile(),
+            List<String> crew = foreman == null ? List.of() : foreman.crewEntries().stream().map(JourneymanRegistry.Entry::name).sorted().toList();
+            Constants.LOG.info("[debug action] {} alive={} following={} job={} crew={} chests={}", journeyman.getJourneymanName(), journeyman.isAlive(),
+                    journeyman.isFollowing(), journeyman.getJob() == null ? "-" : journeyman.getJob().getFile(), crew,
                     foreman == null ? "-" : foreman.getChests());
         }
         return 1;
@@ -95,7 +103,8 @@ public class DebugCommands {
         boolean linkingBefore = LinkModeService.isLinking(player);
         InteractionResult result = player.interactOn(entity, InteractionHand.MAIN_HAND);
         Constants.LOG.info("[debug interact] {} result={} linking={}->{} menu={}", entity.getName().getString(), result, linkingBefore,
-                LinkModeService.isLinking(player), player.containerMenu instanceof BuilderMenu menu ? "builder tab " + menu.getActiveTab() : "none");
+                LinkModeService.isLinking(player), player.containerMenu instanceof BuilderMenu menu ? "builder tab " + menu.getActiveTab()
+                        : player.containerMenu instanceof ForemanMenu menu ? "foreman tab " + menu.getActiveTab() : "none");
         return 1;
     }
 

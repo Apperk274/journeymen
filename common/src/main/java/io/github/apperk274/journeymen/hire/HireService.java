@@ -17,6 +17,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -178,6 +179,31 @@ public final class HireService {
         }
         return List.of(Component.literal(foreman.getJourneymanName() + " hired " + name + " for ").append(payment.paid())
                 .append(Component.literal(".")).withStyle(ChatFormatting.GREEN));
+    }
+
+    @Nullable
+    public static String adopt(MinecraftServer server, ForemanEntity foreman, JourneymanRegistry.Entry entry) {
+        JourneymanRegistry registry = JourneymanRegistry.get(server);
+        if (entry.kind() != JourneymanRegistry.Kind.BUILDER) {
+            return entry.name() + " is a " + entry.kind().id() + ", not a builder.";
+        }
+        if (!entry.owner().equals(foreman.getOwner())) {
+            return entry.name() + " and " + foreman.getJourneymanName() + " work for different players.";
+        }
+        if (entry.foreman() != null) {
+            String current = registry.get(entry.foreman()).map(JourneymanRegistry.Entry::name).orElse("another foreman");
+            return entry.name() + (entry.foreman().equals(foreman.getUUID()) ? " is already in " + foreman.getJourneymanName() + "'s crew."
+                    : " is in " + current + "'s crew. Crews are fixed.");
+        }
+        if (foreman.isCrewFull()) {
+            return foreman.getJourneymanName() + "'s crew is full (" + JourneymenConfig.MAX_CREW_SIZE.get() + " builders).";
+        }
+        if (registry.loaded(server, entry.id()) instanceof BuilderEntity builder) {
+            builder.setForeman(foreman);
+        } else {
+            registry.setForeman(entry.id(), foreman.getUUID());
+        }
+        return null;
     }
 
     private record Payment(@Nullable Component paid, @Nullable Component error) {

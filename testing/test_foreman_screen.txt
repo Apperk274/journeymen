@@ -1,0 +1,126 @@
+forceload add 2304 2304 2368 2368
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 2304 99 2304 2368 99 2368 minecraft:grass_block
+fill 2304 100 2304 2368 104 2368 minecraft:air
+kill @e[type=item]
+setblock 2310 100 2310 minecraft:chest
+setblock 2312 100 2310 minecraft:chest
+setblock 2314 100 2310 minecraft:chest
+journeymen debug gamemode Crewer survival
+journeymen debug as Crewer 2 2320 100 2317 clear @s
+journeymen debug as Crewer 2 2320 100 2316 journeymen foreman summon Rita
+waitlog Summoned foreman Rita
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] hire ~ ~ ~ Hank
+waitlog \[debug reply\] Hiring a builder costs 10 Emerald, but you only have 0\.
+journeymen debug as Crewer 2 2320 100 2317 give @s minecraft:emerald 25
+journeymen debug as Crewer 2 2340 100 2340 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] hire ~ ~ ~ Hank
+waitlog \[debug reply\] You need to be within 8 blocks of Rita to hire a builder\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] hire ~ ~ ~ Hank
+waitlog \[debug reply\] Rita hired Hank for 10 Emerald\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] hire ~ ~ ~ Hank
+waitlog \[debug reply\] You already have a journeyman named Hank\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] hire ~ ~ ~ Iris
+waitlog \[debug reply\] Rita hired Iris for 15 Emerald\.
+waitlog \[debug action\] Rita alive=true following=false job=- crew=\[Hank, Iris\] chests=\[\]
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] hire ~ ~ ~ Jo
+waitlog \[debug reply\] Hiring a builder costs 20 Emerald, but you only have 0\.
+journeymen debug as Alex 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] hire ~ ~ ~ Jo
+waitlog \[debug reply\] Rita works for someone else\.
+journeymen debug as Crewer 2 2330 100 2316 journeymen foreman summon Vera
+journeymen debug as Crewer 2 2330 100 2316 journeymen builder summon Vera Otto
+waitlog Summoned Otto into Vera's crew\.
+journeymen debug as Crewer 2 2330 100 2316 journeymen foreman kill Vera
+waitlog Killed Vera\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] adopt ~ ~ ~ Nobody
+waitlog \[debug reply\] Crewer has no builder named Nobody\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] adopt ~ ~ ~ Hank
+waitlog \[debug reply\] Hank is already in Rita's crew\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] adopt ~ ~ ~ Otto
+waitlog \[debug reply\] Rita adopted Otto\.
+waitlog \[debug action\] Rita alive=true following=false job=- crew=\[Hank, Iris, Otto\]
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] link_supply ~ ~ ~ -
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug use 2310 100 2310
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug use 2312 100 2310
+mark
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug interact @e[type=journeymen:foreman,name=Rita,limit=1]
+waitlog \[screen\] Crewer opens Rita's screen on the Chests tab
+waitlog \[debug interact\] Rita result=\w+ linking=true->false
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] link_dump ~ ~ ~ -
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug use 2314 100 2310
+mark
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug interact @e[type=journeymen:builder,name=Hank,limit=1]
+waitlog \[screen\] Crewer opens Hank's screen on the Inventory tab
+waitlog \[debug interact\] Hank result=\w+ linking=true->false
+mark
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug interact @e[type=journeymen:foreman,name=Rita,limit=1]
+waitlog \[screen\] Crewer opens Rita's screen on the Job tab
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] remove_chest 2312 100 2310 -
+waitlog \[debug reply\] Rita no longer uses the chest at 2312, 100, 2310\.
+waitlog \[debug action\] Rita .* chests=\[AssignedChest\[pos=BlockPos\{x=2310, y=100, z=2310\}, role=SUPPLY\], AssignedChest\[pos=BlockPos\{x=2314, y=100, z=2310\}, role=DUMP\]\]$
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] remove_chest 2312 100 2310 -
+waitlog \[debug reply\] Rita has no chest at 2312, 100, 2310\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] check 2330 100 2330 test_missing.schem|none|corner
+waitlog \[check\] Crewer for Rita: Check test_missing\.schem for Rita's crew at 2330, 100, 2330, rotation none, options corner; .* -> fails
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] start 2330 100 2330 test_missing.schem|none|corner
+waitlog \[debug reply\] Rita can't start this job yet\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] supply_missing 2330 100 2330 test_missing.schem|none|corner
+waitlog \[debug reply\] Only players in creative mode can supply missing items\.
+journeymen debug gamemode Crewer creative
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] supply_missing 2330 100 2330 test_missing.schem|none|corner
+waitlog \[supply\] Crewer for Rita: Supplied \d+ missing items for test_missing\.schem: \d+ into Rita's supply chests\. The check passes now\.
+journeymen debug gamemode Crewer survival
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] start 2330 100 2330 test_missing.schem|none|corner
+waitlog \[debug reply\] Rita's crew is on the way to build test_missing\.schem: \w+, \w+ and \w+\. !!
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] follow ~ ~ ~ -
+waitlog \[debug reply\] Rita is busy with test_missing\.schem\. Cancel the job first\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:builder,name=Hank,limit=1] stay ~ ~ ~ -
+waitlog \[debug reply\] Hank is busy with test_missing\.schem for Rita\. Cancel his job first\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:builder,name=Hank,limit=1] cancel_job ~ ~ ~ -
+waitlog \[debug reply\] Builders take no orders about jobs, chests or crews\. Ask Rita\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] start 2330 100 2330 test_missing.schem|none|corner
+waitlog \[debug reply\] Rita is already working on test_missing\.schem\. Cancel that job first\.
+mark
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] cancel_job ~ ~ ~ -
+waitlog \[debug reply\] Rita's crew stopped working on test_missing\.schem\.
+waitlog \[debug action\] Rita alive=true following=false job=- crew=\[Hank, Iris, Otto\]
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] cancel_job ~ ~ ~ -
+waitlog \[debug reply\] Rita has no job\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] follow ~ ~ ~ -
+waitlog \[debug reply\] Rita follows you now\.
+waitlog \[debug action\] Rita alive=true following=true
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] stay ~ ~ ~ -
+waitlog \[debug reply\] Rita stays here now\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] rename ~ ~ ~ Hank
+waitlog \[debug reply\] Crewer already has a journeyman named Hank\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] rename ~ ~ ~ Rosa
+waitlog \[debug reply\] Rita is now called Rosa\.
+journeymen debug as Alex 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rosa,limit=1] notices ~ ~ ~ -
+waitlog \[debug reply\] Rosa works for someone else\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rosa,limit=1] notices ~ ~ ~ -
+waitlog \[debug reply\] \[Vera\] I (died|'m gone)\. Otto has no foreman now
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rosa,limit=1] notices ~ ~ ~ -
+waitlog \[debug reply\] Your journeymen have nothing new to tell you\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen builder summon Rosa B4
+journeymen debug as Crewer 2 2320 100 2317 journeymen builder summon Rosa B5
+journeymen debug as Crewer 2 2320 100 2317 journeymen builder summon Rosa B6
+journeymen debug as Crewer 2 2320 100 2317 journeymen builder summon Rosa B7
+journeymen debug as Crewer 2 2320 100 2317 journeymen builder summon Rosa B8
+journeymen debug as Crewer 2 2330 100 2316 journeymen foreman summon Wim
+journeymen debug as Crewer 2 2330 100 2316 journeymen builder summon Wim Pip
+journeymen debug as Crewer 2 2330 100 2316 journeymen foreman kill Wim
+waitlog Killed Wim\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rosa,limit=1] adopt ~ ~ ~ Pip
+waitlog \[debug reply\] Rosa's crew is full \(8 builders\)\.
+journeymen debug as Crewer 2 2320 100 2317 give @s minecraft:emerald 64
+tp @e[type=journeymen:foreman,name=Rosa] 2320 100 2316
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rosa,limit=1] hire ~ ~ ~ Zed
+waitlog x2 \[debug reply\] Rosa's crew is full \(8 builders\)\.
+journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rosa,limit=1] dismiss ~ ~ ~ -
+waitlog \[debug reply\] You dismissed Rosa\.
+ticks 20
+waitfor 5 nosprint execute if entity @e[type=journeymen:foreman,name=Rosa] =~ failed
+mark
+journeymen debug as Crewer 2 2320 100 2317 journeymen builder status Hank
+waitlog Foreman: none \(orphan

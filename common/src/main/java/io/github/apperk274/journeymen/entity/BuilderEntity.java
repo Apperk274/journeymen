@@ -1711,8 +1711,8 @@ public class BuilderEntity extends JourneymanEntity {
     protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (!level().isClientSide) {
             if (canBeCommandedBy(player) && player instanceof ServerPlayer serverPlayer) {
-                boolean linked = LinkModeService.finish(serverPlayer, this);
-                BuilderScreenService.open(serverPlayer, this, linked ? BuilderMenu.CHESTS_TAB : BuilderMenu.INVENTORY_TAB);
+                LinkModeService.finish(serverPlayer, this);
+                BuilderScreenService.open(serverPlayer, this, BuilderMenu.INVENTORY_TAB);
             } else {
                 player.displayClientMessage(Component.literal(getJourneymanName() + " works for someone else."), true);
             }

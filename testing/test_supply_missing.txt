@@ -94,12 +94,12 @@ item replace block 1104 100 1104 container.0 with minecraft:stone_bricks 10
 item replace block 1104 100 1104 container.1 with minecraft:dirt 1
 item replace block 1104 100 1104 container.2 with minecraft:wooden_pickaxe
 kill @e[type=item]
-journeymen debug as Steve 2 1106 100 1106 journeymen debug action @e[type=journeymen:builder,name=Supi,limit=1] supply_missing 1110 100 1110 test_missing.schem|none|corner
+journeymen debug as Steve 2 1106 100 1106 journeymen debug action @e[type=journeymen:foreman,name=SupiBoss,limit=1] supply_missing 1110 100 1110 test_missing.schem|none|corner
 ticks 40
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[3] =~ failed
 journeymen debug gamemode Steve creative
 mark
-journeymen debug as Steve 2 1106 100 1106 journeymen debug action @e[type=journeymen:builder,name=Supi,limit=1] supply_missing 1110 100 1110 test_missing.schem|none|corner
+journeymen debug as Steve 2 1106 100 1106 journeymen debug action @e[type=journeymen:foreman,name=SupiBoss,limit=1] supply_missing 1110 100 1110 test_missing.schem|none|corner
 waitlog nosprint \[supply\] Steve for SupiBoss: Supplied 23 missing items for test_missing.schem: 23 into SupiBoss's supply chests\. The check passes now\. !! \[supply\]
 journeymen debug gamemode Steve survival
 waitfor 5 nosprint execute if data block 1104 100 1104 Items[5] =~ passed

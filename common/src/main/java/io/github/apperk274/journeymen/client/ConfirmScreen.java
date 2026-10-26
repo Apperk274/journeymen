@@ -36,7 +36,7 @@ public class ConfirmScreen extends Screen {
     }
 
     public boolean matches(ScreenPayloads.CheckResult other) {
-        return other.builderId() == result.builderId() && other.file().equals(result.file()) && other.origin().equals(result.origin());
+        return other.foremanId() == result.foremanId() && other.file().equals(result.file()) && other.origin().equals(result.origin());
     }
 
     public void update(ScreenPayloads.CheckResult updated) {
@@ -112,7 +112,7 @@ public class ConfirmScreen extends Screen {
 
     private void send(String action, String options) {
         String text = result.file() + "\n" + result.rotation() + "\n" + options;
-        Services.NETWORK.sendToServer(new ScreenPayloads.BuilderAction(result.builderId(), action, text, result.origin()));
+        Services.NETWORK.sendToServer(new ScreenPayloads.Action(result.foremanId(), action, text, result.origin()));
     }
 
     private void back() {
@@ -125,7 +125,7 @@ public class ConfirmScreen extends Screen {
                     rotation = candidate;
                 }
             }
-            PlacementMode.resume(result.builderId(), info, rotation, result.options());
+            PlacementMode.resume(result.foremanId(), info, rotation, result.options());
         }
     }
 

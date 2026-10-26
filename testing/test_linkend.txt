@@ -14,12 +14,13 @@ journeymen debug as Steve 2 306 100 300 journeymen foreman summon MaxBoss
 journeymen debug as Steve 2 302 100 302 journeymen builder summon GusBoss Gus
 journeymen debug as Steve 2 302 100 302 journeymen builder summon MaxBoss Max
 journeymen debug as Steve 2 302 100 302 journeymen debug interact @e[type=journeymen:builder,name=Gus,limit=1]
-journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] link_supply ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] link_supply ~ ~ ~ -
 journeymen debug as Steve 2 302 100 302 journeymen debug use 300 100 305
 journeymen debug as Steve 2 302 100 302 journeymen debug use 305 100 305
 mark
 journeymen debug as Steve 2 302 100 302 journeymen debug interact @e[type=journeymen:builder,name=Gus,limit=1]
 waitlog \[debug interact\] Gus result=\w+ linking=true->false menu=none
+waitlog \[screen\] Steve opens Gus's screen on the Inventory tab
 journeymen debug as Steve 2 302 100 302 journeymen debug use 307 100 305
 journeymen debug as Steve 2 302 100 302 journeymen foreman chest GusBoss list
 journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] link_dump ~ ~ ~ -
@@ -32,12 +33,13 @@ mark
 journeymen debug as Steve 2 302 100 302 journeymen foreman chest GusBoss list
 waitlog dump chest at 307, 100, 305
 journeymen debug as Alex 2 302 100 302 journeymen debug interact @e[type=journeymen:builder,name=Gus,limit=1]
-journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] link_supply ~ ~ ~ -
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] link_supply ~ ~ ~ -
 journeymen debug as Steve 2 302 100 302 journeymen debug use 307 100 305
 mark
 journeymen debug as Steve 2 302 100 302 journeymen debug interact @e[type=journeymen:foreman,name=GusBoss,limit=1]
 waitlog \[debug interact\] GusBoss result=\w+ linking=true->false
-journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:builder,name=Gus,limit=1] link_supply ~ ~ ~ -
+waitlog \[screen\] Steve opens GusBoss's screen on the Chests tab
+journeymen debug as Steve 2 302 100 302 journeymen debug action @e[type=journeymen:foreman,name=GusBoss,limit=1] link_supply ~ ~ ~ -
 ticks 1260
 journeymen debug as Steve 2 302 100 302 journeymen debug use 305 100 305
 mark

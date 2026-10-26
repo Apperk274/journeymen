@@ -16,7 +16,11 @@ public final class ClientHandlers {
     }
 
     static void builderState(ScreenPayloads.BuilderState payload) {
-        ClientState.STATES.put(payload.builderId(), payload);
+        ClientState.BUILDERS.put(payload.builderId(), payload);
+    }
+
+    static void foremanState(ScreenPayloads.ForemanState payload) {
+        ClientState.FOREMEN.put(payload.foremanId(), payload);
     }
 
     static void schematicList(ScreenPayloads.SchematicList payload) {
