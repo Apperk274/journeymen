@@ -1,8 +1,8 @@
 # Journeymen
 
-A Minecraft 1.21.1 mod for NeoForge and Fabric. Summon a journeyman, hand them a schematic, materials and tools, and they build it block by block, the way a player would.
+A Minecraft 1.21.1 mod for NeoForge and Fabric. Hire a foreman, hand him a schematic, materials and tools, and his crew of builders build it block by block, the way a player would.
 
-Status: phase 4 (survival UI) implemented, waiting for in-game testing. Builders are hired from a craftable Recruiter's Stall, managed from a tabbed screen (inventory and armor, job, chests, orders), and given a schematic by placing a ghost preview in the world; it clears the site and builds it by hand, shows its progress in a boss bar and keeps its owner informed. Everything can also be done with `/journeymen` commands. It works with TerraFirmaCraft modpacks: TFC soils, farmland, paths, buckets, storage and emeralds are handled, and `:neoforge:runTfcServer` / `:neoforge:runTfcClient` run it with a TFC mod set (see `CLAUDE.md`). See `CLAUDE.md` for the design and roadmap.
+Status: phase 4 (survival UI) implemented, waiting for in-game testing; phase 6 (foremen) is designed but not built yet. In that design you hire a foreman from a craftable Recruiter's Stall, he hires builders for his crew, and you give him a schematic by placing a ghost preview in the world. He keeps the job, the supply and dump chests and the plan, shows progress in a boss bar and keeps you informed, while his builders clear the site and build it by hand. Everything can also be done with `/journeymen` commands. It works with TerraFirmaCraft modpacks: TFC soils, farmland, paths, buckets, storage and emeralds are handled, and `:neoforge:runTfcServer` / `:neoforge:runTfcClient` run it with a TFC mod set (see `CLAUDE.md`). See `CLAUDE.md` for the design and roadmap.
 
 ## Requirements
 
@@ -54,7 +54,7 @@ Journeymen is licensed under the GNU Lesser General Public License v3.0 only (`L
 
 ## Example schematics
 
-`examples/schematics/` has schematics that show off what a builder can do. Copy them into the `schematics/` folder of your game directory (the dev run folders already have them). Builders read WorldEdit/Sponge `.schem`, Litematica `.litematic`, vanilla structure `.nbt` and old MCEdit/WorldEdit `.schematic` files from that folder and its subfolders.
+`examples/schematics/` has schematics that show off what a builder can do. Copy them into the `schematics/` folder of your game directory (the dev run folders already have them). The mod reads WorldEdit/Sponge `.schem`, Litematica `.litematic`, vanilla structure `.nbt` and old MCEdit/WorldEdit `.schematic` files from that folder and its subfolders.
 
 - `wheat_farm.nbt`: tilled farmland around a water source with wheat, carrots, potatoes and beetroot (planted young, like a player would), a fence with a gate and torches.
 - `cottage.schem`: a small house saved by WorldEdit with a paste offset, so its origin is the front door.
