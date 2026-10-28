@@ -865,13 +865,14 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     public void fetchAmounts(ItemStore store, ItemCounter amounts) {
+        int keepEmpty = 0;
         for (Map.Entry<ItemStack, Long> entry : amounts.entries()) {
             for (int slot = 0; slot < store.size() && amounts.count(entry.getKey()) > 0; slot++) {
                 ItemStack stack = store.get(slot);
                 if (!ItemMatch.same(stack, entry.getKey())) {
                     continue;
                 }
-                int count = (int) Math.min(Math.min(amounts.count(stack), stack.getCount()), roomFor(stack));
+                int count = (int) Math.min(Math.min(amounts.count(stack), stack.getCount()), roomFor(stack, keepEmpty));
                 if (count <= 0) {
                     continue;
                 }
@@ -883,21 +884,31 @@ public class BuilderEntity extends JourneymanEntity {
                 }
                 putBack(store, slot, remainder);
             }
+            long left = amounts.count(entry.getKey());
+            if (left > 0) {
+                int max = Math.max(1, Math.min(entry.getKey().getMaxStackSize(), inventory.getMaxStackSize()));
+                keepEmpty += (int) ((Math.max(0, left - roomFor(entry.getKey(), Integer.MAX_VALUE)) + max - 1) / max);
+            }
         }
         inventory.setChanged();
     }
 
     private int roomFor(ItemStack stack) {
+        return roomFor(stack, 0);
+    }
+
+    private int roomFor(ItemStack stack, int keepEmpty) {
         int max = Math.min(stack.getMaxStackSize(), inventory.getMaxStackSize());
         int room = 0;
+        int empty = 0;
         for (ItemStack existing : inventory.getItems()) {
             if (existing.isEmpty()) {
-                room += max;
+                empty++;
             } else if (ItemStack.isSameItemSameComponents(existing, stack)) {
                 room += Math.max(0, max - existing.getCount());
             }
         }
-        return room;
+        return room + Math.max(0, empty - keepEmpty) * max;
     }
 
     private void putBack(ItemStore store, int slot, ItemStack remainder) {
@@ -1466,8 +1477,17 @@ public class BuilderEntity extends JourneymanEntity {
         if (hasDumpableItems()) {
             startDump();
         } else {
-            pauseJob(getJourneymanName() + "'s inventory is full of things it still needs, so it can't carry the next materials. Please take out what it doesn't need.");
+            pauseJob(noRoomForMaterials(keep));
         }
+    }
+
+    private String noRoomForMaterials(ItemCounter keep) {
+        if (hasSpareItems(keep)) {
+            return getJourneymanName() + "'s inventory is full, so it can't carry the next materials, and "
+                    + (firstSupplyChest() == null ? "I have no supply chest to take back what it doesn't need yet. Please give me one."
+                    : "my supply chests have no room to take back what it doesn't need yet. Please make room in my supply chests.");
+        }
+        return getJourneymanName() + "'s inventory is full of things it still needs, so it can't carry the next materials. Please take out what it doesn't need.";
     }
 
     private boolean withinRedoLimit(BlockPos pos) {
@@ -1491,19 +1511,27 @@ public class BuilderEntity extends JourneymanEntity {
                 }
             }
         }
-        int freeSlots = (int) inventory.getItems().stream().filter(ItemStack::isEmpty).count();
+        int freeSlots = freeSlots();
         int toolSlots = (int) inventory.getItems().stream().filter(stack -> !stack.isEmpty() && isTool(stack)).count();
-        ItemCounter soon = withImmediate(placing.upcomingNeeds(INVENTORY_SIZE - toolSlots, new ItemCounter()), immediate);
+        ItemCounter soon = placing.upcomingNeeds(INVENTORY_SIZE - toolSlots, new ItemCounter());
         boolean unloading = soon.slotsBeyond(inInventory) > freeSlots && queueUnload(soon);
-        if (!unloading && freeSlots == 0) {
+        ItemCounter first = new ItemCounter();
+        if (immediate != null) {
+            immediate.forEach(stack -> first.add(stack, stack.getCount()));
+        }
+        if (!unloading && first.slotsBeyond(inInventory) > freeSlots) {
             if (hasDumpableItems()) {
                 startDump();
             } else {
-                pauseJob(getJourneymanName() + "'s inventory is full of things it still needs, so it can't carry the next materials. Please take out what it doesn't need.");
+                pauseJob(noRoomForMaterials(soon));
             }
             return;
         }
-        ItemCounter wanted = missingFrom(unloading ? soon : withImmediate(placing.upcomingNeeds(freeSlots, inInventory), immediate), inInventory);
+        ItemCounter fetchable = fetchableStock();
+        ItemCounter wanted = new ItemCounter();
+        for (Map.Entry<ItemStack, Long> entry : missingFrom(unloading ? soon : placing.upcomingNeeds(freeSlots, inInventory), inInventory).entries()) {
+            wanted.add(entry.getKey(), Math.min(entry.getValue(), fetchable.count(entry.getKey())));
+        }
         for (BlockRequirements.ToolUse use : placing.remainingToolUses()) {
             Predicate<ItemStack> usable = PlacingTask.toolFor(use, job.getOptions().allowBreakingEnchanted());
             if (findSlot(usable) < 0) {
@@ -1520,6 +1548,11 @@ public class BuilderEntity extends JourneymanEntity {
             }
         }
         if (wanted.isEmpty()) {
+            if (immediate != null && job.getOptions().skipMissing()) {
+                placing.skipCurrent();
+            } else if (immediate != null) {
+                pauseForMaterials();
+            }
             return;
         }
         boolean queued = false;
@@ -1536,20 +1569,6 @@ public class BuilderEntity extends JourneymanEntity {
         if (!queued && !job.getOptions().skipMissing()) {
             pauseForMaterials();
         }
-    }
-
-    private static ItemCounter withImmediate(ItemCounter needs, @Nullable List<ItemStack> immediate) {
-        if (immediate == null) {
-            return needs;
-        }
-        ItemCounter result = new ItemCounter();
-        for (ItemStack stack : immediate) {
-            result.add(stack, Math.max(stack.getCount(), needs.count(stack)) - result.count(stack));
-        }
-        for (Map.Entry<ItemStack, Long> entry : needs.entries()) {
-            result.add(entry.getKey(), entry.getValue() - result.count(entry.getKey()));
-        }
-        return result;
     }
 
     private static ItemCounter missingFrom(ItemCounter needs, ItemCounter available) {

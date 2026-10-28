@@ -1,0 +1,140 @@
+forceload add 3264 3264 3359 3343
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 3264 99 3264 3359 99 3343 minecraft:smooth_stone
+fill 3264 100 3264 3359 103 3343 minecraft:air
+kill @e[type=item]
+# the first fetch takes one of each of the 27 kinds of the first row (all its room) from the first supply chest; the terracotta next to the chests is in the second one: it places what it carries first, then fetches the terracotta, never pausing with a full inventory
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3264 100 3264 3359 103 3343 minecraft:air
+setblock 3306 100 3305 minecraft:chest[facing=north,type=left]{Items:[{Slot:0b,id:"minecraft:stone",count:9},{Slot:1b,id:"minecraft:cobblestone",count:9},{Slot:2b,id:"minecraft:oak_planks",count:9},{Slot:3b,id:"minecraft:spruce_planks",count:9},{Slot:4b,id:"minecraft:birch_planks",count:9},{Slot:5b,id:"minecraft:jungle_planks",count:9},{Slot:6b,id:"minecraft:acacia_planks",count:9},{Slot:7b,id:"minecraft:dark_oak_planks",count:9},{Slot:8b,id:"minecraft:mangrove_planks",count:9},{Slot:9b,id:"minecraft:cherry_planks",count:9},{Slot:10b,id:"minecraft:bamboo_planks",count:9},{Slot:11b,id:"minecraft:crimson_planks",count:9},{Slot:12b,id:"minecraft:warped_planks",count:9},{Slot:13b,id:"minecraft:stone_bricks",count:9},{Slot:14b,id:"minecraft:mossy_stone_bricks",count:9},{Slot:15b,id:"minecraft:bricks",count:9},{Slot:16b,id:"minecraft:sandstone",count:9},{Slot:17b,id:"minecraft:red_sandstone",count:9},{Slot:18b,id:"minecraft:andesite",count:9},{Slot:19b,id:"minecraft:diorite",count:9},{Slot:20b,id:"minecraft:granite",count:9},{Slot:21b,id:"minecraft:polished_andesite",count:9},{Slot:22b,id:"minecraft:polished_diorite",count:9},{Slot:23b,id:"minecraft:polished_granite",count:9},{Slot:24b,id:"minecraft:cobbled_deepslate",count:9},{Slot:25b,id:"minecraft:tuff",count:9},{Slot:26b,id:"minecraft:calcite",count:9}]}
+setblock 3307 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3312 100 3305 minecraft:chest[facing=north,type=left]{Items:[{Slot:0b,id:"minecraft:terracotta",count:64},{Slot:1b,id:"minecraft:terracotta",count:64},{Slot:2b,id:"minecraft:terracotta",count:61}]}
+setblock 3313 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3318 100 3305 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3319 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3300 100 3302 journeymen foreman summon PutBoss
+journeymen debug as Steve 2 3309 100 3303 journeymen builder summon PutBoss Putty
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest PutBoss add 3306 100 3305 supply
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest PutBoss add 3312 100 3305 supply
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest PutBoss add 3318 100 3305 dump
+mark
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman build PutBoss test_putback.schem 3300 100 3290 none corner
+waitlog nosprint PutBoss's crew is on the way !!
+waitlog 30 \[Steve\.PutBoss\] I finished building test_putback\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed
+mark
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman check PutBoss test_putback.schem 3300 100 3290 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# it starts with all 243 blocks of the 27 kinds in its 27 slots and an empty first supply chest: after the first row it puts back what the next blocks don't need, fetches the terracotta and later takes the rest back
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3264 100 3264 3359 103 3343 minecraft:air
+setblock 3306 100 3305 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3307 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3312 100 3305 minecraft:chest[facing=north,type=left]{Items:[{Slot:0b,id:"minecraft:terracotta",count:64},{Slot:1b,id:"minecraft:terracotta",count:64},{Slot:2b,id:"minecraft:terracotta",count:61}]}
+setblock 3313 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3318 100 3305 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3319 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3300 100 3302 journeymen foreman summon BackBoss
+journeymen debug as Steve 2 3309 100 3303 journeymen builder summon BackBoss Backy
+summon item 3309 100 3303 {Item:{id:'minecraft:stone',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:cobblestone',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:oak_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:spruce_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:birch_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:jungle_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:acacia_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:dark_oak_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:mangrove_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:cherry_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:bamboo_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:crimson_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:warped_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:stone_bricks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:mossy_stone_bricks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:bricks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:sandstone',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:red_sandstone',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:andesite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:diorite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:granite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:polished_andesite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:polished_diorite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:polished_granite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:cobbled_deepslate',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:tuff',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:calcite',count:9}}
+ticks 60
+waitfor 5 execute if data entity @e[type=journeymen:builder,name=Backy,limit=1] Inventory.Items[26] =~ passed
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest BackBoss add 3306 100 3305 supply
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest BackBoss add 3312 100 3305 supply
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest BackBoss add 3318 100 3305 dump
+mark
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman build BackBoss test_putback.schem 3300 100 3290 none corner
+waitlog nosprint BackBoss's crew is on the way !!
+waitlog 30 \[Steve\.BackBoss\] I finished building test_putback\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed
+waitlog nosprint \[unload\] Steve\.Backy stores \d+ items at 3306, 100, 3305
+mark
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman check BackBoss test_putback.schem 3300 100 3290 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# the same with a crew of two, only one of them carrying the 243 blocks
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3264 100 3264 3359 103 3343 minecraft:air
+setblock 3306 100 3305 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3307 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3312 100 3305 minecraft:chest[facing=north,type=left]{Items:[{Slot:0b,id:"minecraft:terracotta",count:64},{Slot:1b,id:"minecraft:terracotta",count:64},{Slot:2b,id:"minecraft:terracotta",count:61}]}
+setblock 3313 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3318 100 3305 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3319 100 3305 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3300 100 3302 journeymen foreman summon CrewBoss
+journeymen debug as Steve 2 3309 100 3303 journeymen builder summon CrewBoss Carry
+journeymen debug as Steve 2 3322 100 3309 journeymen builder summon CrewBoss Empty
+summon item 3309 100 3303 {Item:{id:'minecraft:stone',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:cobblestone',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:oak_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:spruce_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:birch_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:jungle_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:acacia_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:dark_oak_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:mangrove_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:cherry_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:bamboo_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:crimson_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:warped_planks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:stone_bricks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:mossy_stone_bricks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:bricks',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:sandstone',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:red_sandstone',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:andesite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:diorite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:granite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:polished_andesite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:polished_diorite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:polished_granite',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:cobbled_deepslate',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:tuff',count:9}}
+summon item 3309 100 3303 {Item:{id:'minecraft:calcite',count:9}}
+ticks 60
+waitfor 5 execute if data entity @e[type=journeymen:builder,name=Carry,limit=1] Inventory.Items[26] =~ passed
+waitfor 5 execute if data entity @e[type=journeymen:builder,name=Empty,limit=1] Inventory.Items[0] =~ failed
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest CrewBoss add 3306 100 3305 supply
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest CrewBoss add 3312 100 3305 supply
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman chest CrewBoss add 3318 100 3305 dump
+mark
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman build CrewBoss test_putback.schem 3300 100 3290 none corner
+waitlog nosprint CrewBoss's crew is on the way !!
+waitlog 30 \[Steve\.CrewBoss\] I finished building test_putback\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed
+mark
+journeymen debug as Steve 0 3300 100 3308 journeymen foreman check CrewBoss test_putback.schem 3300 100 3290 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust

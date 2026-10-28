@@ -72,6 +72,13 @@ def soil():
     return {(x, y, z): state("dirt") for x in range(32, 64) for y in range(2) for z in range(32)}
 
 
+def putback():
+    blocks = {(x, 0, 0): state(BOX_KINDS[x]) for x in range(27)}
+    blocks.update({(x, 0, z): state("terracotta") for x in range(27) for z in range(1, 8)})
+    blocks.update({(x, 1, z): state(BOX_KINDS[(x + z) % 27]) for x in range(27) for z in range(8)})
+    return blocks
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -83,6 +90,7 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_row.schem"), (60, 1, 1), row())
     write_sponge_v3(os.path.join(out, "test_dig.schem"), (32, 2, 32), {})
     write_sponge_v3(os.path.join(out, "test_soil.schem"), (64, 2, 32), soil())
+    write_sponge_v3(os.path.join(out, "test_putback.schem"), (27, 2, 8), putback())
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
 

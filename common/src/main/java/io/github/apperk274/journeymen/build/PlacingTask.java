@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -82,6 +83,7 @@ public final class PlacingTask {
     private final Reach reach;
     private final List<Entry> batch = new ArrayList<>();
     private final Map<Entry, Integer> deferred = new HashMap<>();
+    private final Map<Entry, List<ItemStack>> required = new IdentityHashMap<>();
     private boolean newBatch;
     @Nullable
     private TreeMap<Integer, List<Entry>> batchGroup;
@@ -501,7 +503,7 @@ public final class PlacingTask {
         for (TreeMap<Integer, List<Entry>> group : List.of(work.supports, work.ramp)) {
             if (!group.isEmpty()) {
                 currentGroup = group;
-                return reach.choose(builder, group.firstEntry().getValue(), Entry::pos);
+                return reach.choose(builder, carriedFirst(group.firstEntry().getValue()), Entry::pos);
             }
         }
         if (!work.dependents.isEmpty()) {
@@ -509,16 +511,22 @@ public final class PlacingTask {
                 List<Entry> ready = layer.stream().filter(this::canGoInNow).toList();
                 if (!ready.isEmpty()) {
                     currentGroup = work.dependents;
-                    return reach.choose(builder, ready, Entry::pos);
+                    return reach.choose(builder, carriedFirst(ready), Entry::pos);
                 }
             }
             skipStrandedDependents();
         }
         if (!work.fluids.isEmpty()) {
             currentGroup = work.fluids;
-            return reach.choose(builder, work.fluids.firstEntry().getValue(), Entry::pos);
+            return reach.choose(builder, carriedFirst(work.fluids.firstEntry().getValue()), Entry::pos);
         }
         return null;
+    }
+
+    private List<Entry> carriedFirst(List<Entry> entries) {
+        ItemCounter carried = builder.countInventory();
+        List<Entry> covered = entries.stream().filter(entry -> covers(itemsFor(entry), carried)).toList();
+        return covered.isEmpty() ? entries : covered;
     }
 
     private void skipStrandedDependents() {
@@ -807,29 +815,25 @@ public final class PlacingTask {
     }
 
     private ItemCounter upcomingNeeds(int slots, ItemCounter carried, boolean unclaimedOnly) {
-        ItemCounter needs = new ItemCounter();
-        int usedSlots = 0;
+        Window window = new Window(slots, carried);
+        Entry first = unclaimedOnly ? null : current;
+        if (first != null && !window.add(itemsFor(first))) {
+            return window.needs;
+        }
         CrewWork crew = job.getCrewWork();
         for (TreeMap<Integer, List<Entry>> layers : work.groups()) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
-                    if (unclaimedOnly && (batch.contains(entry) || crew.claimedByOther(entry.pos(), builder.getUUID()))) {
+                    if (entry == first || unclaimedOnly && (batch.contains(entry) || crew.claimedByOther(entry.pos(), builder.getUUID()))) {
                         continue;
                     }
-                    for (ItemStack stack : itemsFor(entry)) {
-                        long before = needs.count(stack);
-                        int carriedSlots = ItemCounter.slotsFor(stack, carried.count(stack));
-                        usedSlots += Math.max(0, ItemCounter.slotsFor(stack, before + stack.getCount()) - carriedSlots)
-                                - Math.max(0, ItemCounter.slotsFor(stack, before) - carriedSlots);
-                        if (usedSlots > slots) {
-                            return needs;
-                        }
-                        needs.add(stack, stack.getCount());
+                    if (!window.add(itemsFor(entry))) {
+                        return window.needs;
                     }
                 }
             }
         }
-        return needs;
+        return window.needs;
     }
 
     public static Predicate<ItemStack> toolFor(BlockRequirements.ToolUse use, boolean allowBreakingEnchanted) {
@@ -870,7 +874,8 @@ public final class PlacingTask {
                 if (StateRules.matches(target, level.getBlockState(entry.pos()))) {
                     yield List.of();
                 }
-                yield BlockRequirements.of(StateRules.forPlacement(target), entry.placement().blockEntity(), registries).items();
+                yield required.computeIfAbsent(entry,
+                        key -> BlockRequirements.of(StateRules.forPlacement(target), key.placement().blockEntity(), registries).items());
             }
             case FLUID -> List.of(new ItemStack(target.getFluidState().getType().getBucket()));
             case WATERLOG -> List.of(new ItemStack(Items.WATER_BUCKET));
@@ -933,5 +938,32 @@ public final class PlacingTask {
     @Nullable
     public BlockPos getWaitingAt() {
         return waitingAt;
+    }
+
+    private static final class Window {
+
+        private final ItemCounter needs = new ItemCounter();
+        private final int slots;
+        private final ItemCounter carried;
+        private int usedSlots;
+
+        private Window(int slots, ItemCounter carried) {
+            this.slots = slots;
+            this.carried = carried;
+        }
+
+        private boolean add(List<ItemStack> items) {
+            for (ItemStack stack : items) {
+                long before = needs.count(stack);
+                int carriedSlots = ItemCounter.slotsFor(stack, carried.count(stack));
+                usedSlots += Math.max(0, ItemCounter.slotsFor(stack, before + stack.getCount()) - carriedSlots)
+                        - Math.max(0, ItemCounter.slotsFor(stack, before) - carriedSlots);
+                if (usedSlots > slots) {
+                    return false;
+                }
+                needs.add(stack, stack.getCount());
+            }
+            return true;
+        }
     }
 }
