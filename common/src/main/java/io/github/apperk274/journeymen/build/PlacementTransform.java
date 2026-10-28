@@ -17,6 +17,15 @@ public record PlacementTransform(BlockPos origin, Vec3i base, Rotation rotation)
         return origin.offset(new BlockPos(base.getX() + x, base.getY() + y, base.getZ() + z).rotate(rotation));
     }
 
+    public BlockPos toSchematic(BlockPos world) {
+        Rotation back = switch (rotation) {
+            case CLOCKWISE_90 -> Rotation.COUNTERCLOCKWISE_90;
+            case COUNTERCLOCKWISE_90 -> Rotation.CLOCKWISE_90;
+            default -> rotation;
+        };
+        return world.subtract(origin).rotate(back).subtract(base);
+    }
+
     public BlockState transform(BlockState state) {
         return state.rotate(rotation);
     }

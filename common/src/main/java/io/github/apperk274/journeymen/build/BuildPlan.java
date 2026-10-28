@@ -4,11 +4,13 @@ import io.github.apperk274.journeymen.schematic.Schematic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.SectionPos;
+import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -21,6 +23,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public final class BuildPlan {
 
@@ -62,6 +65,7 @@ public final class BuildPlan {
         int width = schematic.getSize().getX();
         int height = schematic.getSize().getY();
         int length = schematic.getSize().getZ();
+        Function<BlockPos, BlockState> neighbours = neighbours(level, schematic, transform);
         for (int y = 0; y < height; y++) {
             for (int z = 0; z < length; z++) {
                 for (int x = 0; x < width; x++) {
@@ -73,23 +77,40 @@ public final class BuildPlan {
                     BlockPos pos = transform.toWorld(x, y, z);
                     BlockState target = transform.transform(schematicState);
                     BlockState actual = level.getBlockState(pos);
-                    plan.classify(level, pos, target, actual, schematic.getBlockEntity(new BlockPos(x, y, z)));
+                    plan.classify(level, pos, target, actual, schematic.getBlockEntity(new BlockPos(x, y, z)),
+                            BlockDrops.unmadeFrom(target, pos, neighbours));
                 }
             }
         }
         return plan;
     }
 
-    public static BuildPlan of(ServerLevel level, BoundingBox area, List<Placement> targets, boolean skipUnplaceable) {
+    public static Function<BlockPos, BlockState> neighbours(@Nullable ServerLevel level, Schematic schematic, PlacementTransform transform) {
+        Vec3i size = schematic.getSize();
+        return at -> {
+            BlockPos local = transform.toSchematic(at);
+            if (local.getX() >= 0 && local.getY() >= 0 && local.getZ() >= 0
+                    && local.getX() < size.getX() && local.getY() < size.getY() && local.getZ() < size.getZ()) {
+                BlockState state = schematic.getBlock(local);
+                if (state != null) {
+                    return transform.transform(state);
+                }
+            }
+            return level != null && level.isLoaded(at) ? level.getBlockState(at) : Blocks.AIR.defaultBlockState();
+        };
+    }
+
+    public static BuildPlan of(ServerLevel level, BoundingBox area, List<Placement> targets, boolean skipUnplaceable, Map<BlockPos, BlockState> unmade) {
         BuildPlan plan = new BuildPlan(area, skipUnplaceable);
         for (Placement target : targets) {
             plan.totalCount++;
-            plan.classify(level, target.pos(), target.target(), level.getBlockState(target.pos()), target.blockEntity());
+            plan.classify(level, target.pos(), target.target(), level.getBlockState(target.pos()), target.blockEntity(), unmade.get(target.pos()));
         }
         return plan;
     }
 
-    private void classify(ServerLevel level, BlockPos pos, BlockState target, BlockState actual, @Nullable CompoundTag blockEntity) {
+    private void classify(ServerLevel level, BlockPos pos, BlockState target, BlockState actual, @Nullable CompoundTag blockEntity,
+                          @Nullable BlockState unmadeFrom) {
         if (target.getBlock() instanceof LiquidBlock && !target.getFluidState().isSource()) {
             doneCount++;
             return;
@@ -108,6 +129,13 @@ public final class BuildPlan {
                 || target.is(actual.getBlock()) && StateRules.matchesIncludingWater(SandboxLevel.shapedHere(level, pos, target), actual)) {
             doneCount++;
             return;
+        }
+        if (unmadeFrom != null) {
+            if (actual.is(unmadeFrom.getBlock())) {
+                doneCount++;
+                return;
+            }
+            target = unmadeFrom;
         }
         BlockState grownFrom = BlockDrops.grownFrom(target);
         if (grownFrom != null) {

@@ -187,7 +187,7 @@ public final class BuildJob {
             return new ItemCounter();
         }
         if (needsIndex == null) {
-            needsIndex = NeedsIndex.create(schematic, transform(), options, level.registryAccess());
+            needsIndex = NeedsIndex.create(level, schematic, transform(), options, level.registryAccess());
         }
         return needsIndex.remaining(level, items, include, level.registryAccess());
     }

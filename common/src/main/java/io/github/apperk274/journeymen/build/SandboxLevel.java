@@ -36,7 +36,6 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.lighting.LevelLightEngine;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -47,38 +46,49 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class SandboxLevel implements LevelAccessor {
 
     private final ServerLevel level;
     @Nullable
-    private final BlockPos onlyPos;
-    @Nullable
-    private final BlockState onlyState;
+    private final Function<BlockPos, BlockState> states;
     private final RandomSource random = RandomSource.create(0L);
 
-    private SandboxLevel(ServerLevel level, @Nullable BlockPos onlyPos, @Nullable BlockState onlyState) {
+    private SandboxLevel(ServerLevel level, @Nullable Function<BlockPos, BlockState> states) {
         this.level = level;
-        this.onlyPos = onlyPos;
-        this.onlyState = onlyState;
+        this.states = states;
+    }
+
+    private static Function<BlockPos, BlockState> alone(BlockPos pos, BlockState state) {
+        return at -> at.equals(pos) ? state : Blocks.AIR.defaultBlockState();
     }
 
     public static boolean survivesAlone(ServerLevel level, BlockPos pos, BlockState state) {
         try {
-            return state.canSurvive(new SandboxLevel(level, pos, state), pos);
+            return state.canSurvive(new SandboxLevel(level, alone(pos, state)), pos);
         } catch (RuntimeException e) {
             Constants.LOG.debug("Could not test {} on its own at {}", state, pos, e);
             return false;
         }
     }
 
+    public static boolean survivesAmong(ServerLevel level, BlockPos pos, BlockState state, Function<BlockPos, BlockState> states) {
+        try {
+            return state.canSurvive(new SandboxLevel(level, states), pos);
+        } catch (RuntimeException e) {
+            Constants.LOG.debug("Could not test {} among the schematic's blocks at {}", state, pos, e);
+            return true;
+        }
+    }
+
     public static BlockState shapedAlone(ServerLevel level, BlockPos pos, BlockState state) {
-        return shaped(new SandboxLevel(level, pos, state), pos, state);
+        return shaped(new SandboxLevel(level, alone(pos, state)), pos, state);
     }
 
     public static BlockState shapedHere(ServerLevel level, BlockPos pos, BlockState state) {
-        return shaped(new SandboxLevel(level, null, null), pos, state);
+        return shaped(new SandboxLevel(level, null), pos, state);
     }
 
     private static BlockState shaped(SandboxLevel sandbox, BlockPos pos, BlockState state) {
@@ -91,23 +101,17 @@ public final class SandboxLevel implements LevelAccessor {
     }
 
     private boolean isolated() {
-        return onlyPos != null;
+        return states != null;
     }
 
     @Override
     public BlockState getBlockState(BlockPos at) {
-        if (isolated()) {
-            return at.equals(onlyPos) ? onlyState : Blocks.AIR.defaultBlockState();
-        }
-        return level.getBlockState(at);
+        return states != null ? states.apply(at) : level.getBlockState(at);
     }
 
     @Override
     public FluidState getFluidState(BlockPos at) {
-        if (isolated()) {
-            return at.equals(onlyPos) ? onlyState.getFluidState() : Fluids.EMPTY.defaultFluidState();
-        }
-        return level.getFluidState(at);
+        return states != null ? states.apply(at).getFluidState() : level.getFluidState(at);
     }
 
     @Nullable

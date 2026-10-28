@@ -86,6 +86,17 @@ def redo():
     return blocks
 
 
+def made(path="dirt_path", farmland=state("farmland", moisture=0), dirt="stone"):
+    blocks = {(x, y, z): state("air") for x in range(7) for y in range(2) for z in range(3)}
+    for z in range(3):
+        blocks[(0, 0, z)] = state(path)
+        blocks[(0, 1, z)] = state(dirt)
+        blocks[(2, 0, z)] = farmland
+        blocks[(2, 1, z)] = state(dirt)
+        blocks[(4, 0, z)] = state(path)
+    return blocks
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -99,8 +110,11 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_soil.schem"), (64, 2, 32), soil())
     write_sponge_v3(os.path.join(out, "test_putback.schem"), (27, 2, 8), putback())
     write_sponge_v3(os.path.join(out, "test_redo.schem"), (16, 4, 16), redo())
+    write_sponge_v3(os.path.join(out, "test_made.schem"), (7, 2, 3), made())
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
+        write_sponge_v3(os.path.join(out, "test_tfc_made.schem"), (7, 2, 3),
+                        made("tfc:grass_path/fluvisol", "tfc:farmland/fluvisol", "tfc:quern"))
 
 
 targets = sys.argv[1:] or [os.path.join(REPO, d, "schematics") for d in ("neoforge/run", "neoforge/run-tfc", "fabric/runs/server")

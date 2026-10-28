@@ -1,0 +1,76 @@
+forceload add 3520 3520 3615 3583
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 3520 99 3520 3615 99 3583 minecraft:smooth_stone
+fill 3520 100 3520 3615 103 3583 minecraft:air
+kill @e[type=item]
+# test_made: in each of 3 rows a dirt path and a farmland under stone, which the game turns back into dirt, and a dirt path with air above; the material list and the pre-check count dirt and no shovel or hoe use for the ones under stone
+mark
+journeymen debug as Steve 2 3536 100 3536 journeymen schematic materials test_made.schem
+waitlog \s9 Dirt$ !! uses of a hoe|\s[69] uses of a shovel|Exception
+waitlog \s3 uses of a shovel$ !! uses of a hoe|Exception
+setblock 3536 100 3532 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3537 100 3532 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3542 100 3532 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3543 100 3532 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3536 100 3536 journeymen foreman summon MadeBoss
+journeymen debug as Steve 2 3538 100 3534 journeymen builder summon MadeBoss Maddy
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman chest MadeBoss add 3536 100 3532 supply
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman chest MadeBoss add 3542 100 3532 dump
+mark
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman check MadeBoss test_made.schem 3540 100 3540 none corner
+waitlog Needs a shovel with 3 more use\(s\) left !! Needs a hoe|Needs a shovel with [69]|Exception
+# a builder alone with exactly what the pre-check asks for (one wooden shovel, no hoe); it builds without a redo pass, the spots under stone end as dirt and nothing is dumped
+mark
+journeymen debug as Steve 2 3536 100 3536 journeymen foreman supply MadeBoss test_made.schem 3540 100 3540 none corner missing-only
+waitlog nosprint Supplied 16 missing items !! Not enough room|Could not load|Supplied 1[^6]
+waitfor 5 nosprint execute if data block 3536 100 3532 Items[{id:"minecraft:wooden_hoe"}] =~ failed
+mark
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman build MadeBoss test_made.schem 3540 100 3540 none corner
+waitlog nosprint MadeBoss's crew is on the way !!
+waitlog 30 \[Steve\.MadeBoss\] I finished building test_made\.schem !! can't start this job|\] I'm missing |\] I need |isn't allowed to build|I couldn't build|Exception|\[unload\] Steve\.\w+ dumps \d+ items at .*Dirt
+waitfor 5 nosprint execute if block 3540 100 3540 minecraft:dirt =~ passed
+waitfor 5 nosprint execute if block 3540 100 3542 minecraft:dirt =~ passed
+waitfor 5 nosprint execute if block 3542 100 3541 minecraft:dirt =~ passed
+waitfor 5 nosprint execute if block 3544 100 3540 minecraft:dirt_path =~ passed
+waitfor 5 nosprint execute if block 3544 100 3542 minecraft:dirt_path =~ passed
+waitfor 5 nosprint execute if block 3540 101 3541 minecraft:stone =~ passed
+waitfor 5 nosprint execute if block 3542 101 3542 minecraft:stone =~ passed
+waitfor 5 nosprint execute if data block 3542 100 3532 Items[{id:"minecraft:dirt"}] =~ failed
+mark
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman check MadeBoss test_made.schem 3540 100 3540 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a crew of three with an exact supply, where one spot under stone already holds a dirt path and another farmland: they count as done and turn into dirt once the stone goes on
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3520 100 3520 3615 103 3583 minecraft:air
+setblock 3540 100 3540 minecraft:dirt_path
+setblock 3542 100 3541 minecraft:farmland
+setblock 3536 100 3532 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3537 100 3532 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3542 100 3532 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3543 100 3532 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3536 100 3536 journeymen foreman summon MadeCrew
+journeymen debug as Steve 2 3538 100 3534 journeymen builder summon MadeCrew Mira
+journeymen debug as Steve 2 3539 100 3534 journeymen builder summon MadeCrew Milo
+journeymen debug as Steve 2 3540 100 3534 journeymen builder summon MadeCrew Mona
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman chest MadeCrew add 3536 100 3532 supply
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman chest MadeCrew add 3542 100 3532 dump
+mark
+journeymen debug as Steve 2 3536 100 3536 journeymen foreman supply MadeCrew test_made.schem 3540 100 3540 none corner missing-only
+waitlog nosprint Supplied 14 missing items !! Not enough room|Could not load|Supplied 1[^4]
+mark
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman build MadeCrew test_made.schem 3540 100 3540 none corner
+waitlog nosprint MadeCrew's crew is on the way !!
+waitlog 30 \[Steve\.MadeCrew\] I finished building test_made\.schem !! can't start this job|\] I'm missing |\] I need |isn't allowed to build|I couldn't build|Exception|which another builder claimed|\[unload\] Steve\.\w+ dumps \d+ items at .*Dirt
+waitfor 5 nosprint execute if block 3540 100 3540 minecraft:dirt =~ passed
+waitfor 5 nosprint execute if block 3542 100 3541 minecraft:dirt =~ passed
+waitfor 5 nosprint execute if block 3540 100 3542 minecraft:dirt =~ passed
+waitfor 5 nosprint execute if block 3544 100 3541 minecraft:dirt_path =~ passed
+waitfor 5 nosprint execute if data block 3542 100 3532 Items[{id:"minecraft:dirt"}] =~ failed
+mark
+journeymen debug as Steve 0 3536 100 3536 journeymen foreman check MadeCrew test_made.schem 3540 100 3540 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust

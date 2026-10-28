@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public final class BlockDrops {
 
@@ -51,6 +52,16 @@ public final class BlockDrops {
     @Nullable
     public static Made made(Block target) {
         return MADE.computeIfAbsent(target, BlockDrops::findMade).orElse(null);
+    }
+
+    @Nullable
+    public static BlockState unmadeFrom(BlockState target, BlockPos pos, Function<BlockPos, BlockState> neighbours) {
+        Made made = made(target.getBlock());
+        MinecraftServer current = server;
+        if (made == null || current == null || SandboxLevel.survivesAmong(current.overworld(), pos, target, neighbours)) {
+            return null;
+        }
+        return made.from();
     }
 
     private static Optional<Made> findMade(Block target) {

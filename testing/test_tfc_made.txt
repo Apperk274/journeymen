@@ -1,0 +1,39 @@
+forceload add 320 320 383 383
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 320 199 320 383 199 383 minecraft:smooth_stone
+fill 320 200 320 383 203 383 minecraft:air
+kill @e[type=item]
+# test_tfc_made: in each of 3 rows a fluvisol grass path and farmland under a quern, which TFC turns back into dirt, and a grass path with air above; a crew of three with exactly what the pre-check asks for builds it without a redo pass
+mark
+journeymen debug as Steve 2 336 200 336 journeymen schematic materials test_tfc_made.schem
+waitlog \s9 Fluvisol Dirt$ !! uses of a hoe|\s[69] uses of a shovel|Exception
+waitlog \s3 uses of a shovel$ !! uses of a hoe|Exception
+setblock 336 200 332 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 337 200 332 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 342 200 332 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 343 200 332 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 336 200 336 journeymen foreman summon TfcMade
+journeymen debug as Steve 2 338 200 334 journeymen builder summon TfcMade Tama
+journeymen debug as Steve 2 339 200 334 journeymen builder summon TfcMade Tomo
+journeymen debug as Steve 2 340 200 334 journeymen builder summon TfcMade Tuli
+journeymen debug as Steve 0 336 200 336 journeymen foreman chest TfcMade add 336 200 332 supply
+journeymen debug as Steve 0 336 200 336 journeymen foreman chest TfcMade add 342 200 332 dump
+mark
+journeymen debug as Steve 0 336 200 336 journeymen foreman check TfcMade test_tfc_made.schem 340 200 340 none corner
+waitlog Needs a shovel with 3 more use\(s\) left !! Needs a hoe|Needs a shovel with [69]|Exception
+mark
+journeymen debug as Steve 2 336 200 336 journeymen foreman supply TfcMade test_tfc_made.schem 340 200 340 none corner missing-only
+waitlog nosprint Supplied 16 missing items !! Not enough room|Could not load|Supplied 1[^6]
+mark
+journeymen debug as Steve 0 336 200 336 journeymen foreman build TfcMade test_tfc_made.schem 340 200 340 none corner
+waitlog nosprint TfcMade's crew is on the way !!
+waitlog 30 \[Steve\.TfcMade\] I finished building test_tfc_made\.schem !! can't start this job|\] I'm missing |\] I need |isn't allowed to build|I couldn't build|Exception|which another builder claimed|\[unload\] Steve\.\w+ dumps \d+ items at .*Dirt
+waitfor 5 nosprint execute if block 340 200 340 tfc:dirt/fluvisol =~ passed
+waitfor 5 nosprint execute if block 342 200 341 tfc:dirt/fluvisol =~ passed
+waitfor 5 nosprint execute if block 344 200 342 tfc:grass_path/fluvisol =~ passed
+waitfor 5 nosprint execute if block 340 201 342 tfc:quern =~ passed
+mark
+journeymen debug as Steve 0 336 200 336 journeymen foreman check TfcMade test_tfc_made.schem 340 200 340 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
