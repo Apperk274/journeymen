@@ -48,6 +48,7 @@ public final class ChestVisit {
     @Nullable
     private final ItemCounter amounts;
     private final boolean oneEach;
+    private final boolean fromDump;
     private boolean open;
     private boolean started;
     private int timer;
@@ -60,11 +61,16 @@ public final class ChestVisit {
     private Problem problem;
 
     private ChestVisit(Kind kind, BlockPos chest, Predicate<ItemStack> wanted, @Nullable ItemCounter amounts, boolean oneEach) {
+        this(kind, chest, wanted, amounts, oneEach, kind == Kind.DUMP);
+    }
+
+    private ChestVisit(Kind kind, BlockPos chest, Predicate<ItemStack> wanted, @Nullable ItemCounter amounts, boolean oneEach, boolean fromDump) {
         this.kind = kind;
         this.chest = chest;
         this.wanted = wanted;
         this.amounts = amounts;
         this.oneEach = oneEach;
+        this.fromDump = fromDump;
     }
 
     public static ChestVisit dump(BlockPos chest) {
@@ -85,6 +91,10 @@ public final class ChestVisit {
 
     public static ChestVisit fetchAmounts(BlockPos chest, ItemCounter amounts) {
         return new ChestVisit(Kind.FETCH, chest, stack -> amounts.count(stack) > 0, amounts, false);
+    }
+
+    public static ChestVisit fetchFromDump(BlockPos chest, ItemCounter amounts) {
+        return new ChestVisit(Kind.FETCH, chest, stack -> amounts.count(stack) > 0, amounts, false, true);
     }
 
     public Kind getKind() {
@@ -112,7 +122,7 @@ public final class ChestVisit {
     public Status tick(BuilderEntity builder) {
         ServerLevel level = (ServerLevel) builder.level();
         if (!level.isLoaded(chest)) {
-            failure = "The " + (kind == Kind.DUMP ? "dump" : "supply") + " chest at " + chest.toShortString() + " isn't loaded.";
+            failure = "The " + role() + " chest at " + chest.toShortString() + " isn't loaded.";
             problem = Problem.UNLOADED;
             return Status.FAILED;
         }
@@ -137,9 +147,9 @@ public final class ChestVisit {
                     best = distance;
                     stalledTicks = 0;
                 } else if (++stalledTicks > StuckRecovery.giveUpTicks(GIVE_UP_TICKS)) {
-                    failure = "My builders can't get to the " + (kind == Kind.DUMP ? "dump" : "supply") + " chest at " + chest.toShortString()
+                    failure = "My builders can't get to the " + role() + " chest at " + chest.toShortString()
                             + ". Clear a way to it (they need to get within " + (int) REACH + " blocks of it) or move it; until then they use my other "
-                            + (kind == Kind.DUMP ? "dump" : "supply") + " chests.";
+                            + role() + " chests.";
                     problem = Problem.UNREACHABLE;
                     return Status.FAILED;
                 }
@@ -165,13 +175,17 @@ public final class ChestVisit {
         } else if (kind == Kind.STORE) {
             builder.storeInto(store, chest, amounts);
         } else if (amounts != null) {
-            builder.fetchAmounts(store, amounts);
+            builder.fetchAmounts(store, chest, amounts, fromDump);
         } else {
-            builder.fetchFrom(store, wanted, oneEach);
+            builder.fetchFrom(store, chest, wanted, oneEach, fromDump);
         }
         store.setChanged();
         setOpen(level, false);
         return Status.DONE;
+    }
+
+    private String role() {
+        return fromDump ? "dump" : "supply";
     }
 
     private boolean containsWanted(ItemStore store) {

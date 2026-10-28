@@ -1,0 +1,114 @@
+forceload add 3648 3648 3743 3711
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 3648 99 3648 3743 99 3711 minecraft:smooth_stone
+fill 3648 100 3648 3743 104 3711 minecraft:air
+kill @e[type=item]
+# check and build count only the supply chests and the builders' inventories: 10 planks in the dump chest are still missing
+setblock 3660 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:50}]}
+setblock 3666 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:10}]}
+journeymen debug as Steve 2 3656 100 3662 journeymen foreman summon CheckBoss
+journeymen debug as Steve 2 3662 100 3657 journeymen builder summon CheckBoss Chad
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest CheckBoss add 3660 100 3655 supply
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest CheckBoss add 3666 100 3655 dump
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman check CheckBoss test_row.schem 3660 100 3660 none corner
+waitlog Missing 10 Oak Planks\. 10 are in a dump chest, which doesn't count as stock
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman build CheckBoss test_row.schem 3660 100 3660 none corner
+waitlog can't start this job
+# a builder alone: once the job has started 10 of the 60 planks move from the supply chest into the dump chest, so it takes the 50 from supply and only the 10 the stock lacks from the dump, and never dumps them again
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3648 100 3648 3743 104 3711 minecraft:air
+setblock 3660 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+setblock 3666 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:3}]}
+journeymen debug as Steve 2 3656 100 3662 journeymen foreman summon SoloBoss
+journeymen debug as Steve 2 3662 100 3657 journeymen builder summon SoloBoss Solo
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest SoloBoss add 3660 100 3655 supply
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest SoloBoss add 3666 100 3655 dump
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman build SoloBoss test_row.schem 3660 100 3660 none corner
+waitlog nosprint SoloBoss's crew is on the way !!
+data modify block 3660 100 3655 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:50}]
+data modify block 3666 100 3655 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:15},{Slot:1b,id:"minecraft:cobblestone",count:3}]
+waitlog 30 \[Steve\.SoloBoss\] I finished building test_row\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception|\[unload\] Steve\.\w+ dumps
+waitlog nosprint \[fetch\] Steve\.Solo takes 10 items from the dump chest at 3666, 100, 3655: Oak Planks 10
+waitfor 5 nosprint execute if block 3666 100 3655 minecraft:chest{Items:[{id:"minecraft:oak_planks",count:5},{id:"minecraft:cobblestone",count:3}]} =~ passed
+waitfor 5 nosprint execute if block 3660 100 3655 minecraft:chest{Items:[{id:"minecraft:oak_planks"}]} !~ passed
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman check SoloBoss test_row.schem 3660 100 3660 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# with skip-missing the 5 planks moved into the dump chest are fetched from it, not skipped
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3648 100 3648 3743 104 3711 minecraft:air
+setblock 3660 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+setblock 3666 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:3}]}
+journeymen debug as Steve 2 3656 100 3662 journeymen foreman summon SkipBoss
+journeymen debug as Steve 2 3662 100 3657 journeymen builder summon SkipBoss Skippy
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest SkipBoss add 3660 100 3655 supply
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest SkipBoss add 3666 100 3655 dump
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman build SkipBoss test_row.schem 3660 100 3660 none corner skip-missing
+waitlog nosprint SkipBoss's crew is on the way !!
+data modify block 3660 100 3655 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:55}]
+data modify block 3666 100 3655 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:5},{Slot:1b,id:"minecraft:cobblestone",count:3}]
+waitlog 30 \[Steve\.SkipBoss\] I finished building test_row\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception|\[unload\] Steve\.\w+ dumps
+waitfor 5 nosprint execute if block 3666 100 3655 minecraft:chest{Items:[{id:"minecraft:oak_planks"}]} !~ passed
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman check SkipBoss test_row.schem 3660 100 3660 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a crew of three: 15 planks move into the dump chest after the job has started; the crew takes exactly those 15 from it between them
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3648 100 3648 3743 104 3711 minecraft:air
+setblock 3660 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+setblock 3666 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:3}]}
+journeymen debug as Steve 2 3656 100 3662 journeymen foreman summon CrewBoss
+journeymen debug as Steve 2 3662 100 3657 journeymen builder summon CrewBoss Cora
+journeymen debug as Steve 2 3663 100 3657 journeymen builder summon CrewBoss Cato
+journeymen debug as Steve 2 3664 100 3657 journeymen builder summon CrewBoss Cid
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest CrewBoss add 3660 100 3655 supply
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest CrewBoss add 3666 100 3655 dump
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman build CrewBoss test_row.schem 3660 100 3660 none corner
+waitlog nosprint CrewBoss's crew is on the way !!
+data modify block 3660 100 3655 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:45}]
+data modify block 3666 100 3655 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:20},{Slot:1b,id:"minecraft:cobblestone",count:3}]
+waitlog 30 \[Steve\.CrewBoss\] I finished building test_row\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception|which another builder claimed|\[unload\] Steve\.\w+ dumps
+waitlog nosprint \[fetch\] Steve\.(Cora|Cato|Cid) takes \d+ items from the dump chest at 3666, 100, 3655: Oak Planks
+waitfor 5 nosprint execute if block 3666 100 3655 minecraft:chest{Items:[{id:"minecraft:oak_planks",count:5},{id:"minecraft:cobblestone",count:3}]} =~ passed
+waitfor 5 nosprint execute if block 3660 100 3655 minecraft:chest{Items:[{id:"minecraft:oak_planks"}]} !~ passed
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman check CrewBoss test_row.schem 3660 100 3660 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# neither the supply chest nor the dump chest has the 10 missing planks: the crew pauses as before and carries on once they are in the supply chest
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3648 100 3648 3743 104 3711 minecraft:air
+setblock 3660 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+setblock 3666 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:3}]}
+journeymen debug as Steve 2 3656 100 3662 journeymen foreman summon NoneBoss
+journeymen debug as Steve 2 3662 100 3657 journeymen builder summon NoneBoss Nora
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest NoneBoss add 3660 100 3655 supply
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest NoneBoss add 3666 100 3655 dump
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman build NoneBoss test_row.schem 3660 100 3660 none corner
+waitlog nosprint NoneBoss's crew is on the way !!
+data modify block 3660 100 3655 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:50}]
+waitlog 30 \[Steve\.NoneBoss\] I'm missing 10 Oak Planks for test_row\.schem, and my dump chests don't have them either\. !! I finished building|Exception
+item replace block 3660 100 3655 container.0 with minecraft:oak_planks 10
+waitlog 30 \[Steve\.NoneBoss\] I finished building test_row\.schem !! Exception|\[unload\] Steve\.\w+ dumps
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman check NoneBoss test_row.schem 3660 100 3660 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
