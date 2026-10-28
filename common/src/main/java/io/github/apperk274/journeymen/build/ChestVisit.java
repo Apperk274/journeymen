@@ -18,6 +18,7 @@ import java.util.function.Predicate;
 public final class ChestVisit {
 
     public static final double REACH = 4.0;
+    public static final Predicate<ItemStack> NOTHING = stack -> false;
     private static final int OPEN_TICKS = 10;
     private static final int GIVE_UP_TICKS = 400;
     private static final double PROGRESS_STEP = 0.5;
@@ -25,7 +26,8 @@ public final class ChestVisit {
     public enum Kind {
         DUMP,
         STORE,
-        FETCH
+        FETCH,
+        RESTOCK
     }
 
     public enum Status {
@@ -69,12 +71,12 @@ public final class ChestVisit {
         return new ChestVisit(Kind.DUMP, chest, stack -> true, null, false);
     }
 
-    public static ChestVisit fetch(BlockPos chest, Predicate<ItemStack> wanted) {
-        return new ChestVisit(Kind.FETCH, chest, wanted, null, false);
-    }
-
     public static ChestVisit fetchOneEach(BlockPos chest, Predicate<ItemStack> wanted) {
         return new ChestVisit(Kind.FETCH, chest, wanted, null, true);
+    }
+
+    public static ChestVisit restockTools(BlockPos chest, @Nullable Predicate<ItemStack> mustHave) {
+        return new ChestVisit(Kind.RESTOCK, chest, mustHave == null ? NOTHING : mustHave, null, false);
     }
 
     public static ChestVisit store(BlockPos chest, ItemCounter keep) {
@@ -122,7 +124,7 @@ public final class ChestVisit {
         }
         if (!started) {
             started = true;
-            if (kind == Kind.FETCH && !containsWanted(store)) {
+            if (kind == Kind.FETCH && !containsWanted(store) || kind == Kind.RESTOCK && !builder.restockWorthVisiting(store, wanted)) {
                 return Status.DONE;
             }
         }
@@ -157,6 +159,8 @@ public final class ChestVisit {
         }
         if (kind == Kind.DUMP) {
             builder.dumpInto(store);
+        } else if (kind == Kind.RESTOCK) {
+            builder.restockToolsAt(store, chest, wanted);
         } else if (kind == Kind.STORE) {
             builder.storeInto(store, amounts == null ? new ItemCounter() : amounts);
         } else if (amounts != null) {

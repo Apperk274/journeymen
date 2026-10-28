@@ -1,0 +1,154 @@
+forceload add 2944 2944 3007 3007
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 2944 99 2944 3007 99 3007 minecraft:smooth_stone
+fill 2944 100 2944 3007 106 3007 minecraft:air
+kill @e[type=item]
+# 2048 dirt by hand: still clearing after 34000 ticks
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 2944 100 2944 3007 106 3007 minecraft:air
+fill 2960 100 2960 2991 101 2991 minecraft:dirt
+setblock 2950 100 2952 minecraft:chest[facing=south,type=right]{Items:[]}
+setblock 2951 100 2952 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 2950 100 2956 minecraft:chest[facing=south,type=right]
+setblock 2951 100 2956 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 2 2948 100 2962 journeymen foreman summon HandBoss
+journeymen debug as Steve 2 2954 100 2958 journeymen builder summon HandBoss Handy
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest HandBoss add 2950 100 2952 supply
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest HandBoss add 2950 100 2956 dump
+mark
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman build HandBoss test_dig.schem 2960 100 2960 none corner
+waitlog nosprint HandBoss's crew is on the way !!
+ticks 34000 60
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman status HandBoss
+waitlog nosprint \[debug as Steve\]\s+Phase: clearing \d+/2048 !! I finished building
+waitlog 60 \[Steve\.HandBoss\] I finished building test_dig\.schem !! inventory is full|dump chests are full|(1[4-9]|2\d) tools carried|which another builder claimed
+# the same with 54 stone shovels in supply: carries a balanced number, dumps and restocks, done within 34000 ticks
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 2944 100 2944 3007 106 3007 minecraft:air
+fill 2960 100 2960 2991 101 2991 minecraft:dirt
+setblock 2950 100 2952 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:stone_shovel",count:1},{Slot:1b,id:"minecraft:stone_shovel",count:1},{Slot:2b,id:"minecraft:stone_shovel",count:1},{Slot:3b,id:"minecraft:stone_shovel",count:1},{Slot:4b,id:"minecraft:stone_shovel",count:1},{Slot:5b,id:"minecraft:stone_shovel",count:1},{Slot:6b,id:"minecraft:stone_shovel",count:1},{Slot:7b,id:"minecraft:stone_shovel",count:1},{Slot:8b,id:"minecraft:stone_shovel",count:1},{Slot:9b,id:"minecraft:stone_shovel",count:1},{Slot:10b,id:"minecraft:stone_shovel",count:1},{Slot:11b,id:"minecraft:stone_shovel",count:1},{Slot:12b,id:"minecraft:stone_shovel",count:1},{Slot:13b,id:"minecraft:stone_shovel",count:1},{Slot:14b,id:"minecraft:stone_shovel",count:1},{Slot:15b,id:"minecraft:stone_shovel",count:1},{Slot:16b,id:"minecraft:stone_shovel",count:1},{Slot:17b,id:"minecraft:stone_shovel",count:1},{Slot:18b,id:"minecraft:stone_shovel",count:1},{Slot:19b,id:"minecraft:stone_shovel",count:1},{Slot:20b,id:"minecraft:stone_shovel",count:1},{Slot:21b,id:"minecraft:stone_shovel",count:1},{Slot:22b,id:"minecraft:stone_shovel",count:1},{Slot:23b,id:"minecraft:stone_shovel",count:1},{Slot:24b,id:"minecraft:stone_shovel",count:1},{Slot:25b,id:"minecraft:stone_shovel",count:1},{Slot:26b,id:"minecraft:stone_shovel",count:1}]}
+setblock 2951 100 2952 minecraft:chest[facing=south,type=left]{Items:[{Slot:0b,id:"minecraft:stone_shovel",count:1},{Slot:1b,id:"minecraft:stone_shovel",count:1},{Slot:2b,id:"minecraft:stone_shovel",count:1},{Slot:3b,id:"minecraft:stone_shovel",count:1},{Slot:4b,id:"minecraft:stone_shovel",count:1},{Slot:5b,id:"minecraft:stone_shovel",count:1},{Slot:6b,id:"minecraft:stone_shovel",count:1},{Slot:7b,id:"minecraft:stone_shovel",count:1},{Slot:8b,id:"minecraft:stone_shovel",count:1},{Slot:9b,id:"minecraft:stone_shovel",count:1},{Slot:10b,id:"minecraft:stone_shovel",count:1},{Slot:11b,id:"minecraft:stone_shovel",count:1},{Slot:12b,id:"minecraft:stone_shovel",count:1},{Slot:13b,id:"minecraft:stone_shovel",count:1},{Slot:14b,id:"minecraft:stone_shovel",count:1},{Slot:15b,id:"minecraft:stone_shovel",count:1},{Slot:16b,id:"minecraft:stone_shovel",count:1},{Slot:17b,id:"minecraft:stone_shovel",count:1},{Slot:18b,id:"minecraft:stone_shovel",count:1},{Slot:19b,id:"minecraft:stone_shovel",count:1},{Slot:20b,id:"minecraft:stone_shovel",count:1},{Slot:21b,id:"minecraft:stone_shovel",count:1},{Slot:22b,id:"minecraft:stone_shovel",count:1},{Slot:23b,id:"minecraft:stone_shovel",count:1},{Slot:24b,id:"minecraft:stone_shovel",count:1},{Slot:25b,id:"minecraft:stone_shovel",count:1},{Slot:26b,id:"minecraft:stone_shovel",count:1}]}
+setblock 2950 100 2956 minecraft:chest[facing=south,type=right]
+setblock 2951 100 2956 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 2 2948 100 2962 journeymen foreman summon ToolBoss
+journeymen debug as Steve 2 2954 100 2958 journeymen builder summon ToolBoss Digger
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest ToolBoss add 2950 100 2952 supply
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest ToolBoss add 2950 100 2956 dump
+mark
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman build ToolBoss test_dig.schem 2960 100 2960 none corner
+waitlog nosprint ToolBoss's crew is on the way !!
+ticks 34000 60
+waitlog nosprint \[Steve\.ToolBoss\] I finished building test_dig\.schem !! inventory is full|dump chests are full|(1[4-9]|2\d) tools carried|which another builder claimed
+waitlog nosprint \[tools\] Steve\.Digger at 2950, 100, 2952 takes 13 and returns 0 tools: Stone Shovel 13/13 for 2048 blocks; 27 slots
+waitlog nosprint x2 \[tools\] Steve\.Digger at 2950, 100, 2952 takes [1-9]\d* and returns 0 tools: Stone Shovel
+# its only shovel breaks with lots of work left: it fetches replacements added meanwhile
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 2944 100 2944 3007 106 3007 minecraft:air
+fill 2960 100 2960 2991 101 2991 minecraft:dirt
+setblock 2950 100 2952 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:stone_shovel",count:1,components:{"minecraft:damage":111}}]}
+setblock 2951 100 2952 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 2950 100 2956 minecraft:chest[facing=south,type=right]
+setblock 2951 100 2956 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 2 2948 100 2962 journeymen foreman summon BreakBoss
+journeymen debug as Steve 2 2954 100 2958 journeymen builder summon BreakBoss Breaker
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest BreakBoss add 2950 100 2952 supply
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest BreakBoss add 2950 100 2956 dump
+mark
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman build BreakBoss test_dig.schem 2960 100 2960 none corner
+waitlog nosprint BreakBoss's crew is on the way !!
+waitlog \[tools\] Steve\.Breaker at 2950, 100, 2952 takes 1 and returns 0 tools: Stone Shovel 1/1 for 2048 blocks !! inventory is full|dump chests are full|(1[4-9]|2\d) tools carried|which another builder claimed
+tick freeze
+item replace block 2951 100 2952 container.0 with minecraft:stone_shovel
+item replace block 2951 100 2952 container.1 with minecraft:stone_shovel
+item replace block 2951 100 2952 container.2 with minecraft:stone_shovel
+item replace block 2951 100 2952 container.3 with minecraft:stone_shovel
+item replace block 2951 100 2952 container.4 with minecraft:stone_shovel
+tick unfreeze
+waitlog \[tools\] Steve\.Breaker has no tool for Dirt: Stone Shovel saves about \d+ ticks, a trip takes about \d+ ticks, so it fetches more !! inventory is full|dump chests are full|(1[4-9]|2\d) tools carried|which another builder claimed
+waitlog \[tools\] Steve\.Breaker at 2950, 100, 2952 takes 5 and returns 0 tools: Stone Shovel 5/5 !! inventory is full|dump chests are full|(1[4-9]|2\d) tools carried|which another builder claimed
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman cancel BreakBoss
+# a crew of two shares four shovels: two each
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 2944 100 2944 3007 106 3007 minecraft:air
+fill 2960 100 2960 2991 100 2991 minecraft:dirt
+setblock 2950 100 2952 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:stone_shovel",count:1},{Slot:1b,id:"minecraft:stone_shovel",count:1},{Slot:2b,id:"minecraft:stone_shovel",count:1},{Slot:3b,id:"minecraft:stone_shovel",count:1}]}
+setblock 2951 100 2952 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 2950 100 2956 minecraft:chest[facing=south,type=right]
+setblock 2951 100 2956 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 2 2948 100 2962 journeymen foreman summon PairBoss
+journeymen debug as Steve 2 2954 100 2958 journeymen builder summon PairBoss Shovy
+journeymen debug as Steve 2 2955 100 2958 journeymen builder summon PairBoss Spady
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest PairBoss add 2950 100 2952 supply
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest PairBoss add 2950 100 2956 dump
+mark
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman build PairBoss test_dig.schem 2960 100 2960 none corner
+waitlog nosprint PairBoss's crew is on the way !!
+waitlog \[tools\] Steve\.Shovy at 2950, 100, 2952 takes 2 and returns 0 tools: Stone Shovel 2/2 for 1024/2 blocks !! Steve\.(Shovy|Spady) at .* takes [3-9]|inventory is full|dump chests are full|(1[4-9]|2\d) tools carried|which another builder claimed
+waitlog \[tools\] Steve\.Spady at 2950, 100, 2952 takes 2 and returns 0 tools: Stone Shovel 2/2 for 1024/2 blocks !! Steve\.(Shovy|Spady) at .* takes [3-9]|inventory is full|dump chests are full|(1[4-9]|2\d) tools carried|which another builder claimed
+waitlog 30 \[Steve\.PairBoss\] I finished building test_dig\.schem !! inventory is full|dump chests are full|(1[4-9]|2\d) tools carried|which another builder claimed
+# 27 shovels in its inventory and no room in supply to take the extra ones back: says so instead of blaming the empty dump chests
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 2944 100 2944 3007 106 3007 minecraft:air
+fill 2960 100 2960 2991 100 2991 minecraft:dirt
+setblock 2950 100 2952 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 2951 100 2952 minecraft:chest[facing=south,type=left]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 2950 100 2956 minecraft:chest[facing=south,type=right]
+setblock 2951 100 2956 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 2 2948 100 2962 journeymen foreman summon ClutterBoss
+journeymen debug as Steve 2 2954 100 2958 journeymen builder summon ClutterBoss Clutter
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest ClutterBoss add 2950 100 2952 supply
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest ClutterBoss add 2950 100 2956 dump
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+ticks 60
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Clutter,limit=1] Inventory.Items[26] =~ passed
+mark
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman build ClutterBoss test_dig.schem 2960 100 2960 none corner
+waitlog nosprint ClutterBoss's crew is on the way !!
+waitlog \[Steve\.ClutterBoss\] Clutter's inventory is full: it carries 27 tools, 19 more than it needs, and my supply chests have no room to take the extra ones back\. !! dump chests are full too|I finished building
+data remove block 2950 100 2952 Items
+data remove block 2951 100 2952 Items
+waitlog 20 \[tools\] Steve\.Clutter at 2950, 100, 2952 takes 0 and returns 19 tools: Stone Shovel 8/8 for 1024 blocks !! dump chests are full too
+waitlog 30 \[Steve\.ClutterBoss\] I finished building test_dig\.schem !! dump chests are full too|(1[4-9]|2\d) tools carried

@@ -33,11 +33,13 @@ public final class ClearingTask {
     private static final int BREAK_DELAY = 5;
     private static final int MIN_BATCH = 4;
     private static final int MAX_BATCH = 64;
+    private static final int TOOL_ASK_TICKS = 1200;
 
     public enum Status {
         WORKING,
         NEEDS_DUMP,
         NEEDS_TOOL,
+        NEEDS_SPEED_TOOL,
         BLOCKED,
         IDLE,
         DONE
@@ -48,6 +50,7 @@ public final class ClearingTask {
     private final ServerLevel level;
     private final ClearingWork work;
     private final List<BlockPos> batch = new ArrayList<>();
+    private final Map<BlockState, Long> nextToolAsk = new HashMap<>();
     private int cleared;
 
     @Nullable
@@ -105,6 +108,7 @@ public final class ClearingTask {
             return Status.BLOCKED;
         }
         if (state.getDestroySpeed(level, target) < 0.0F) {
+            work.done(state);
             work.skipped.add(target);
             finishTarget();
             return Status.WORKING;
@@ -129,6 +133,13 @@ public final class ClearingTask {
         }
         if (progress == 0.0F && !hasFreeSlot(inventory)) {
             return Status.NEEDS_DUMP;
+        }
+        if (progress == 0.0F && slot == ToolChoice.HAND && state.getDestroySpeed(level, target) > 0.0F
+                && level.getGameTime() >= nextToolAsk.getOrDefault(state, 0L)) {
+            nextToolAsk.put(state, level.getGameTime() + TOOL_ASK_TICKS);
+            if (builder.wantsSpeedTool(state, target)) {
+                return Status.NEEDS_SPEED_TOOL;
+            }
         }
         ItemStack tool = slot == ToolChoice.HAND ? ItemStack.EMPTY : inventory.getItem(slot);
         builder.showInHand(tool);
@@ -173,6 +184,7 @@ public final class ClearingTask {
         inventory.setChanged();
         level.destroyBlockProgress(builder.getId(), target, -1);
         builder.captureDrops(target);
+        work.done(state);
         if (broken) {
             cleared++;
             work.cleared++;
@@ -356,16 +368,8 @@ public final class ClearingTask {
         return neededToolDescription;
     }
 
-    public boolean isUsefulTool(ItemStack stack) {
-        return isUsefulTool(stack, work.statesToClear);
-    }
-
-    public static Predicate<ItemStack> usefulTools(ServerLevel level, List<BlockPos> toClear) {
-        Set<BlockState> states = new HashSet<>();
-        for (BlockPos pos : toClear) {
-            states.add(level.getBlockState(pos));
-        }
-        return stack -> isUsefulTool(stack, states);
+    public static boolean isUsefulTool(ItemStack stack, ClearingWork work) {
+        return isUsefulTool(stack, work.remainingByState().keySet());
     }
 
     private static boolean isUsefulTool(ItemStack stack, Set<BlockState> states) {

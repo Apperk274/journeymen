@@ -77,6 +77,7 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_hang.schem"), (3, 3, 3), hang())
     write_sponge_v3(os.path.join(out, "test_missing.schem"), (4, 2, 4), missing())
     write_sponge_v3(os.path.join(out, "test_row.schem"), (60, 1, 1), row())
+    write_sponge_v3(os.path.join(out, "test_dig.schem"), (32, 2, 32), {})
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
 

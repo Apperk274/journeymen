@@ -19,6 +19,8 @@ import io.github.apperk274.journeymen.build.PlacingTask;
 import io.github.apperk274.journeymen.build.PlacingWork;
 import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.build.Reach;
+import io.github.apperk274.journeymen.build.ToolCheck;
+import io.github.apperk274.journeymen.build.ToolPlan;
 import io.github.apperk274.journeymen.build.WorkState;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.menu.BuilderMenu;
@@ -51,6 +53,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -82,6 +85,8 @@ public class BuilderEntity extends JourneymanEntity {
     private static final int STEP_ASIDE_TICKS = 40;
     private static final int LEAVE_SITE_TICKS = 60;
     private static final int LOAD_GRACE_TICKS = 100;
+    private static final double WALK_BLOCKS_PER_TICK = 0.2;
+    private static final int CHEST_TICKS = 20;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -461,7 +466,11 @@ public class BuilderEntity extends JourneymanEntity {
 
     private void prepareForSite(BuildPlan plan) {
         if (!plan.getToClear().isEmpty()) {
-            queueToolFetch(ClearingTask.usefulTools((ServerLevel) level(), plan.getToClear()));
+            CrewWork shared = job.getCrewWork();
+            if (shared.getClearing() == null && shared.getPlacing() == null && !shared.isClearingDone()) {
+                shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition()));
+            }
+            queueToolRestock(null);
         } else if (plan.getFluidsInTheWay().isEmpty()) {
             CrewWork shared = job.getCrewWork();
             if (shared.getPlacing() == null) {
@@ -474,17 +483,171 @@ public class BuilderEntity extends JourneymanEntity {
         }
     }
 
-    private void queueToolFetch(Predicate<ItemStack> useful) {
+    private void queueToolRestock(@Nullable Predicate<ItemStack> mustHave) {
         toolsFetched = true;
+        ClearingWork clearingWork = job == null ? null : job.getCrewWork().getClearing();
+        if (clearingWork == null) {
+            return;
+        }
+        Predicate<ItemStack> useful = mustHave == null ? stack -> ClearingTask.isUsefulTool(stack, clearingWork)
+                : stack -> mustHave.test(stack) || ClearingTask.isUsefulTool(stack, clearingWork);
+        boolean queued = false;
         for (AssignedChest chest : reachableChests()) {
             if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
                 continue;
             }
             ItemStore store = ItemStores.at(level(), chest.pos());
             if (store != null && containsMatching(store, useful)) {
-                queueVisit(inCrewMode() ? ChestVisit.fetchOneEach(chest.pos(), useful) : ChestVisit.fetch(chest.pos(), useful));
+                queueVisit(ChestVisit.restockTools(chest.pos(), mustHave));
+                queued = true;
             }
         }
+        AssignedChest first = firstSupplyChest();
+        if (!queued && first != null) {
+            queueVisit(ChestVisit.restockTools(first.pos(), mustHave));
+        }
+    }
+
+    @Nullable
+    private ToolPlan toolPlan() {
+        ClearingWork clearingWork = job == null ? null : job.getCrewWork().getClearing();
+        if (clearingWork == null || job.getCrewWork().isClearingDone()) {
+            return null;
+        }
+        List<ItemStack> crewTools = new ArrayList<>();
+        int members = 1;
+        if (inCrewMode()) {
+            members = activeCrew().size();
+            for (BuilderEntity member : Crew.loaded(getServer(), job)) {
+                if (member != this) {
+                    member.inventory.getItems().stream().filter(stack -> !stack.isEmpty() && isTool(stack)).forEach(crewTools::add);
+                }
+            }
+        }
+        List<ItemStack> supply = Crew.supplyStock(level(), reachableChests(), new ArrayList<>());
+        return ToolPlan.compute((ServerLevel) level(), clearingWork, inventory, supply, crewTools, members, job.getOptions().allowBreakingEnchanted());
+    }
+
+    private boolean hasExcessTools() {
+        ToolPlan plan = toolPlan();
+        return plan != null && !plan.excessSlots(inventory).isEmpty();
+    }
+
+    public boolean restockWorthVisiting(ItemStore store, Predicate<ItemStack> mustHave) {
+        boolean missing = mustHave != ChestVisit.NOTHING && findSlot(mustHave) < 0;
+        if (missing && containsMatching(store, mustHave)) {
+            return true;
+        }
+        ToolPlan plan = toolPlan();
+        if (plan == null) {
+            return false;
+        }
+        boolean excess = tickCount >= storeBlockedUntil && !plan.excessSlots(inventory).isEmpty();
+        if (excess || !plan.slotsToTake(store).isEmpty()) {
+            return true;
+        }
+        if (!plan.hasDeficit() && !missing) {
+            ChestVisit current = visits.peek();
+            visits.removeIf(visit -> visit != current && visit.getKind() == ChestVisit.Kind.RESTOCK);
+        }
+        return false;
+    }
+
+    public void restockToolsAt(ItemStore store, BlockPos chest, Predicate<ItemStack> mustHave) {
+        ToolPlan plan = toolPlan();
+        int returned = 0;
+        int taken = 0;
+        if (plan != null) {
+            if (tickCount >= storeBlockedUntil) {
+                List<Integer> excess = plan.excessSlots(inventory);
+                for (int slot : excess) {
+                    ItemStack stack = inventory.getItem(slot);
+                    if (store.insert(stack.copy()).isEmpty()) {
+                        plan.returned(stack);
+                        inventory.setItem(slot, ItemStack.EMPTY);
+                        returned++;
+                    }
+                }
+                if (!excess.isEmpty() && returned == 0) {
+                    storeBlockedUntil = tickCount + STORE_RETRY_TICKS;
+                }
+            }
+            for (int slot : plan.slotsToTake(store)) {
+                if (!hasFreeSlot()) {
+                    break;
+                }
+                ItemStack stack = store.take(slot, store.get(slot).getCount());
+                plan.took(stack);
+                putBack(store, slot, inventory.addItem(stack));
+                taken++;
+            }
+        }
+        if (mustHave != ChestVisit.NOTHING && findSlot(mustHave) < 0) {
+            for (int slot = 0; slot < store.size(); slot++) {
+                ItemStack stack = store.get(slot);
+                if (!stack.isEmpty() && mustHave.test(stack) && hasFreeSlot()) {
+                    putBack(store, slot, inventory.addItem(store.take(slot, stack.getCount())));
+                    taken++;
+                    break;
+                }
+            }
+        }
+        inventory.setChanged();
+        if (plan != null && Services.PLATFORM.isDevelopmentEnvironment()) {
+            List<String> kinds = new ArrayList<>();
+            for (ToolPlan.Kind kind : plan.kinds()) {
+                kinds.add(kind.example().getHoverName().getString() + " " + kind.carried() + "/" + kind.target() + " for " + kind.blocks()
+                        + (plan.members() > 1 ? "/" + plan.members() : "") + " blocks");
+            }
+            Constants.LOG.info("[tools] {}.{} at {} takes {} and returns {} tools: {}; {} slots, {} tools carried", getOwnerName(),
+                    getJourneymanName(), chest.toShortString(), taken, returned, kinds.isEmpty() ? "no tools needed" : String.join(", ", kinds),
+                    plan.capacity(), inventory.getItems().stream().filter(stack -> !stack.isEmpty() && isTool(stack)).count());
+        }
+    }
+
+    public boolean wantsSpeedTool(BlockState state, BlockPos pos) {
+        if (job == null || clearing == null) {
+            return false;
+        }
+        ItemStack best = ItemStack.EMPTY;
+        BlockPos bestChest = null;
+        float bestSpeed = 1.0F;
+        boolean allowBreakingEnchanted = job.getOptions().allowBreakingEnchanted();
+        for (AssignedChest chest : reachableChests()) {
+            if (chest.role() != AssignedChest.Role.SUPPLY || !level().isLoaded(chest.pos())) {
+                continue;
+            }
+            ItemStore store = ItemStores.at(level(), chest.pos());
+            if (store == null) {
+                continue;
+            }
+            for (int slot = 0; slot < store.size(); slot++) {
+                ItemStack stack = store.get(slot);
+                if (stack.isEmpty() || stack.get(DataComponents.TOOL) == null
+                        || ToolCheck.usableDurability(stack, allowBreakingEnchanted) < Math.max(1, ToolCheck.damagePerBlock(stack, state, (ServerLevel) level(), pos))) {
+                    continue;
+                }
+                float speed = stack.getDestroySpeed(state);
+                if (speed > bestSpeed) {
+                    best = stack;
+                    bestChest = chest.pos();
+                    bestSpeed = speed;
+                }
+            }
+        }
+        if (bestChest == null) {
+            return false;
+        }
+        int members = inCrewMode() ? activeCrew().size() : 1;
+        double saved = ToolPlan.savedTicks(this, best, clearing.getWork(), (ServerLevel) level(), members);
+        double trip = 2.0 * Math.sqrt(distanceToSqr(Vec3.atCenterOf(bestChest))) / WALK_BLOCKS_PER_TICK + CHEST_TICKS;
+        boolean worth = saved > 2.0 * trip;
+        if (Services.PLATFORM.isDevelopmentEnvironment()) {
+            Constants.LOG.info("[tools] {}.{} has no tool for {}: {} saves about {} ticks, a trip takes about {} ticks, so it {}", getOwnerName(),
+                    getJourneymanName(), state.getBlock().getName().getString(), best.getHoverName().getString(), Math.round(saved), Math.round(trip),
+                    worth ? "fetches more" : "digs by hand");
+        }
+        return worth;
     }
 
     private void queueVisit(ChestVisit visit) {
@@ -831,9 +994,12 @@ public class BuilderEntity extends JourneymanEntity {
                             startDump();
                         } else {
                             resetDumpTries();
+                            restockAfterUnload();
                         }
                     } else if (visit.getKind() == ChestVisit.Kind.DUMP) {
                         resetDumpTries();
+                    } else if (visit.getKind() == ChestVisit.Kind.STORE && visits.isEmpty()) {
+                        restockAfterUnload();
                     }
                 }
                 case FAILED -> {
@@ -897,6 +1063,7 @@ public class BuilderEntity extends JourneymanEntity {
             }
             case NEEDS_DUMP -> startDump();
             case NEEDS_TOOL -> startFetch(clearing.getNeededTool(), clearing.getNeededToolDescription());
+            case NEEDS_SPEED_TOOL -> speedToolTrip();
             case BLOCKED -> pauseJob(clearing.getBlockedReason());
             case IDLE -> waitForCrew(false);
             case DONE -> finishClearing();
@@ -926,7 +1093,7 @@ public class BuilderEntity extends JourneymanEntity {
         }
         clearing = new ClearingTask(this, job, shared.getClearing());
         if (!toolsFetched) {
-            queueToolFetch(clearing::isUsefulTool);
+            queueToolRestock(null);
         }
         return true;
     }
@@ -1218,7 +1385,7 @@ public class BuilderEntity extends JourneymanEntity {
                     }
                     ItemStore store = ItemStores.at(level(), chest.pos());
                     if (store != null && containsMatching(store, usable)) {
-                        queueVisit(ChestVisit.fetch(chest.pos(), usable));
+                        queueVisit(ChestVisit.fetchOneEach(chest.pos(), usable));
                         break;
                     }
                 }
@@ -1404,13 +1571,36 @@ public class BuilderEntity extends JourneymanEntity {
         endWholeJob(done);
     }
 
-    private void startDump() {
-        if (overflow.isEmpty() && !hasDumpableItems() && tickCount >= storeBlockedUntil) {
-            AssignedChest supply = firstSupplyChest();
-            if (supply != null) {
-                queueVisit(ChestVisit.store(supply.pos(), new ItemCounter()));
+    private void speedToolTrip() {
+        if (freeSlots() < INVENTORY_SIZE / 2 && (!overflow.isEmpty() || hasDumpableItems())) {
+            BlockPos dump = nextDumpChest();
+            if (dump != null) {
+                queueVisit(ChestVisit.dump(dump));
                 return;
             }
+            resetDumpTries();
+        }
+        queueToolRestock(null);
+    }
+
+    private void restockAfterUnload() {
+        if (work.getPhase() == BuildJob.Phase.CLEARING && clearing != null) {
+            queueToolRestock(null);
+        }
+    }
+
+    private void startDump() {
+        if (overflow.isEmpty() && !hasDumpableItems()) {
+            AssignedChest supply = firstSupplyChest();
+            boolean canStore = supply != null && tickCount >= storeBlockedUntil;
+            if (canStore && work.getPhase() == BuildJob.Phase.CLEARING && hasExcessTools()) {
+                queueToolRestock(null);
+            } else if (canStore && hasSpareItems(new ItemCounter())) {
+                queueVisit(ChestVisit.store(supply.pos(), new ItemCounter()));
+            } else {
+                pauseJob(fullOfNeededThings(supply != null && tickCount < storeBlockedUntil));
+            }
+            return;
         }
         BlockPos dump = nextDumpChest();
         if (dump != null) {
@@ -1424,6 +1614,23 @@ public class BuilderEntity extends JourneymanEntity {
                 : hasDumpChest
                 ? getJourneymanName() + "'s inventory is full and my dump chests are full too. Please empty them or give me another one."
                 : getJourneymanName() + "'s inventory is full. Give me a dump chest with " + chestCommand() + ".");
+    }
+
+    private String fullOfNeededThings(boolean supplyFull) {
+        long tools = inventory.getItems().stream().filter(stack -> !stack.isEmpty() && isTool(stack)).count();
+        long materials = inventory.getItems().stream().filter(stack -> !stack.isEmpty() && !isTool(stack)).count();
+        ToolPlan plan = work.getPhase() == BuildJob.Phase.CLEARING ? toolPlan() : null;
+        int extra = plan == null ? 0 : plan.excessSlots(inventory).size();
+        if (extra > 0) {
+            return getJourneymanName() + "'s inventory is full: it carries " + tools + " tools, " + extra + " more than it needs, and "
+                    + (firstSupplyChest() == null ? "I have no supply chest to take the extra ones back. Please give me one or take"
+                    : "my supply chests have no room to take the extra ones back. Please make room in my supply chests or take")
+                    + " some tools out of its inventory.";
+        }
+        String things = materials == 0 ? "tools it needs" : tools == 0 ? "materials the job still needs" : "tools and materials it still needs";
+        return getJourneymanName() + "'s inventory is full of " + things + " (" + tools + " tools), so it has no room for what it clears"
+                + (supplyFull && materials > 0 ? " and my supply chests have no room to take any back. Please take out what it doesn't need"
+                + " or make room in my supply chests." : ". Please take out what it doesn't need.");
     }
 
     @Nullable
@@ -1519,7 +1726,11 @@ public class BuilderEntity extends JourneymanEntity {
             }
             ItemStore store = ItemStores.at(level(), chest.pos());
             if (store != null && containsMatching(store, wanted)) {
-                queueVisit(crew ? ChestVisit.fetchOneEach(chest.pos(), wanted) : ChestVisit.fetch(chest.pos(), wanted));
+                if (work.getPhase() == BuildJob.Phase.CLEARING && clearing != null) {
+                    queueToolRestock(wanted);
+                } else {
+                    queueVisit(ChestVisit.fetchOneEach(chest.pos(), wanted));
+                }
                 return;
             }
         }

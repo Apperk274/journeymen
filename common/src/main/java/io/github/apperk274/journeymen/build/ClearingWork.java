@@ -7,10 +7,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
 public final class ClearingWork {
@@ -18,7 +17,8 @@ public final class ClearingWork {
     final TreeMap<Integer, List<BlockPos>> remaining = new TreeMap<>(Comparator.reverseOrder());
     final Map<BlockPos, BlockState> targets;
     final Map<BlockState, Integer> requiredRemaining = new HashMap<>();
-    final Set<BlockState> statesToClear = new HashSet<>();
+    private final Map<BlockState, Integer> remainingByState = new LinkedHashMap<>();
+    private final Map<BlockState, BlockPos> examples = new HashMap<>();
     final List<BlockPos> skipped = new ArrayList<>();
     private final int total;
     int cleared;
@@ -31,7 +31,8 @@ public final class ClearingWork {
         for (BlockPos pos : toClear) {
             remaining.computeIfAbsent(pos.getY(), y -> new ArrayList<>()).add(pos);
             BlockState state = level.getBlockState(pos);
-            statesToClear.add(state);
+            remainingByState.merge(state, 1, Integer::sum);
+            examples.putIfAbsent(state, pos.immutable());
             if (ToolChoice.needsTool(state, level, pos)) {
                 requiredRemaining.merge(state, 1, Integer::sum);
             }
@@ -47,6 +48,18 @@ public final class ClearingWork {
                 remaining.remove(pos.getY());
             }
         }
+    }
+
+    void done(BlockState state) {
+        remainingByState.computeIfPresent(state, (key, count) -> count > 1 ? count - 1 : null);
+    }
+
+    public Map<BlockState, Integer> remainingByState() {
+        return remainingByState;
+    }
+
+    public BlockPos example(BlockState state) {
+        return examples.get(state);
     }
 
     boolean contains(BlockPos pos) {
