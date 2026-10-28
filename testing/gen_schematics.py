@@ -68,6 +68,10 @@ def row():
     return {(x, 0, 0): state("oak_planks") for x in range(60)}
 
 
+def soil():
+    return {(x, y, z): state("dirt") for x in range(32, 64) for y in range(2) for z in range(32)}
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -78,6 +82,7 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_missing.schem"), (4, 2, 4), missing())
     write_sponge_v3(os.path.join(out, "test_row.schem"), (60, 1, 1), row())
     write_sponge_v3(os.path.join(out, "test_dig.schem"), (32, 2, 32), {})
+    write_sponge_v3(os.path.join(out, "test_soil.schem"), (64, 2, 32), soil())
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
 

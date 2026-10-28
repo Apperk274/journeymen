@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 public final class ToolPlan {
 
@@ -81,14 +82,14 @@ public final class ToolPlan {
         this.members = Math.max(1, members);
     }
 
-    public static ToolPlan compute(ServerLevel level, ClearingWork work, Container inventory, List<ItemStack> supply, List<ItemStack> crewTools,
-                                   int members, boolean allowBreakingEnchanted) {
+    public static ToolPlan compute(ServerLevel level, ClearingWork work, Container inventory, Predicate<ItemStack> stays, List<ItemStack> supply,
+                                   List<ItemStack> crewTools, int members, boolean allowBreakingEnchanted) {
         ToolPlan plan = new ToolPlan(level, work, allowBreakingEnchanted, members);
-        plan.build(inventory, supply, crewTools);
+        plan.build(inventory, stays, supply, crewTools);
         return plan;
     }
 
-    private void build(Container inventory, List<ItemStack> supply, List<ItemStack> crewTools) {
+    private void build(Container inventory, Predicate<ItemStack> stays, List<ItemStack> supply, List<ItemStack> crewTools) {
         Map<BlockState, Integer> counts = new LinkedHashMap<>(work.remainingByState());
         for (Map.Entry<BlockState, Integer> entry : counts.entrySet()) {
             totalBlocks += entry.getValue();
@@ -109,7 +110,7 @@ public final class ToolPlan {
             Kind kind = addToPool(stack);
             if (kind != null) {
                 kind.carried++;
-            } else {
+            } else if (stays.test(stack)) {
                 otherSlots++;
             }
         }

@@ -1,0 +1,130 @@
+forceload add 3072 3072 3199 3135
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 3072 99 3072 3199 99 3135 minecraft:smooth_stone
+fill 3072 100 3072 3135 106 3135 minecraft:air
+fill 3136 100 3072 3199 106 3135 minecraft:air
+kill @e[type=item]
+# 2048 dirt cleared while all 2048 the job places are in supply: every drop goes to the dump chest, the inventory keeps its room for shovels
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3072 100 3072 3135 106 3135 minecraft:air
+fill 3136 100 3072 3199 106 3135 minecraft:air
+fill 3100 100 3090 3131 101 3121 minecraft:dirt
+setblock 3084 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:dirt",count:64},{Slot:1b,id:"minecraft:dirt",count:64},{Slot:2b,id:"minecraft:dirt",count:64},{Slot:3b,id:"minecraft:dirt",count:64},{Slot:4b,id:"minecraft:dirt",count:64},{Slot:5b,id:"minecraft:dirt",count:64},{Slot:6b,id:"minecraft:dirt",count:64},{Slot:7b,id:"minecraft:dirt",count:64},{Slot:8b,id:"minecraft:dirt",count:64},{Slot:9b,id:"minecraft:dirt",count:64},{Slot:10b,id:"minecraft:dirt",count:64},{Slot:11b,id:"minecraft:dirt",count:64},{Slot:12b,id:"minecraft:dirt",count:64},{Slot:13b,id:"minecraft:dirt",count:64},{Slot:14b,id:"minecraft:dirt",count:64},{Slot:15b,id:"minecraft:dirt",count:64},{Slot:16b,id:"minecraft:dirt",count:64},{Slot:17b,id:"minecraft:dirt",count:64},{Slot:18b,id:"minecraft:dirt",count:64},{Slot:19b,id:"minecraft:dirt",count:64},{Slot:20b,id:"minecraft:dirt",count:64},{Slot:21b,id:"minecraft:dirt",count:64},{Slot:22b,id:"minecraft:dirt",count:64},{Slot:23b,id:"minecraft:dirt",count:64},{Slot:24b,id:"minecraft:dirt",count:64},{Slot:25b,id:"minecraft:dirt",count:64},{Slot:26b,id:"minecraft:dirt",count:64}]}
+setblock 3085 100 3080 minecraft:chest[facing=south,type=left]{Items:[{Slot:0b,id:"minecraft:dirt",count:64},{Slot:1b,id:"minecraft:dirt",count:64},{Slot:2b,id:"minecraft:dirt",count:64},{Slot:3b,id:"minecraft:dirt",count:64},{Slot:4b,id:"minecraft:dirt",count:64}]}
+setblock 3088 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:stone_shovel",count:1},{Slot:1b,id:"minecraft:stone_shovel",count:1},{Slot:2b,id:"minecraft:stone_shovel",count:1},{Slot:3b,id:"minecraft:stone_shovel",count:1},{Slot:4b,id:"minecraft:stone_shovel",count:1},{Slot:5b,id:"minecraft:stone_shovel",count:1},{Slot:6b,id:"minecraft:stone_shovel",count:1},{Slot:7b,id:"minecraft:stone_shovel",count:1},{Slot:8b,id:"minecraft:stone_shovel",count:1},{Slot:9b,id:"minecraft:stone_shovel",count:1},{Slot:10b,id:"minecraft:stone_shovel",count:1},{Slot:11b,id:"minecraft:stone_shovel",count:1},{Slot:12b,id:"minecraft:stone_shovel",count:1},{Slot:13b,id:"minecraft:stone_shovel",count:1},{Slot:14b,id:"minecraft:stone_shovel",count:1},{Slot:15b,id:"minecraft:stone_shovel",count:1},{Slot:16b,id:"minecraft:stone_shovel",count:1},{Slot:17b,id:"minecraft:stone_shovel",count:1},{Slot:18b,id:"minecraft:stone_shovel",count:1},{Slot:19b,id:"minecraft:stone_shovel",count:1},{Slot:20b,id:"minecraft:stone_shovel",count:1},{Slot:21b,id:"minecraft:stone_shovel",count:1},{Slot:22b,id:"minecraft:stone_shovel",count:1},{Slot:23b,id:"minecraft:stone_shovel",count:1},{Slot:24b,id:"minecraft:stone_shovel",count:1},{Slot:25b,id:"minecraft:stone_shovel",count:1},{Slot:26b,id:"minecraft:stone_shovel",count:1}]}
+setblock 3089 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 3104 100 3080 minecraft:chest[facing=south,type=right]{Items:[]}
+setblock 3105 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+journeymen debug as Steve 2 3094 100 3086 journeymen foreman summon SoilBoss
+journeymen debug as Steve 2 3090 100 3084 journeymen builder summon SoilBoss Soily
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest SoilBoss add 3084 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest SoilBoss add 3088 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest SoilBoss add 3104 100 3080 dump
+mark
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman build SoilBoss test_soil.schem 3100 100 3090 none corner
+waitlog nosprint SoilBoss's crew is on the way !!
+waitlog 60 \[Steve\.SoilBoss\] The site of test_soil\.schem is clear !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[tools\] Steve\.(Soily) .*; (\d|1\d|2[0-6]) slots
+waitlog 60 \[Steve\.SoilBoss\] I finished building test_soil\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[tools\] Steve\.(Soily) .*; (\d|1\d|2[0-6]) slots
+waitlog nosprint \[unload\] Steve\.Soily dumps \d+ items at 3104, 100, 3080: Dirt
+waitlog nosprint \[tools\] Steve\.Soily at 3088, 100, 3080 takes 13 and returns 0 tools: Stone Shovel 13/13 for 2048 blocks; 27 slots
+mark
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman check SoilBoss test_soil.schem 3100 100 3090 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# the same with only 1024 dirt in supply and skip-missing: the drops the supply lacks go into it and are placed, the rest is dumped
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3072 100 3072 3135 106 3135 minecraft:air
+fill 3136 100 3072 3199 106 3135 minecraft:air
+fill 3100 100 3090 3131 101 3121 minecraft:dirt
+setblock 3084 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:dirt",count:64},{Slot:1b,id:"minecraft:dirt",count:64},{Slot:2b,id:"minecraft:dirt",count:64},{Slot:3b,id:"minecraft:dirt",count:64},{Slot:4b,id:"minecraft:dirt",count:64},{Slot:5b,id:"minecraft:dirt",count:64},{Slot:6b,id:"minecraft:dirt",count:64},{Slot:7b,id:"minecraft:dirt",count:64},{Slot:8b,id:"minecraft:dirt",count:64},{Slot:9b,id:"minecraft:dirt",count:64},{Slot:10b,id:"minecraft:dirt",count:64},{Slot:11b,id:"minecraft:dirt",count:64},{Slot:12b,id:"minecraft:dirt",count:64},{Slot:13b,id:"minecraft:dirt",count:64},{Slot:14b,id:"minecraft:dirt",count:64},{Slot:15b,id:"minecraft:dirt",count:64}]}
+setblock 3085 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 3088 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:stone_shovel",count:1},{Slot:1b,id:"minecraft:stone_shovel",count:1},{Slot:2b,id:"minecraft:stone_shovel",count:1},{Slot:3b,id:"minecraft:stone_shovel",count:1},{Slot:4b,id:"minecraft:stone_shovel",count:1},{Slot:5b,id:"minecraft:stone_shovel",count:1},{Slot:6b,id:"minecraft:stone_shovel",count:1},{Slot:7b,id:"minecraft:stone_shovel",count:1},{Slot:8b,id:"minecraft:stone_shovel",count:1},{Slot:9b,id:"minecraft:stone_shovel",count:1},{Slot:10b,id:"minecraft:stone_shovel",count:1},{Slot:11b,id:"minecraft:stone_shovel",count:1},{Slot:12b,id:"minecraft:stone_shovel",count:1},{Slot:13b,id:"minecraft:stone_shovel",count:1},{Slot:14b,id:"minecraft:stone_shovel",count:1},{Slot:15b,id:"minecraft:stone_shovel",count:1},{Slot:16b,id:"minecraft:stone_shovel",count:1},{Slot:17b,id:"minecraft:stone_shovel",count:1},{Slot:18b,id:"minecraft:stone_shovel",count:1},{Slot:19b,id:"minecraft:stone_shovel",count:1},{Slot:20b,id:"minecraft:stone_shovel",count:1},{Slot:21b,id:"minecraft:stone_shovel",count:1},{Slot:22b,id:"minecraft:stone_shovel",count:1},{Slot:23b,id:"minecraft:stone_shovel",count:1},{Slot:24b,id:"minecraft:stone_shovel",count:1},{Slot:25b,id:"minecraft:stone_shovel",count:1},{Slot:26b,id:"minecraft:stone_shovel",count:1}]}
+setblock 3089 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 3104 100 3080 minecraft:chest[facing=south,type=right]{Items:[]}
+setblock 3105 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+journeymen debug as Steve 2 3094 100 3086 journeymen foreman summon GapBoss
+journeymen debug as Steve 2 3090 100 3084 journeymen builder summon GapBoss Gappy
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest GapBoss add 3084 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest GapBoss add 3088 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest GapBoss add 3104 100 3080 dump
+mark
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman build GapBoss test_soil.schem 3100 100 3090 none corner skip-missing
+waitlog nosprint GapBoss's crew is on the way !!
+waitlog 60 \[Steve\.GapBoss\] The site of test_soil\.schem is clear !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[tools\] Steve\.(Gappy) .*; (\d|1\d|2[0-6]) slots
+waitlog 60 \[Steve\.GapBoss\] I finished building test_soil\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[tools\] Steve\.(Gappy) .*; (\d|1\d|2[0-6]) slots
+waitlog nosprint \[unload\] Steve\.Gappy stores \d+ items at 3084, 100, 3080: Dirt
+waitlog nosprint \[unload\] Steve\.Gappy dumps \d+ items at 3104, 100, 3080: Dirt
+mark
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman check GapBoss test_soil.schem 3100 100 3090 none corner skip-missing
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# no dirt in supply and its first two supply chests full: it stores its drops into the third one instead of pausing, dumps none and places them
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3072 100 3072 3135 106 3135 minecraft:air
+fill 3136 100 3072 3199 106 3135 minecraft:air
+fill 3100 100 3090 3131 101 3121 minecraft:dirt
+setblock 3084 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 3085 100 3080 minecraft:chest[facing=south,type=left]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 3088 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 3089 100 3080 minecraft:chest[facing=south,type=left]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 3092 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:stone_shovel",count:1},{Slot:1b,id:"minecraft:stone_shovel",count:1},{Slot:2b,id:"minecraft:stone_shovel",count:1},{Slot:3b,id:"minecraft:stone_shovel",count:1},{Slot:4b,id:"minecraft:stone_shovel",count:1},{Slot:5b,id:"minecraft:stone_shovel",count:1},{Slot:6b,id:"minecraft:stone_shovel",count:1},{Slot:7b,id:"minecraft:stone_shovel",count:1},{Slot:8b,id:"minecraft:stone_shovel",count:1},{Slot:9b,id:"minecraft:stone_shovel",count:1},{Slot:10b,id:"minecraft:stone_shovel",count:1},{Slot:11b,id:"minecraft:stone_shovel",count:1},{Slot:12b,id:"minecraft:stone_shovel",count:1},{Slot:13b,id:"minecraft:stone_shovel",count:1},{Slot:14b,id:"minecraft:stone_shovel",count:1},{Slot:15b,id:"minecraft:stone_shovel",count:1},{Slot:16b,id:"minecraft:stone_shovel",count:1},{Slot:17b,id:"minecraft:stone_shovel",count:1},{Slot:18b,id:"minecraft:stone_shovel",count:1},{Slot:19b,id:"minecraft:stone_shovel",count:1},{Slot:20b,id:"minecraft:stone_shovel",count:1},{Slot:21b,id:"minecraft:stone_shovel",count:1},{Slot:22b,id:"minecraft:stone_shovel",count:1},{Slot:23b,id:"minecraft:stone_shovel",count:1},{Slot:24b,id:"minecraft:stone_shovel",count:1},{Slot:25b,id:"minecraft:stone_shovel",count:1},{Slot:26b,id:"minecraft:stone_shovel",count:1}]}
+setblock 3093 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 3096 100 3080 minecraft:chest[facing=south,type=right]{Items:[]}
+setblock 3097 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 3104 100 3080 minecraft:chest[facing=south,type=right]{Items:[]}
+setblock 3105 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+journeymen debug as Steve 2 3094 100 3086 journeymen foreman summon StuffBoss
+journeymen debug as Steve 2 3090 100 3084 journeymen builder summon StuffBoss Stuffy
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest StuffBoss add 3084 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest StuffBoss add 3088 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest StuffBoss add 3092 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest StuffBoss add 3096 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest StuffBoss add 3104 100 3080 dump
+mark
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman build StuffBoss test_soil.schem 3100 100 3090 none corner skip-missing
+waitlog nosprint StuffBoss's crew is on the way !!
+waitlog 60 \[Steve\.StuffBoss\] The site of test_soil\.schem is clear !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[tools\] Steve\.(Stuffy) .*; (\d|1\d|2[0-6]) slots|\[unload\] Steve\.Stuffy dumps \d+ items at .*: Dirt
+waitlog 60 \[Steve\.StuffBoss\] I finished building test_soil\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[tools\] Steve\.(Stuffy) .*; (\d|1\d|2[0-6]) slots|\[unload\] Steve\.Stuffy dumps \d+ items at .*: Dirt
+waitlog nosprint \[unload\] Steve\.Stuffy stores \d+ items at 3092, 100, 3080: Dirt
+mark
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman check StuffBoss test_soil.schem 3100 100 3090 none corner skip-missing
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a crew of two with 1024 dirt in supply and skip-missing: the drops the supply lacks are stored and placed, the rest is dumped
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3072 100 3072 3135 106 3135 minecraft:air
+fill 3136 100 3072 3199 106 3135 minecraft:air
+fill 3100 100 3090 3131 101 3121 minecraft:dirt
+setblock 3084 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:dirt",count:64},{Slot:1b,id:"minecraft:dirt",count:64},{Slot:2b,id:"minecraft:dirt",count:64},{Slot:3b,id:"minecraft:dirt",count:64},{Slot:4b,id:"minecraft:dirt",count:64},{Slot:5b,id:"minecraft:dirt",count:64},{Slot:6b,id:"minecraft:dirt",count:64},{Slot:7b,id:"minecraft:dirt",count:64},{Slot:8b,id:"minecraft:dirt",count:64},{Slot:9b,id:"minecraft:dirt",count:64},{Slot:10b,id:"minecraft:dirt",count:64},{Slot:11b,id:"minecraft:dirt",count:64},{Slot:12b,id:"minecraft:dirt",count:64},{Slot:13b,id:"minecraft:dirt",count:64},{Slot:14b,id:"minecraft:dirt",count:64},{Slot:15b,id:"minecraft:dirt",count:64}]}
+setblock 3085 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 3088 100 3080 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:stone_shovel",count:1},{Slot:1b,id:"minecraft:stone_shovel",count:1},{Slot:2b,id:"minecraft:stone_shovel",count:1},{Slot:3b,id:"minecraft:stone_shovel",count:1},{Slot:4b,id:"minecraft:stone_shovel",count:1},{Slot:5b,id:"minecraft:stone_shovel",count:1},{Slot:6b,id:"minecraft:stone_shovel",count:1},{Slot:7b,id:"minecraft:stone_shovel",count:1},{Slot:8b,id:"minecraft:stone_shovel",count:1},{Slot:9b,id:"minecraft:stone_shovel",count:1},{Slot:10b,id:"minecraft:stone_shovel",count:1},{Slot:11b,id:"minecraft:stone_shovel",count:1},{Slot:12b,id:"minecraft:stone_shovel",count:1},{Slot:13b,id:"minecraft:stone_shovel",count:1},{Slot:14b,id:"minecraft:stone_shovel",count:1},{Slot:15b,id:"minecraft:stone_shovel",count:1},{Slot:16b,id:"minecraft:stone_shovel",count:1},{Slot:17b,id:"minecraft:stone_shovel",count:1},{Slot:18b,id:"minecraft:stone_shovel",count:1},{Slot:19b,id:"minecraft:stone_shovel",count:1},{Slot:20b,id:"minecraft:stone_shovel",count:1},{Slot:21b,id:"minecraft:stone_shovel",count:1},{Slot:22b,id:"minecraft:stone_shovel",count:1},{Slot:23b,id:"minecraft:stone_shovel",count:1},{Slot:24b,id:"minecraft:stone_shovel",count:1},{Slot:25b,id:"minecraft:stone_shovel",count:1},{Slot:26b,id:"minecraft:stone_shovel",count:1}]}
+setblock 3089 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+setblock 3104 100 3080 minecraft:chest[facing=south,type=right]{Items:[]}
+setblock 3105 100 3080 minecraft:chest[facing=south,type=left]{Items:[]}
+journeymen debug as Steve 2 3094 100 3086 journeymen foreman summon DuoBoss
+journeymen debug as Steve 2 3090 100 3084 journeymen builder summon DuoBoss Dena
+journeymen debug as Steve 2 3091 100 3084 journeymen builder summon DuoBoss Dirk
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest DuoBoss add 3084 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest DuoBoss add 3088 100 3080 supply
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman chest DuoBoss add 3104 100 3080 dump
+mark
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman build DuoBoss test_soil.schem 3100 100 3090 none corner skip-missing
+waitlog nosprint DuoBoss's crew is on the way !!
+waitlog 60 \[Steve\.DuoBoss\] The site of test_soil\.schem is clear !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[tools\] Steve\.(Dena|Dirk) .*; (\d|1\d|2[0-6]) slots
+waitlog 60 \[Steve\.DuoBoss\] I finished building test_soil\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[tools\] Steve\.(Dena|Dirk) .*; (\d|1\d|2[0-6]) slots
+waitlog nosprint \[unload\] Steve\.(Dena|Dirk) stores \d+ items at 3084, 100, 3080: Dirt
+waitlog nosprint \[unload\] Steve\.(Dena|Dirk) dumps \d+ items at 3104, 100, 3080: Dirt
+mark
+journeymen debug as Steve 0 3090 100 3086 journeymen foreman check DuoBoss test_soil.schem 3100 100 3090 none corner skip-missing
+waitlog 10 0 to clear, 0 to place, 0 to adjust

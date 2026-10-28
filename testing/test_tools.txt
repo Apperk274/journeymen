@@ -152,3 +152,54 @@ data remove block 2950 100 2952 Items
 data remove block 2951 100 2952 Items
 waitlog 20 \[tools\] Steve\.Clutter at 2950, 100, 2952 takes 0 and returns 19 tools: Stone Shovel 8/8 for 1024 blocks !! dump chests are full too
 waitlog 30 \[Steve\.ClutterBoss\] I finished building test_dig\.schem !! dump chests are full too|(1[4-9]|2\d) tools carried
+# the same with its first supply chest full and a second one empty: it returns the extra shovels into the second one without pausing
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 2944 100 2944 3007 106 3007 minecraft:air
+fill 2960 100 2960 2991 100 2991 minecraft:dirt
+setblock 2950 100 2952 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 2951 100 2952 minecraft:chest[facing=south,type=left]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 2946 100 2956 minecraft:chest
+setblock 2950 100 2956 minecraft:chest[facing=south,type=right]
+setblock 2951 100 2956 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 2 2948 100 2962 journeymen foreman summon TidyBoss
+journeymen debug as Steve 2 2954 100 2958 journeymen builder summon TidyBoss Tidy
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest TidyBoss add 2950 100 2952 supply
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest TidyBoss add 2946 100 2956 supply
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman chest TidyBoss add 2950 100 2956 dump
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 2954 100 2958 {Item:{id:'minecraft:stone_shovel',count:1}}
+ticks 60
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Tidy,limit=1] Inventory.Items[26] =~ passed
+mark
+journeymen debug as Steve 0 2954 100 2958 journeymen foreman build TidyBoss test_dig.schem 2960 100 2960 none corner
+waitlog nosprint TidyBoss's crew is on the way !!
+waitlog 20 \[tools\] Steve\.Tidy at 2946, 100, 2956 takes 0 and returns 19 tools: Stone Shovel 8/8 for 1024 blocks !! no room|inventory is full
+waitlog 30 \[Steve\.TidyBoss\] I finished building test_dig\.schem !! no room|inventory is full|(1[4-9]|2\d) tools carried

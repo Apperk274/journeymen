@@ -79,7 +79,7 @@ public final class ChestVisit {
         return new ChestVisit(Kind.RESTOCK, chest, mustHave == null ? NOTHING : mustHave, null, false);
     }
 
-    public static ChestVisit store(BlockPos chest, ItemCounter keep) {
+    public static ChestVisit store(BlockPos chest, @Nullable ItemCounter keep) {
         return new ChestVisit(Kind.STORE, chest, stack -> true, keep, false);
     }
 
@@ -124,7 +124,8 @@ public final class ChestVisit {
         }
         if (!started) {
             started = true;
-            if (kind == Kind.FETCH && !containsWanted(store) || kind == Kind.RESTOCK && !builder.restockWorthVisiting(store, wanted)) {
+            if (kind == Kind.FETCH && !containsWanted(store) || kind == Kind.RESTOCK && !builder.restockWorthVisiting(store, wanted)
+                    || kind == Kind.STORE && !builder.storeWorthVisiting(store, amounts)) {
                 return Status.DONE;
             }
         }
@@ -158,11 +159,11 @@ public final class ChestVisit {
             return Status.WORKING;
         }
         if (kind == Kind.DUMP) {
-            builder.dumpInto(store);
+            builder.dumpInto(store, chest);
         } else if (kind == Kind.RESTOCK) {
             builder.restockToolsAt(store, chest, wanted);
         } else if (kind == Kind.STORE) {
-            builder.storeInto(store, amounts == null ? new ItemCounter() : amounts);
+            builder.storeInto(store, chest, amounts);
         } else if (amounts != null) {
             builder.fetchAmounts(store, amounts);
         } else {
