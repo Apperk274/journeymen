@@ -80,6 +80,15 @@ public final class BuildPlan {
         return plan;
     }
 
+    public static BuildPlan of(ServerLevel level, BoundingBox area, List<Placement> targets, boolean skipUnplaceable) {
+        BuildPlan plan = new BuildPlan(area, skipUnplaceable);
+        for (Placement target : targets) {
+            plan.totalCount++;
+            plan.classify(level, target.pos(), target.target(), level.getBlockState(target.pos()), target.blockEntity());
+        }
+        return plan;
+    }
+
     private void classify(ServerLevel level, BlockPos pos, BlockState target, BlockState actual, @Nullable CompoundTag blockEntity) {
         if (target.getBlock() instanceof LiquidBlock && !target.getFluidState().isSource()) {
             doneCount++;

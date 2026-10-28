@@ -50,6 +50,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -1013,15 +1014,34 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     private ItemCounter jobNeeds() {
-        BuildPlan plan = job == null ? null : job.getPlan();
-        if (plan == null) {
+        if (job == null) {
             return new ItemCounter();
         }
-        if (plan != needsPlan) {
+        BuildPlan plan = job.getPlan();
+        if (plan != null && plan != needsPlan) {
             needsPlan = plan;
             needs = plan.requirements(registryAccess()).items();
         }
-        return needs.copy();
+        ItemCounter result = plan == null ? new ItemCounter() : needs.copy();
+        if (!level().dimension().equals(job.getDimension())) {
+            return result;
+        }
+        Set<Item> carried = new LinkedHashSet<>();
+        for (ItemStack stack : inventory.getItems()) {
+            if (!stack.isEmpty() && !isTool(stack)) {
+                carried.add(stack.getItem());
+            }
+        }
+        for (ItemStack stack : overflow) {
+            if (!isTool(stack)) {
+                carried.add(stack.getItem());
+            }
+        }
+        ItemCounter current = job.remainingNeeds((ServerLevel) level(), carried, this::withinRedoLimit);
+        for (Map.Entry<ItemStack, Long> entry : current.entries()) {
+            result.add(entry.getKey(), entry.getValue() - result.count(entry.getKey()));
+        }
+        return result;
     }
 
     private ItemCounter supplyShortfall() {

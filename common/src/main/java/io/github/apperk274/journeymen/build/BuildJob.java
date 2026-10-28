@@ -10,12 +10,15 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -23,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 public final class BuildJob {
 
@@ -58,6 +62,8 @@ public final class BuildJob {
     @Nullable
     private BuildPlan plan;
     private boolean loading;
+    @Nullable
+    private NeedsIndex needsIndex;
     private final Map<BlockPos, Integer> redoCounts = new HashMap<>();
     private final List<BlockPos> unclearable = new ArrayList<>();
     private final Set<BlockPos> skippedPositions = new LinkedHashSet<>();
@@ -145,6 +151,7 @@ public final class BuildJob {
         this.schematic = schematic;
         this.plan = plan;
         this.loading = false;
+        this.needsIndex = null;
     }
 
     public void setPlan(BuildPlan plan) {
@@ -173,6 +180,16 @@ public final class BuildJob {
 
     public CrewWork getCrewWork() {
         return crewWork;
+    }
+
+    public ItemCounter remainingNeeds(ServerLevel level, Collection<Item> items, Predicate<BlockPos> include) {
+        if (schematic == null || items.isEmpty()) {
+            return new ItemCounter();
+        }
+        if (needsIndex == null) {
+            needsIndex = NeedsIndex.create(schematic, transform(), options, level.registryAccess());
+        }
+        return needsIndex.remaining(level, items, include, level.registryAccess());
     }
 
     public PlacementTransform transform() {

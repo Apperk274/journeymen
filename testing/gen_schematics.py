@@ -79,6 +79,13 @@ def putback():
     return blocks
 
 
+def redo():
+    blocks = {(x, 0, z): state("oak_planks") if x % 2 == 0 else state("spruce_planks") for x in range(16) for z in range(16)}
+    blocks.update({(x, y, z): state("white_wool") for x in range(16) for y in (1, 2) for z in range(16)})
+    blocks.update({(x, 3, z): state("air") for x in range(16) for z in range(16)})
+    return blocks
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -91,6 +98,7 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_dig.schem"), (32, 2, 32), {})
     write_sponge_v3(os.path.join(out, "test_soil.schem"), (64, 2, 32), soil())
     write_sponge_v3(os.path.join(out, "test_putback.schem"), (27, 2, 8), putback())
+    write_sponge_v3(os.path.join(out, "test_redo.schem"), (16, 4, 16), redo())
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
 

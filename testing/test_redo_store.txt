@@ -1,0 +1,226 @@
+forceload add 3392 3392 3487 3455
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 3392 99 3392 3487 99 3455 minecraft:smooth_stone
+fill 3392 100 3392 3487 104 3455 minecraft:air
+kill @e[type=item]
+# a builder alone: once the planks floor is placed two of its planks are swapped, one is taken out and dropped next to it as an item; the stock has no planks left, so the redo pass must put the swapped planks into a supply chest and place them with the picked-up one, never dump them
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3392 100 3392 3487 104 3455 minecraft:air
+setblock 3428 100 3406 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3429 100 3406 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3434 100 3406 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3435 100 3406 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3420 100 3410 journeymen foreman summon RedoBoss
+journeymen debug as Steve 2 3430 100 3409 journeymen builder summon RedoBoss Swappy
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman chest RedoBoss add 3428 100 3406 supply
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman chest RedoBoss add 3434 100 3406 dump
+mark
+journeymen debug as Steve 2 3420 100 3410 journeymen foreman supply RedoBoss test_redo.schem 3424 100 3416 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman build RedoBoss test_redo.schem 3424 100 3416 none corner
+waitlog nosprint RedoBoss's crew is on the way !!
+ticks 1500
+waitfor 5 nosprint execute if block 3430 100 3424 minecraft:oak_planks =~ passed
+waitfor 5 nosprint execute if block 3431 100 3424 minecraft:spruce_planks =~ passed
+waitfor 5 nosprint execute if block 3432 100 3424 minecraft:oak_planks =~ passed
+mark
+setblock 3430 100 3424 minecraft:spruce_planks
+setblock 3431 100 3424 minecraft:oak_planks
+setblock 3432 100 3424 minecraft:air
+execute at @e[type=journeymen:builder,name=Swappy,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:oak_planks",count:1}}
+waitlog 30 \[Steve\.RedoBoss\] I finished building test_redo\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|\[unload\] Steve\.Swappy dumps \d+ items at .*Planks
+waitfor 5 nosprint execute if block 3434 100 3406 minecraft:chest{Items:[{id:"minecraft:oak_planks"}]} !~ passed
+waitfor 5 nosprint execute if block 3435 100 3406 minecraft:chest{Items:[{id:"minecraft:oak_planks"}]} !~ passed
+mark
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman check RedoBoss test_redo.schem 3424 100 3416 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a builder alone clears 256 wool where the job wants air over a planks floor that is already done; meanwhile a plank of the floor is taken out and dropped next to it with 26 other items that fill its inventory. The plan made before clearing doesn't need planks and the stock has none, but the plank must not go to the dump: it goes into a supply chest and is placed
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3392 100 3392 3487 104 3455 minecraft:air
+fill 3424 100 3416 3424 100 3431 minecraft:oak_planks
+fill 3425 100 3416 3425 100 3431 minecraft:spruce_planks
+fill 3426 100 3416 3426 100 3431 minecraft:oak_planks
+fill 3427 100 3416 3427 100 3431 minecraft:spruce_planks
+fill 3428 100 3416 3428 100 3431 minecraft:oak_planks
+fill 3429 100 3416 3429 100 3431 minecraft:spruce_planks
+fill 3430 100 3416 3430 100 3431 minecraft:oak_planks
+fill 3431 100 3416 3431 100 3431 minecraft:spruce_planks
+fill 3432 100 3416 3432 100 3431 minecraft:oak_planks
+fill 3433 100 3416 3433 100 3431 minecraft:spruce_planks
+fill 3434 100 3416 3434 100 3431 minecraft:oak_planks
+fill 3435 100 3416 3435 100 3431 minecraft:spruce_planks
+fill 3436 100 3416 3436 100 3431 minecraft:oak_planks
+fill 3437 100 3416 3437 100 3431 minecraft:spruce_planks
+fill 3438 100 3416 3438 100 3431 minecraft:oak_planks
+fill 3439 100 3416 3439 100 3431 minecraft:spruce_planks
+fill 3424 103 3416 3439 103 3431 minecraft:orange_wool
+fill 3450 103 3440 3465 103 3455 minecraft:orange_wool
+setblock 3428 100 3406 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3429 100 3406 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3434 100 3406 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3435 100 3406 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3420 100 3410 journeymen foreman summon StaleBoss
+journeymen debug as Steve 2 3430 100 3409 journeymen builder summon StaleBoss Stale
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman chest StaleBoss add 3428 100 3406 supply
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman chest StaleBoss add 3434 100 3406 dump
+mark
+journeymen debug as Steve 2 3420 100 3410 journeymen foreman supply StaleBoss test_redo.schem 3424 100 3416 none corner
+waitlog \] Supplied 512 items
+mark
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman build StaleBoss test_redo.schem 3424 100 3416 none corner
+waitlog nosprint StaleBoss's crew is on the way !!
+waitfor 30 execute unless blocks 3424 103 3416 3439 103 3431 3450 103 3440 all =~ passed !!
+setblock 3430 100 3424 minecraft:air
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:oak_planks",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:stick",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:string",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:feather",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:bone",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:flint",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:paper",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:leather",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:slime_ball",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:clay_ball",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:brick",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:white_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:orange_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:magenta_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:light_blue_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:yellow_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:lime_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:pink_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:gray_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:light_gray_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:cyan_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:purple_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:blue_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:brown_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:green_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:red_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Stale,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:black_dye",count:1}}
+waitlog 60 \[Steve\.StaleBoss\] I finished building test_redo\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[unload\] Steve\.\w+ dumps \d+ items at .*Oak Planks
+waitlog nosprint \[unload\] Steve\.Stale dumps \d+ items at 3434, 100, 3406: .*Stick
+mark
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman check StaleBoss test_redo.schem 3424 100 3416 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a crew of three: the same swap, a plank taken out, a plank dropped next to each builder and six planks on top where the job wants air; the planks the redo pass needs go into a supply chest and are placed, only the rest is dumped
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3392 100 3392 3487 104 3455 minecraft:air
+setblock 3428 100 3406 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3429 100 3406 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3434 100 3406 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3435 100 3406 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3420 100 3410 journeymen foreman summon CrewRedo
+journeymen debug as Steve 2 3430 100 3409 journeymen builder summon CrewRedo Rhea
+journeymen debug as Steve 2 3431 100 3409 journeymen builder summon CrewRedo Rudy
+journeymen debug as Steve 2 3432 100 3409 journeymen builder summon CrewRedo Remy
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman chest CrewRedo add 3428 100 3406 supply
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman chest CrewRedo add 3434 100 3406 dump
+mark
+journeymen debug as Steve 2 3420 100 3410 journeymen foreman supply CrewRedo test_redo.schem 3424 100 3416 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman build CrewRedo test_redo.schem 3424 100 3416 none corner
+waitlog nosprint CrewRedo's crew is on the way !!
+ticks 900
+waitfor 5 nosprint execute if block 3430 100 3424 minecraft:oak_planks =~ passed
+waitfor 5 nosprint execute if block 3431 100 3424 minecraft:spruce_planks =~ passed
+waitfor 5 nosprint execute if block 3432 100 3424 minecraft:oak_planks =~ passed
+mark
+setblock 3430 100 3424 minecraft:spruce_planks
+setblock 3431 100 3424 minecraft:oak_planks
+setblock 3432 100 3424 minecraft:air
+fill 3427 103 3420 3432 103 3420 minecraft:oak_planks
+execute at @e[type=journeymen:builder,name=Rhea,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:oak_planks",count:1}}
+execute at @e[type=journeymen:builder,name=Rudy,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:oak_planks",count:1}}
+execute at @e[type=journeymen:builder,name=Remy,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:oak_planks",count:1}}
+waitlog 30 \[Steve\.CrewRedo\] I finished building test_redo\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[unload\] Steve\.\w+ dumps \d+ items at .*Spruce Planks
+mark
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman check CrewRedo test_redo.schem 3424 100 3416 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# the same with a crew of three: the plank dropped next to one of them goes into a supply chest and is placed
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3392 100 3392 3487 104 3455 minecraft:air
+fill 3424 100 3416 3424 100 3431 minecraft:oak_planks
+fill 3425 100 3416 3425 100 3431 minecraft:spruce_planks
+fill 3426 100 3416 3426 100 3431 minecraft:oak_planks
+fill 3427 100 3416 3427 100 3431 minecraft:spruce_planks
+fill 3428 100 3416 3428 100 3431 minecraft:oak_planks
+fill 3429 100 3416 3429 100 3431 minecraft:spruce_planks
+fill 3430 100 3416 3430 100 3431 minecraft:oak_planks
+fill 3431 100 3416 3431 100 3431 minecraft:spruce_planks
+fill 3432 100 3416 3432 100 3431 minecraft:oak_planks
+fill 3433 100 3416 3433 100 3431 minecraft:spruce_planks
+fill 3434 100 3416 3434 100 3431 minecraft:oak_planks
+fill 3435 100 3416 3435 100 3431 minecraft:spruce_planks
+fill 3436 100 3416 3436 100 3431 minecraft:oak_planks
+fill 3437 100 3416 3437 100 3431 minecraft:spruce_planks
+fill 3438 100 3416 3438 100 3431 minecraft:oak_planks
+fill 3439 100 3416 3439 100 3431 minecraft:spruce_planks
+fill 3424 103 3416 3439 103 3431 minecraft:orange_wool
+fill 3450 103 3440 3465 103 3455 minecraft:orange_wool
+setblock 3428 100 3406 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3429 100 3406 minecraft:chest[facing=north,type=right]{Items:[]}
+setblock 3434 100 3406 minecraft:chest[facing=north,type=left]{Items:[]}
+setblock 3435 100 3406 minecraft:chest[facing=north,type=right]{Items:[]}
+journeymen debug as Steve 2 3420 100 3410 journeymen foreman summon StaleCrew
+journeymen debug as Steve 2 3430 100 3409 journeymen builder summon StaleCrew Sven
+journeymen debug as Steve 2 3431 100 3409 journeymen builder summon StaleCrew Sara
+journeymen debug as Steve 2 3432 100 3409 journeymen builder summon StaleCrew Saul
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman chest StaleCrew add 3428 100 3406 supply
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman chest StaleCrew add 3434 100 3406 dump
+mark
+journeymen debug as Steve 2 3420 100 3410 journeymen foreman supply StaleCrew test_redo.schem 3424 100 3416 none corner
+waitlog \] Supplied 512 items
+mark
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman build StaleCrew test_redo.schem 3424 100 3416 none corner
+waitlog nosprint StaleCrew's crew is on the way !!
+waitfor 30 execute unless blocks 3424 103 3416 3439 103 3431 3450 103 3440 all =~ passed !!
+setblock 3430 100 3424 minecraft:air
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:oak_planks",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:stick",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:string",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:feather",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:bone",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:flint",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:paper",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:leather",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:slime_ball",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:clay_ball",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:brick",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:white_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:orange_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:magenta_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:light_blue_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:yellow_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:lime_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:pink_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:gray_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:light_gray_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:cyan_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:purple_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:blue_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:brown_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:green_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:red_dye",count:1}}
+execute at @e[type=journeymen:builder,name=Sara,limit=1] run summon item ~ ~ ~ {Item:{id:"minecraft:black_dye",count:1}}
+waitlog 60 \[Steve\.StaleCrew\] I finished building test_redo\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed|\[unload\] Steve\.\w+ dumps \d+ items at .*Oak Planks
+waitlog nosprint \[unload\] Steve\.Sara dumps \d+ items at 3434, 100, 3406: .*Stick
+mark
+journeymen debug as Steve 0 3420 100 3410 journeymen foreman check StaleCrew test_redo.schem 3424 100 3416 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
