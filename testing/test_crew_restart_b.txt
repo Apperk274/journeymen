@@ -2,6 +2,7 @@ forceload add 1400 1300 1440 1340
 waitfor 5 nosprint journeymen foreman status Steve.Rook =~ Crew of 2
 waitfor 5 nosprint journeymen builder status Steve.Sam =~ Job: test_box\.schem
 journeymen foreman status Steve.Rook
+kill @e[type=minecraft:armor_stand,tag=restart_block]
 waitlog 20 \[Steve\.Rook\] I finished building test_box\.schem !!
 waitfor 5 nosprint journeymen builder status Steve.Sam =~ Job: none
 mark

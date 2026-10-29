@@ -83,6 +83,30 @@ waitfor 10 execute if entity @e[type=journeymen:builder,name=Porter,x=5802.5,y=1
 waitfor 5 nosprint execute if block 5792 101 4873 minecraft:oak_door[open=true] =~ passed
 kill @e[type=minecraft:armor_stand,x=5786,y=99,z=4870,dx=8,dy=5,dz=6]
 waitfor 5 execute if block 5792 101 4873 minecraft:oak_door[open=false] =~ passed
+# the same door, with the journeyman's chunk unloaded while the armor stand keeps it open: once loaded again, it closes the door when the doorway is free
+forceload add 5888 4864 5903 4879
+kill @e[type=journeymen:builder,name=Unloader]
+kill @e[type=minecraft:armor_stand,x=5888,y=80,z=4864,dx=15,dy=40,dz=15]
+fill 5888 99 4864 5903 99 4879 minecraft:stone
+fill 5888 100 4864 5903 106 4879 minecraft:air
+fill 5889 100 4870 5895 103 4876 minecraft:stone hollow
+setblock 5895 101 4873 minecraft:oak_door[facing=east,half=lower]
+setblock 5895 102 4873 minecraft:oak_door[facing=east,half=upper]
+summon minecraft:armor_stand 5895.5 101 4873.5 {NoGravity:1b,Tags:["jmunload"]}
+journeymen debug as Steve 2 5891.5 101 4873.5 journeymen builder summon DoorBoss Unloader
+journeymen debug as Steve 0 5901 100 4873 journeymen builder come Unloader
+waitfor 10 execute if entity @e[type=journeymen:builder,name=Unloader,x=5901.5,y=100,z=4873.5,distance=..2] =~ passed
+waitfor 5 nosprint execute if block 5895 101 4873 minecraft:oak_door[open=true] =~ passed
+forceload remove 5888 4864 5903 4879
+waitfor 30 execute if entity @e[type=journeymen:builder,name=Unloader] =~ failed
+forceload add 5888 4864 5903 4879
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Unloader] =~ passed
+ticks 20
+waitfor 5 nosprint execute if block 5895 101 4873 minecraft:oak_door[open=true] =~ passed
+kill @e[type=minecraft:armor_stand,tag=jmunload]
+waitfor 5 execute if block 5895 101 4873 minecraft:oak_door[open=false] =~ passed
+kill @e[type=journeymen:builder,name=Unloader]
+forceload remove 5888 4864 5903 4879
 journeymen config reload
 # a builder's armor drops on death like its inventory, also with doMobLoot off, and only once
 journeymen debug as Steve 2 5806 100 4866 journeymen foreman summon ArmBoss

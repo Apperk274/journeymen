@@ -1,0 +1,75 @@
+forceload add 7552 4864 7679 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+kill @e[type=minecraft:armor_stand,x=7552,y=80,z=4864,dx=127,dy=100,dz=63]
+ticks 40
+fill 7552 99 4864 7679 99 4927 minecraft:smooth_stone
+fill 7552 100 4864 7679 107 4895 minecraft:air
+fill 7552 100 4896 7679 107 4927 minecraft:air
+fill 7560 140 4890 7580 160 4910 minecraft:air
+kill @e[type=item,x=7552,y=80,z=4864,dx=127,dy=100,dz=63]
+# a foreman on a 1x1 pillar inside his site, with no spot outside it to stand on, searches for a post at most every 200 ticks, not every tick
+setblock 7570 150 4900 minecraft:stone
+journeymen debug as Steve 2 7570.5 151 4900.5 journeymen foreman summon PostBoss
+journeymen debug as Steve 2 7570.5 100 4910.5 journeymen builder summon PostBoss Posty
+data modify entity @e[type=journeymen:builder,name=Posty,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:stone",count:1}]
+mark
+journeymen debug as Steve 0 7570 100 4910 journeymen foreman build PostBoss test_st_one.schem 7570 151 4900 none corner
+waitlog nosprint PostBoss's crew is on the way: Posty\. !!
+tp @e[type=journeymen:builder,name=Posty] 7570.5 100 4936.5
+ticks 100
+journeymen debug counts
+waitlog \[debug counts\] Steve\.PostBoss \d+ post searches
+mark
+ticks 400
+journeymen debug counts
+waitlog \[debug counts\] Steve\.PostBoss [0-3] post searches
+waitfor 5 nosprint execute if entity @e[type=journeymen:foreman,name=PostBoss,x=7570.5,y=151,z=4900.5,distance=..1] =~ passed
+waitfor 5 nosprint execute if block 7570 151 4900 minecraft:air =~ passed
+kill @e[type=journeymen:foreman,name=PostBoss]
+kill @e[type=journeymen:builder,name=Posty]
+# a crew of three clearing 200 dirt for 50 dirt paths with three wooden shovels (177 uses) digs with the 127 uses the paths don't need, not by hand
+setblock 7590 100 4866 minecraft:chest{Items:[{Slot:0b,id:"minecraft:dirt",count:50},{Slot:1b,id:"minecraft:wooden_shovel",count:1},{Slot:2b,id:"minecraft:wooden_shovel",count:1},{Slot:3b,id:"minecraft:wooden_shovel",count:1}]}
+setblock 7593 100 4866 minecraft:chest
+fill 7600 100 4870 7609 103 4874 minecraft:dirt
+journeymen debug as Steve 2 7596 100 4868 journeymen foreman summon ShovBoss
+journeymen debug as Steve 2 7597.5 100 4866.5 journeymen builder summon ShovBoss Shova
+journeymen debug as Steve 2 7598.5 100 4866.5 journeymen builder summon ShovBoss Shovb
+journeymen debug as Steve 2 7599.5 100 4866.5 journeymen builder summon ShovBoss Shovc
+journeymen debug as Steve 0 7596 100 4868 journeymen foreman chest ShovBoss add 7590 100 4866 supply
+journeymen debug as Steve 0 7596 100 4868 journeymen foreman chest ShovBoss add 7593 100 4866 dump
+mark
+journeymen debug as Steve 0 7596 100 4868 journeymen foreman build ShovBoss test_inv_paths.schem 7600 100 4870 none corner
+waitlog nosprint ShovBoss's crew is on the way: Shova, Shovb and Shovc\. !!
+waitlog 30 \[clearing\] Steve\.\w+ cleared the site of test_inv_paths\.schem: 0 counted blocks left, 0 needing a tool; \d+ broken with a tool !!
+waitlog 5 \[clearing\] Steve\.\w+ cleared the site of test_inv_paths\.schem: 0 counted blocks left, 0 needing a tool; (1[0-9]\d|[2-9]\d\d) broken with a tool
+waitlog 30 \[Steve\.ShovBoss\] I finished building test_inv_paths\.schem !! I couldn't build|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+waitfor 5 nosprint execute if block 7609 100 4874 minecraft:dirt_path =~ passed
+mark
+journeymen debug as Steve 0 7596 100 4868 journeymen foreman check ShovBoss test_inv_paths.schem 7600 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+kill @e[type=journeymen:foreman,name=ShovBoss]
+kill @e[type=journeymen:builder,name=Shova]
+kill @e[type=journeymen:builder,name=Shovb]
+kill @e[type=journeymen:builder,name=Shovc]
+# a crew builder waiting with nothing to claim (its crewmate waits for an armor stand where the only block goes) checks for job materials to hand back every 100 ticks after finding none, not every 20 ticks
+setblock 7634 100 4874 minecraft:chest{Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+summon minecraft:armor_stand 7640.5 100 4880.5 {NoGravity:1b,Invulnerable:1b,Tags:["jmwait"]}
+journeymen debug as Steve 2 7636 100 4878 journeymen foreman summon IdleBoss
+journeymen debug as Steve 2 7637.5 100 4876.5 journeymen builder summon IdleBoss Idla
+journeymen debug as Steve 2 7638.5 100 4876.5 journeymen builder summon IdleBoss Idlb
+journeymen debug as Steve 0 7636 100 4878 journeymen foreman chest IdleBoss add 7634 100 4874 supply
+mark
+journeymen debug as Steve 0 7636 100 4878 journeymen foreman build IdleBoss test_st_one.schem 7640 100 4880 none corner
+waitlog nosprint IdleBoss's crew is on the way: Idla and Idlb\. !!
+waitlog 20 An armor stand is in the way at 7640, 100, 4880, where Idl[ab] needs to place a block !! I finished building|Exception
+ticks 200
+journeymen debug counts
+waitlog \[debug counts\] Steve\.IdleBoss \d+ post searches
+mark
+ticks 1000
+journeymen debug counts
+waitlog x2 \[debug counts\] Steve\.Idl[ab] ([0-9]|1[0-2]) hand-back checks
+waitlog \[debug counts\] Steve\.Idl[ab] ([1-9]|1[0-2]) hand-back checks
+kill @e[type=minecraft:armor_stand,tag=jmwait]
+waitlog 20 \[Steve\.IdleBoss\] I finished building test_st_one\.schem !!

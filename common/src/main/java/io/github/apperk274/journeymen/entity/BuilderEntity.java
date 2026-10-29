@@ -87,6 +87,7 @@ public class BuilderEntity extends JourneymanEntity {
     private static final int STORE_RETRY_TICKS = 1200;
     private static final int CREW_WAIT_TICKS = 20;
     private static final int HAND_BACK_TICKS = 100;
+    private static final int SUPPLY_TOOLS_TICKS = 100;
     private static final int STEP_ASIDE_TICKS = 40;
     private static final int LEAVE_SITE_TICKS = 60;
     private static final int LOAD_GRACE_TICKS = 100;
@@ -150,6 +151,12 @@ public class BuilderEntity extends JourneymanEntity {
     private int visitsDone;
     private int crewModeTick = -1;
     private boolean crewMode;
+    private int handBackCheckAt;
+    private int handBackChecks;
+    @Nullable
+    private List<ItemStack> supplyTools;
+    private int supplyToolsVersion;
+    private long supplyToolsTick;
     private int crewWaitUntil;
     private int idleSince = -1;
     private boolean idle;
@@ -554,7 +561,12 @@ public class BuilderEntity extends JourneymanEntity {
         if (tickCount - idleSince >= LEAVE_SITE_TICKS && getNavigation().isDone()) {
             leaveSite();
         }
-        if (handBack && tickCount - idleSince >= HAND_BACK_TICKS && hasSpareItems(new ItemCounter())) {
+        if (handBack && tickCount - idleSince >= HAND_BACK_TICKS && tickCount >= handBackCheckAt) {
+            handBackChecks++;
+            if (!hasSpareItems(new ItemCounter())) {
+                handBackCheckAt = tickCount + HAND_BACK_TICKS;
+                return;
+            }
             idleSince = tickCount;
             if (queueStore(new ItemCounter())) {
                 queueDump();
@@ -565,6 +577,12 @@ public class BuilderEntity extends JourneymanEntity {
                         + supplyChestProblems());
             }
         }
+    }
+
+    public int takeHandBackChecks() {
+        int checks = handBackChecks;
+        handBackChecks = 0;
+        return checks;
     }
 
     private void releaseClaims() {
@@ -594,6 +612,7 @@ public class BuilderEntity extends JourneymanEntity {
         getNavigation().stop();
         toolsFetched = false;
         clearedSomething = false;
+        supplyTools = null;
         Constants.LOG.debug("{} starts {}", getJourneymanName(), newJob.getFile());
         if (newJob.getSchematic() == null) {
             work.setPhase(BuildJob.Phase.LOADING);
@@ -690,6 +709,27 @@ public class BuilderEntity extends JourneymanEntity {
             }
         }
         return null;
+    }
+
+    public List<ItemStack> toolsElsewhere() {
+        List<ItemStack> tools = new ArrayList<>();
+        if (job == null) {
+            return tools;
+        }
+        long now = level().getGameTime();
+        int version = job.getCrewWork().stockVersion();
+        if (supplyTools == null || version != supplyToolsVersion || now - supplyToolsTick >= SUPPLY_TOOLS_TICKS || now < supplyToolsTick) {
+            supplyTools = Crew.supplyStock(level(), reachableChests(), new ArrayList<>()).stream().filter(BuilderEntity::isTool).toList();
+            supplyToolsVersion = version;
+            supplyToolsTick = now;
+        }
+        tools.addAll(supplyTools);
+        for (BuilderEntity member : Crew.loaded(getServer(), job)) {
+            if (member != this) {
+                member.inventory.getItems().stream().filter(stack -> !stack.isEmpty() && isTool(stack)).forEach(tools::add);
+            }
+        }
+        return tools;
     }
 
     @Nullable
@@ -1501,8 +1541,9 @@ public class BuilderEntity extends JourneymanEntity {
             }
             List<BlockPos> skipped = done.getSkipped();
             if (Services.PLATFORM.isDevelopmentEnvironment()) {
-                Constants.LOG.info("[clearing] {}.{} cleared the site of {}: {} counted blocks left, {} needing a tool", getOwnerName(),
-                        getJourneymanName(), job.getFile(), done.countedLeft(), done.requiredLeft());
+                Constants.LOG.info("[clearing] {}.{} cleared the site of {}: {} counted blocks left, {} needing a tool; {} broken with a tool, {} by hand",
+                        getOwnerName(), getJourneymanName(), job.getFile(), done.countedLeft(), done.requiredLeft(), done.getClearedWithTool(),
+                        done.getCleared() - done.getClearedWithTool());
             }
             shared.noteCleared(done.getCleared() > 0);
             BuildPlan plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());

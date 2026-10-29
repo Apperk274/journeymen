@@ -198,6 +198,10 @@ public final class ChestVisit {
             builder.fetchFrom(store, chest, wanted, oneEach, fromDump);
         }
         store.setChanged();
+        BuildJob current = builder.getJob();
+        if (current != null) {
+            current.getCrewWork().stockChanged();
+        }
         setOpen(level, false);
         return Status.DONE;
     }

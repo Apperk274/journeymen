@@ -36,6 +36,7 @@ public final class ClearingWork {
     private final int total;
     private int count;
     int cleared;
+    int clearedWithTool;
 
     static final class Layer {
 
@@ -214,6 +215,10 @@ public final class ClearingWork {
 
     public int getTotal() {
         return total;
+    }
+
+    public int getClearedWithTool() {
+        return clearedWithTool;
     }
 
     public int getCleared() {

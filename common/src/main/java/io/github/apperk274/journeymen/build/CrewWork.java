@@ -24,6 +24,15 @@ public final class CrewWork {
     private final Map<UUID, ItemCounter> reservations = new HashMap<>();
     private final Set<UUID> starving = new HashSet<>();
     private final Map<BlockPos, Long> unreachable = new HashMap<>();
+    private int stockVersion;
+
+    public void stockChanged() {
+        stockVersion++;
+    }
+
+    public int stockVersion() {
+        return stockVersion;
+    }
 
     @Nullable
     public ClearingWork getClearing() {

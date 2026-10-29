@@ -9,7 +9,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 public final class ToolChoice {
 
@@ -24,7 +26,8 @@ public final class ToolChoice {
     }
 
     public static int choose(Container inventory, BlockState state, ServerLevel level, BlockPos pos, boolean allowBreakingEnchanted,
-                             Map<BlockState, Integer> requiredRemaining, Map<BlockRequirements.ToolUse, Integer> toolUses) {
+                             Map<BlockState, Integer> requiredRemaining, Map<BlockRequirements.ToolUse, Integer> toolUses,
+                             Supplier<List<ItemStack>> elsewhere) {
         boolean required = needsTool(state, level, pos);
         if (WaterRules.meltsWhenBroken(state)) {
             int iceTool = iceTool(inventory, state, level, pos, allowBreakingEnchanted, required);
@@ -59,7 +62,7 @@ public final class ToolChoice {
                 }
             } else if (speed > bestSpeed) {
                 if (useReserved == null) {
-                    useReserved = useReservations(inventory, toolUses, allowBreakingEnchanted);
+                    useReserved = useReservations(inventory, toolUses, elsewhere.get(), allowBreakingEnchanted);
                 }
                 if (usable - cost >= reserved(stack, requiredRemaining) + useReserved[slot]) {
                     best = slot;
@@ -100,10 +103,21 @@ public final class ToolChoice {
         return count;
     }
 
-    private static int[] useReservations(Container inventory, Map<BlockRequirements.ToolUse, Integer> toolUses, boolean allowBreakingEnchanted) {
+    private static int[] useReservations(Container inventory, Map<BlockRequirements.ToolUse, Integer> toolUses, List<ItemStack> elsewhere,
+                                         boolean allowBreakingEnchanted) {
         int[] reserved = new int[inventory.getContainerSize()];
+        int[] covered = new int[elsewhere.size()];
         for (Map.Entry<BlockRequirements.ToolUse, Integer> entry : toolUses.entrySet()) {
             int left = entry.getValue();
+            for (int index = 0; index < covered.length && left > 0; index++) {
+                ItemStack stack = elsewhere.get(index);
+                if (stack.isEmpty() || !stack.isDamageableItem() || !Services.COMPAT.canDo(stack, entry.getKey())) {
+                    continue;
+                }
+                int share = Math.min(left, Math.max(0, ToolCheck.usableDurability(stack, allowBreakingEnchanted) - covered[index]));
+                covered[index] += share;
+                left -= share;
+            }
             for (int slot = 0; slot < reserved.length && left > 0; slot++) {
                 ItemStack stack = inventory.getItem(slot);
                 if (stack.isEmpty() || !stack.isDamageableItem() || !Services.COMPAT.canDo(stack, entry.getKey())) {

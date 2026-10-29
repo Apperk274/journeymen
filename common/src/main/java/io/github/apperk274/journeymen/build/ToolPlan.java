@@ -223,6 +223,10 @@ public final class ToolPlan {
             if (kind.blocks == 0) {
                 continue;
             }
+            if (kind.damageable > 0 && kind.durability <= 0) {
+                kind.target = 0;
+                continue;
+            }
             double durability = kind.averageDurability();
             double share = (double) kind.uses / members;
             int needed = Double.isInfinite(durability) || kind.uses == 0 ? 1 : (int) Math.max(1, Math.ceil(share / durability));

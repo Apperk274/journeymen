@@ -12,6 +12,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -749,6 +751,20 @@ public abstract class JourneymanEntity extends PathfinderMob {
         }
         tag.putBoolean("Following", following);
         stuck.save(tag);
+        Map<BlockPos, Integer> passages = new HashMap<>();
+        openedPassages.forEach((pos, until) -> passages.put(pos, Math.max(0, until - tickCount)));
+        BlockPos held = passageGoal == null ? null : passageGoal.openedPassage();
+        if (held != null) {
+            passages.put(held.immutable(), PASSAGE_CLOSE_TICKS);
+        }
+        ListTag list = new ListTag();
+        passages.forEach((pos, left) -> {
+            CompoundTag entry = new CompoundTag();
+            entry.putLong("Pos", pos.asLong());
+            entry.putInt("Ticks", left);
+            list.add(entry);
+        });
+        tag.put("OpenedPassages", list);
     }
 
     @Override
@@ -758,5 +774,11 @@ public abstract class JourneymanEntity extends PathfinderMob {
         ownerName = tag.contains("OwnerName") ? tag.getString("OwnerName") : null;
         following = tag.getBoolean("Following");
         stuck.load(tag);
+        openedPassages.clear();
+        ListTag passages = tag.getList("OpenedPassages", Tag.TAG_COMPOUND);
+        for (int i = 0; i < passages.size(); i++) {
+            CompoundTag entry = passages.getCompound(i);
+            openedPassages.put(BlockPos.of(entry.getLong("Pos")), tickCount + entry.getInt("Ticks"));
+        }
     }
 }

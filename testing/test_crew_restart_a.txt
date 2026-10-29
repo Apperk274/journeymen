@@ -51,6 +51,9 @@ journeymen debug as Steve 0 1406 100 1306 journeymen foreman chest Rook add 1407
 journeymen debug as Steve 0 1406 100 1306 journeymen foreman chest Rook add 1401 100 1304 dump
 journeymen debug as Steve 2 1406 100 1306 journeymen foreman supply Rook test_box.schem 1410 100 1310 none corner
 waitlog \] Supplied \d+ items
+# an armor stand in the middle of the box's roof, which goes in last, keeps the job from finishing before test_crew_restart_b has checked it
+kill @e[type=minecraft:armor_stand,tag=restart_block]
+summon minecraft:armor_stand 1416.5 104 1316.5 {NoGravity:1b,Invulnerable:1b,Tags:["restart_block"]}
 journeymen debug as Steve 0 1406 100 1306 journeymen foreman build Rook test_box.schem 1410 100 1310 none corner
 waitlog Rook's crew is on the way: Rea and Sam\. !!
 waitfor 10 journeymen foreman status Steve.Rook =~ Phase: placing [1-9]\d*/

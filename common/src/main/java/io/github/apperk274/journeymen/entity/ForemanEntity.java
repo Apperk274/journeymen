@@ -51,6 +51,7 @@ public class ForemanEntity extends JourneymanEntity {
     public static final double POST_DISTANCE = 8.0;
     private static final double POST_RETURN_DISTANCE = 5.0;
     private static final int POST_SEARCH_TICKS = 200;
+    private static final int NOT_SEARCHED = Integer.MIN_VALUE / 2;
     private static final int RETURN_GIVE_UP_TICKS = 1200;
     private static final int RETURN_RETRY_TICKS = 1200;
     private static final int RECRUIT_INTERVAL = 20;
@@ -63,7 +64,8 @@ public class ForemanEntity extends JourneymanEntity {
     private boolean away;
     @Nullable
     private BlockPos post;
-    private int postSearchedAt = Integer.MIN_VALUE / 2;
+    private int postSearchedAt = NOT_SEARCHED;
+    private int postSearches;
     private double returnBest = Double.MAX_VALUE;
     private int returnStalledTicks;
     private int returnRetryAt;
@@ -257,6 +259,7 @@ public class ForemanEntity extends JourneymanEntity {
         returning = false;
         away = false;
         post = null;
+        postSearchedAt = NOT_SEARCHED;
         returnRetryAt = 0;
         getNavigation().stop();
         recruit(newJob);
@@ -413,6 +416,7 @@ public class ForemanEntity extends JourneymanEntity {
             return;
         }
         post = null;
+        postSearchedAt = NOT_SEARCHED;
         double distance = PreCheck.horizontalDistance(blockPosition(), area);
         if (distance > POST_DISTANCE && !returning) {
             returning = true;
@@ -449,12 +453,19 @@ public class ForemanEntity extends JourneymanEntity {
         }
     }
 
+    public int takePostSearches() {
+        int searches = postSearches;
+        postSearches = 0;
+        return searches;
+    }
+
     @Nullable
     private BlockPos postFor(BuildJob current) {
-        if (post != null && !isInJobArea(post) && tickCount - postSearchedAt < POST_SEARCH_TICKS) {
+        if (tickCount - postSearchedAt < POST_SEARCH_TICKS && (post == null || !isInJobArea(post))) {
             return post;
         }
         postSearchedAt = tickCount;
+        postSearches++;
         BlockPos found = PostSearch.find(this, current.getArea(), POST_DISTANCE);
         if (found == null) {
             StuckRecovery.Goal goal = siteGoal(current, true);
@@ -502,6 +513,7 @@ public class ForemanEntity extends JourneymanEntity {
     protected void afterEscape() {
         returning = false;
         post = null;
+        postSearchedAt = NOT_SEARCHED;
     }
 
     public record JobStatus(BuildJob.Phase phase, String text, @Nullable String pauseReason, int done, int total) {

@@ -122,6 +122,7 @@ public class DebugCommands {
                                 .executes(DebugCommands::delay)))
                 .then(Commands.literal("chunks").executes(DebugCommands::chunks))
                 .then(Commands.literal("paths").executes(DebugCommands::paths))
+                .then(Commands.literal("counts").executes(DebugCommands::counts))
                 .then(Commands.literal("copyschematic")
                         .then(Commands.argument("from", StringArgumentType.string())
                                 .then(Commands.argument("to", StringArgumentType.string())
@@ -386,6 +387,26 @@ public class DebugCommands {
         lines.sort(null);
         for (String line : lines) {
             Constants.LOG.info("[debug paths] {}", line);
+            source.sendSuccess(() -> Component.literal(line), false);
+        }
+        return lines.size();
+    }
+
+    private static int counts(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        List<String> lines = new ArrayList<>();
+        for (ServerLevel level : source.getServer().getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof ForemanEntity foreman) {
+                    lines.add(foreman.qualifiedName() + " " + foreman.takePostSearches() + " post searches");
+                } else if (entity instanceof BuilderEntity builder) {
+                    lines.add(builder.qualifiedName() + " " + builder.takeHandBackChecks() + " hand-back checks");
+                }
+            }
+        }
+        lines.sort(null);
+        for (String line : lines) {
+            Constants.LOG.info("[debug counts] {}", line);
             source.sendSuccess(() -> Component.literal(line), false);
         }
         return lines.size();

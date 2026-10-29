@@ -7,7 +7,7 @@ param(
         "test_made.txt", "test_dump_source.txt", "test_lifecycle_edges.txt", "test_lifecycle_chests.txt", "test_security.txt", "test_security_build.txt",
         "test_fluids.txt", "test_physics.txt", "test_states.txt", "test_growth.txt", "test_movement_edges.txt", "test_movement_mobs.txt",
         "test_inventory_edges.txt", "test_chest_dims.txt", "test_registry_edges.txt", "test_config.txt", "test_stall_edges.txt",
-        "test_screen_edges.txt",
+        "test_screen_edges.txt", "test_crew_edges.txt",
         "test_schematic_edges.txt", "test_crew_restart_a.txt"),
     [string[]]$AfterRestart = @("test_crew_restart_b.txt", "test_schematic_edges_restart.txt"),
     [string[]]$TfcSuites = @("test_tfc_farm.txt", "test_tfc_shelf.txt", "test_tfc_collapse.txt", "test_tfc_made.txt")

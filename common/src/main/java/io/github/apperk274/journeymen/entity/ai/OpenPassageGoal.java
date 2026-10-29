@@ -94,6 +94,11 @@ public class OpenPassageGoal extends Goal {
         abandon();
     }
 
+    @Nullable
+    public BlockPos openedPassage() {
+        return opened ? passage : null;
+    }
+
     public void abandon() {
         if (passage != null && opened) {
             builder.closeLater(passage);

@@ -144,7 +144,7 @@ public final class ClearingTask {
             return Status.NEEDS_TOOL;
         }
         int slot = ToolChoice.choose(inventory, state, level, target, job.getOptions().allowBreakingEnchanted(), work.requiredRemaining,
-                work.toolUses());
+                work.toolUses(), builder::toolsElsewhere);
         if (slot == ToolChoice.NONE) {
             needToolFor(state, target);
             resetProgress();
@@ -242,6 +242,9 @@ public final class ClearingTask {
         if (broken) {
             cleared++;
             work.cleared++;
+            if (slot != ToolChoice.HAND) {
+                work.clearedWithTool++;
+            }
             builder.showInHand(slot == ToolChoice.HAND ? ItemStack.EMPTY : inventory.getItem(slot));
         } else {
             work.skipped.add(target);
@@ -398,7 +401,7 @@ public final class ClearingTask {
             return false;
         }
         return cache.computeIfAbsent(state, key -> ToolChoice.choose(builder.getInventory(), key, level, pos,
-                job.getOptions().allowBreakingEnchanted(), work.requiredRemaining, work.toolUses()) != ToolChoice.NONE);
+                job.getOptions().allowBreakingEnchanted(), work.requiredRemaining, work.toolUses(), builder::toolsElsewhere) != ToolChoice.NONE);
     }
 
     private void finishTarget() {
