@@ -16,6 +16,7 @@ import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -70,9 +71,10 @@ public final class MaterialSupply {
         return new Needs(stacks(items), requirements.unobtainable(), noKnownTool);
     }
 
-    public static Needs missing(ServerLevel level, BuildPlan plan, ForemanEntity foreman, BuildOptions options) {
+    public static Needs missing(ServerLevel level, BuildPlan plan, ForemanEntity foreman, BuildOptions options, BoundingBox area) {
         BuildPlan.Requirements requirements = plan.requirements(level.registryAccess());
-        List<ItemStack> stock = Crew.stock(foreman, foreman.loadedCrewHere(), new ArrayList<>());
+        List<ItemStack> stock = Crew.stock(foreman, foreman.loadedCrewHere().stream()
+                .filter(builder -> ForemanEntity.canTakePart(builder, level.dimension(), area)).toList(), new ArrayList<>());
         ItemCounter available = new ItemCounter();
         stock.forEach(stack -> available.add(stack, stack.getCount()));
         ItemCounter items = new ItemCounter();
@@ -163,7 +165,7 @@ public final class MaterialSupply {
             return Outcome.failure("Part of the site isn't loaded. Go closer to it and try again. Nothing was given.");
         }
         BuildPlan plan = BuildPlan.create(level, schematic, transform, options);
-        Needs needs = missingOnly ? missing(level, plan, foreman, options) : needs(level, plan);
+        Needs needs = missingOnly ? missing(level, plan, foreman, options, transform.area(schematic.getSize())) : needs(level, plan);
         List<Component> notes = new ArrayList<>();
         needs.unobtainable().forEach((block, count) -> notes.add(Component.literal("Can't be supplied (no survival item): " + count + " ")
                 .append(block.getName()).withStyle(ChatFormatting.GOLD)));

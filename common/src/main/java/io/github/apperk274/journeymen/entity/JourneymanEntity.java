@@ -27,6 +27,7 @@ import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -428,12 +429,23 @@ public abstract class JourneymanEntity extends PathfinderMob {
         }
     }
 
+    public void refreshOwnerName(String name) {
+        ownerName = name;
+    }
+
     protected void syncRegistry() {
         MinecraftServer server = level().getServer();
         if (server == null || owner == null || isRemoved()) {
             return;
         }
         JourneymanRegistry registry = JourneymanRegistry.get(server);
+        ServerPlayer online = server.getPlayerList().getPlayer(owner);
+        if (online != null) {
+            ownerName = online.getGameProfile().getName();
+        } else {
+            registry.get(getUUID()).filter(entry -> entry.owner().equals(owner) && !entry.ownerName().isEmpty())
+                    .ifPresent(entry -> ownerName = entry.ownerName());
+        }
         if (ownerName == null) {
             ownerName = server.getProfileCache() == null ? null : server.getProfileCache().get(owner).map(GameProfile::getName).orElse(null);
         }
@@ -474,6 +486,38 @@ public abstract class JourneymanEntity extends PathfinderMob {
                 }
             }
         }
+    }
+
+    @Override
+    public boolean canUsePortal(boolean allowPassengers) {
+        return !isWorking() && super.canUsePortal(allowPassengers);
+    }
+
+    public void stepAside(Vec3 from) {
+        Vec3 away = DefaultRandomPos.getPosAway(this, 4, 2, from);
+        if (away != null) {
+            getNavigation().moveTo(away.x, away.y, away.z, 1.0);
+        }
+    }
+
+    public boolean isInJobArea(BlockPos pos) {
+        return jobAreaAt(pos) != null;
+    }
+
+    @Nullable
+    public BoundingBox jobAreaAt(BlockPos pos) {
+        MinecraftServer server = level().getServer();
+        if (server == null) {
+            return null;
+        }
+        for (BuildJob other : JourneymanRegistry.get(server).jobs()) {
+            BoundingBox area = other.getArea();
+            if (other.getDimension().equals(level().dimension()) && pos.getX() >= area.minX() && pos.getX() <= area.maxX()
+                    && pos.getZ() >= area.minZ() && pos.getZ() <= area.maxZ()) {
+                return area;
+            }
+        }
+        return null;
     }
 
     @Override

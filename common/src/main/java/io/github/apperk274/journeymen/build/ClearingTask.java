@@ -202,6 +202,7 @@ public final class ClearingTask {
         if (builder.inCrewMode()) {
             return crewPick();
         }
+        job.getCrewWork().keepOnly(builder.activeCrew());
         batch.clear();
         while (!work.remaining.isEmpty()) {
             List<BlockPos> layer = work.remaining.firstEntry().getValue();

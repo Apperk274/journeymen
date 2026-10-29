@@ -1,0 +1,197 @@
+forceload add 4096 3776 4223 3903
+forceload add 4400 3800 4403 3803
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 4096 99 3776 4223 99 3839 minecraft:smooth_stone
+fill 4096 99 3840 4223 99 3903 minecraft:smooth_stone
+fill 4096 100 3776 4223 103 3807 minecraft:air
+fill 4096 100 3808 4223 103 3839 minecraft:air
+fill 4096 100 3840 4223 103 3871 minecraft:air
+fill 4096 100 3872 4223 103 3903 minecraft:air
+fill 4096 104 3776 4223 106 3839 minecraft:air
+fill 4096 104 3840 4223 106 3903 minecraft:air
+fill 4400 99 3800 4403 99 3803 minecraft:smooth_stone
+fill 4400 100 3800 4403 103 3803 minecraft:air
+kill @e[type=item]
+# a supply chest inside the site, or a dump chest whose other half is inside it, fails the pre-check
+setblock 4120 100 3780 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+setblock 4140 100 3780 minecraft:chest[facing=east,type=left]
+setblock 4140 100 3781 minecraft:chest[facing=east,type=right]
+journeymen debug as Steve 2 4105 100 3784 journeymen foreman summon Inside
+journeymen debug as Steve 2 4107 100 3784 journeymen builder summon Inside Ina
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Inside add 4120 100 3780 supply
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Inside add 4140 100 3781 dump
+mark
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman check Inside test_row.schem 4110 100 3780 none corner
+waitlog The supply chest at 4120 100 3780 is inside the site, so the crew would clear it\. !! Everything is ready
+waitlog The dump chest at 4140 100 3781 is inside the site
+# the pre-check counts only the inventories of builders that can take part
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+setblock 4120 100 3780 minecraft:air
+setblock 4140 100 3780 minecraft:air
+setblock 4140 100 3781 minecraft:air
+kill @e[type=item]
+journeymen debug as Steve 2 4105 100 3784 journeymen foreman summon Stocky
+journeymen debug as Steve 2 4107 100 3784 journeymen builder summon Stocky Near
+journeymen debug as Steve 2 4401 100 3801 journeymen builder summon Stocky Afar
+summon item 4401 100 3801 {Item:{id:'minecraft:oak_planks',count:60}}
+ticks 20
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Afar,limit=1] Inventory.Items[0] =~ passed
+mark
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman check Stocky test_row.schem 4110 100 3780 none corner
+waitlog Counted Near's inventory and Stocky's no supply chests\. !! Everything is ready
+waitlog Missing 60 Oak Planks
+# a double chest: "chest remove" takes either half, breaking the stored half keeps the other one, and two single chests that join count once
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+setblock 4100 100 3790 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:16}]}
+setblock 4101 100 3790 minecraft:chest[facing=south,type=left]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+journeymen debug as Steve 2 4105 100 3784 journeymen foreman summon Duo
+journeymen debug as Steve 2 4107 100 3784 journeymen builder summon Duo Dua
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Duo add 4100 100 3790 supply
+mark
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Duo remove 4101 100 3790
+waitlog Duo no longer uses the chest at 4101, 100, 3790\. !! has no chest at
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Duo list
+waitlog Duo has no chests\.
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Duo add 4100 100 3790 supply
+setblock 4100 100 3790 minecraft:air
+kill @e[type=item]
+mark
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman check Duo test_row.schem 4110 100 3780 none corner
+waitlog Everything is ready !! There is no container at|Missing \d+ Oak Planks
+waitlog Counted Dua's inventory and Duo's 1 supply chest\.
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Duo list
+waitlog supply chest at 4101, 100, 3790
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Duo remove 4101 100 3790
+waitlog Duo no longer uses the chest at 4101, 100, 3790\.
+setblock 4100 100 3790 minecraft:air
+setblock 4101 100 3790 minecraft:air
+kill @e[type=item]
+setblock 4100 100 3790 minecraft:chest[facing=south]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:16}]}
+setblock 4101 100 3790 minecraft:chest[facing=south]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:16}]}
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Duo add 4100 100 3790 supply
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman chest Duo add 4101 100 3790 supply
+setblock 4100 100 3790 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:16}]}
+item replace block 4101 100 3790 container.0 with minecraft:oak_planks 16
+mark
+journeymen debug as Steve 0 4105 100 3784 journeymen foreman check Duo test_row.schem 4110 100 3780 none corner
+waitlog Counted Dua's inventory and Duo's 1 supply chest\. !! Everything is ready
+waitlog Missing 28 Oak Planks
+# a builder whose only supply chest is gone is told so, not that the supply chests have no room
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+setblock 4100 100 3790 minecraft:air
+setblock 4101 100 3790 minecraft:air
+kill @e[type=item]
+fill 4120 100 3810 4123 100 3813 minecraft:dirt
+setblock 4100 100 3800 minecraft:chest[facing=south,type=right]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 4101 100 3800 minecraft:chest[facing=south,type=left]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+setblock 4100 100 3804 minecraft:chest[facing=south,type=right]
+setblock 4101 100 3804 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 2 4104 100 3812 journeymen foreman summon GoneBoss
+journeymen debug as Steve 2 4104 100 3806 journeymen builder summon GoneBoss Gone
+journeymen debug as Steve 0 4104 100 3806 journeymen foreman chest GoneBoss add 4100 100 3800 supply
+journeymen debug as Steve 0 4104 100 3806 journeymen foreman chest GoneBoss add 4100 100 3804 dump
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+summon item 4104 100 3806 {Item:{id:'minecraft:stone_shovel',count:1}}
+ticks 60
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Gone,limit=1] Inventory.Items[26] =~ passed
+mark
+journeymen debug as Steve 0 4104 100 3806 journeymen foreman build GoneBoss test_dig.schem 4110 100 3800 none corner
+waitlog nosprint GoneBoss's crew is on the way !!
+setblock 4100 100 3800 minecraft:air
+setblock 4101 100 3800 minecraft:air
+kill @e[type=item]
+waitlog 20 \[Steve\.GoneBoss\] Gone's inventory is full: it carries 27 tools, \d+ more than it needs, and I have no supply chest to take the extra ones back\. Please give me one or take some tools out of its inventory\. My supply chest at 4100, 100, 3800 is gone\. !! no room to take the extra ones back|I finished building
+journeymen debug as Steve 0 4104 100 3806 journeymen foreman cancel GoneBoss
+waitlog GoneBoss's crew stopped working on test_dig\.schem
+# items from a cleared chest that don't fit a builder's inventory stay with it when the job ends, never on the ground, and go to a dump chest on its next job
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+setblock 4100 100 3804 minecraft:air
+setblock 4101 100 3804 minecraft:air
+kill @e[type=item]
+fill 4110 100 3800 4141 101 3831 minecraft:air
+fill 4120 100 3810 4123 100 3813 minecraft:dirt
+setblock 4120 101 3810 minecraft:chest{Items:[{Slot:0b,id:"minecraft:stone",count:64},{Slot:1b,id:"minecraft:stone",count:64},{Slot:2b,id:"minecraft:stone",count:64}]}
+journeymen debug as Steve 2 4104 100 3812 journeymen foreman summon HoardBoss
+journeymen debug as Steve 2 4104 100 3806 journeymen builder summon HoardBoss Hoard
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+summon item 4104 100 3806 {Item:{id:'minecraft:cobblestone',count:64}}
+ticks 60
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Hoard,limit=1] Inventory.Items[25] =~ passed
+mark
+journeymen debug as Steve 0 4104 100 3806 journeymen foreman build HoardBoss test_dig.schem 4110 100 3800 none corner
+waitlog nosprint HoardBoss's crew is on the way !!
+waitlog \[Steve\.HoardBoss\] Hoard's inventory is full\. Give me a dump chest with /journeymen foreman chest HoardBoss add <pos> dump\.
+journeymen debug as Steve 0 4104 100 3806 journeymen foreman cancel HoardBoss
+waitlog HoardBoss's crew stopped working on test_dig\.schem
+ticks 40
+waitfor 5 nosprint execute if entity @e[type=item,x=4096,y=90,z=3776,dx=127,dy=30,dz=127] =~ failed
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Hoard,limit=1] Overflow[0] =~ passed
+setblock 4100 100 3804 minecraft:chest[facing=south,type=right]
+setblock 4101 100 3804 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 0 4104 100 3806 journeymen foreman chest HoardBoss add 4100 100 3804 dump
+mark
+journeymen debug as Steve 0 4104 100 3806 journeymen foreman build HoardBoss test_dig.schem 4110 100 3800 none corner
+waitlog nosprint HoardBoss's crew is on the way !!
+waitlog \[unload\] Steve\.Hoard dumps \d+ items at 4100, 100, 3804: .*Stone \d+
+waitlog 20 \[Steve\.HoardBoss\] I finished building test_dig\.schem !!
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=Hoard,limit=1] Overflow[0] =~ failed

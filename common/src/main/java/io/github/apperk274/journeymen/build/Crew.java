@@ -32,11 +32,15 @@ public final class Crew {
         }
         for (UUID id : job.getMembers()) {
             Entity entity = level.getEntity(id);
-            if (entity instanceof BuilderEntity builder && builder.isAlive()) {
+            if (entity instanceof BuilderEntity builder && builder.isAlive() && isTicking(builder)) {
                 members.add(builder);
             }
         }
         return members;
+    }
+
+    public static boolean isTicking(Entity entity) {
+        return entity.level() instanceof ServerLevel level && level.isPositionEntityTicking(entity.blockPosition());
     }
 
     public static long chestKey(Level level, BlockPos pos) {
@@ -50,10 +54,16 @@ public final class Crew {
             return null;
         }
         BlockState state = level.getBlockState(pos);
-        if (state.getBlock() instanceof ChestBlock && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
-            return pos.relative(ChestBlock.getConnectedDirection(state));
+        if (!(state.getBlock() instanceof ChestBlock) || state.getValue(ChestBlock.TYPE) == ChestType.SINGLE) {
+            return null;
         }
-        return null;
+        BlockPos other = pos.relative(ChestBlock.getConnectedDirection(state));
+        if (!level.isLoaded(other)) {
+            return null;
+        }
+        BlockState otherState = level.getBlockState(other);
+        return otherState.is(state.getBlock()) && otherState.getValue(ChestBlock.TYPE) == state.getValue(ChestBlock.TYPE).getOpposite()
+                && otherState.getValue(ChestBlock.FACING) == state.getValue(ChestBlock.FACING) ? other : null;
     }
 
     public static List<ItemStack> stock(ForemanEntity foreman, List<BuilderEntity> builders, List<Component> problems) {

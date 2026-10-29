@@ -88,6 +88,8 @@ public class BuilderEntity extends JourneymanEntity {
     private static final int LOAD_GRACE_TICKS = 100;
     private static final double WALK_BLOCKS_PER_TICK = 0.2;
     private static final int CHEST_TICKS = 20;
+    private static final int FROZEN_TICKS = 5;
+    private static final int ASK_ASIDE_TICKS = 20;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -104,6 +106,9 @@ public class BuilderEntity extends JourneymanEntity {
     private boolean reconciled;
     private boolean pendingWork;
     private boolean waitingForForeman;
+    private boolean elsewhere;
+    private long lastWorkTick = -1;
+    private int askedAsideTick = Integer.MIN_VALUE / 2;
     @Nullable
     private BuildJob job;
     private final WorkState work = new WorkState();
@@ -470,23 +475,27 @@ public class BuilderEntity extends JourneymanEntity {
         return false;
     }
 
-    public boolean makeRoomAmongCrew(AABB box) {
+    public boolean askToStepAside(AABB box) {
         List<Entity> blocking = level().getEntities((Entity) null, box, entity -> !entity.isSpectator() && entity.blocksBuilding);
         if (blocking.isEmpty() || job == null) {
             return false;
         }
         for (Entity entity : blocking) {
-            if (!(entity instanceof BuilderEntity member) || member == this || member.getJob() != job) {
+            if (!(entity instanceof JourneymanEntity other) || other == this) {
                 return false;
             }
         }
-        for (Entity entity : blocking) {
-            ((BuilderEntity) entity).stepAside(box.getCenter());
+        if (tickCount - askedAsideTick >= ASK_ASIDE_TICKS) {
+            askedAsideTick = tickCount;
+            for (Entity entity : blocking) {
+                ((JourneymanEntity) entity).stepAside(box.getCenter());
+            }
         }
         return true;
     }
 
-    private void stepAside(Vec3 from) {
+    @Override
+    public void stepAside(Vec3 from) {
         stepAsideUntil = tickCount + STEP_ASIDE_TICKS;
         Vec3 away = DefaultRandomPos.getPosAway(this, 4, 2, from);
         if (away == null || !getNavigation().moveTo(away.x, away.y, away.z, 1.0)) {
@@ -554,7 +563,7 @@ public class BuilderEntity extends JourneymanEntity {
         Constants.LOG.debug("{} starts {}", getJourneymanName(), newJob.getFile());
         if (newJob.getSchematic() == null) {
             work.setPhase(BuildJob.Phase.LOADING);
-        } else if (newJob.getPlan() != null) {
+        } else if (newJob.getPlan() != null && level().dimension().equals(newJob.getDimension())) {
             prepareForSite(newJob.getPlan());
         }
     }
@@ -839,14 +848,10 @@ public class BuilderEntity extends JourneymanEntity {
         job = null;
         pendingWork = false;
         waitingForForeman = false;
+        elsewhere = false;
         work.reset();
-        for (ItemStack stack : overflow) {
-            ItemStack remainder = inventory.addItem(stack);
-            if (!remainder.isEmpty()) {
-                spawnAtLocation(remainder);
-            }
-        }
-        overflow.clear();
+        absorbOverflow();
+        inventory.setChanged();
     }
 
     private void suspendWork() {
@@ -1357,7 +1362,7 @@ public class BuilderEntity extends JourneymanEntity {
                     pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
                     return false;
                 }
-                plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
+                plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());
                 job.setPlan(plan);
             }
             shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition()));
@@ -1381,7 +1386,7 @@ public class BuilderEntity extends JourneymanEntity {
         if (shared.getClearing() == done) {
             List<BlockPos> skipped = done.getSkipped();
             shared.noteCleared(done.getCleared() > 0);
-            BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
+            BuildPlan plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());
             job.setPlan(plan);
             List<BlockPos> leftover = new ArrayList<>();
             for (BlockPos pos : plan.getToClear()) {
@@ -1520,7 +1525,7 @@ public class BuilderEntity extends JourneymanEntity {
                     pauseJob("Part of the site of " + job.getFile() + " isn't loaded.");
                     return false;
                 }
-                plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
+                plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());
                 job.setPlan(plan);
             }
             shared.setPlacing(new PlacingWork((ServerLevel) level(), plan, this::withinRedoLimit, PlacingTask.rampStart(this)));
@@ -1614,9 +1619,15 @@ public class BuilderEntity extends JourneymanEntity {
         if (hasSpareItems(keep)) {
             return getJourneymanName() + "'s inventory is full, so it can't carry the next materials, and "
                     + (firstSupplyChest() == null ? "I have no supply chest to take back what it doesn't need yet. Please give me one."
-                    : "my supply chests have no room to take back what it doesn't need yet. Please make room in my supply chests.");
+                    : "my supply chests have no room to take back what it doesn't need yet. Please make room in my supply chests.") + supplyChestProblems();
         }
-        return getJourneymanName() + "'s inventory is full of things it still needs, so it can't carry the next materials. Please take out what it doesn't need.";
+        return getJourneymanName() + "'s inventory is full of things it still needs, so it can't carry the next materials. Please take out what it doesn't need."
+                + supplyChestProblems();
+    }
+
+    private ServerLevel jobLevel() {
+        ServerLevel level = getServer() == null ? null : getServer().getLevel(job.getDimension());
+        return level != null ? level : (ServerLevel) level();
     }
 
     private boolean withinRedoLimit(BlockPos pos) {
@@ -1763,7 +1774,7 @@ public class BuilderEntity extends JourneymanEntity {
     @Nullable
     private AssignedChest firstSupplyChest() {
         for (AssignedChest chest : reachableChests()) {
-            if (chest.role() == AssignedChest.Role.SUPPLY && level().isLoaded(chest.pos())) {
+            if (chest.role() == AssignedChest.Role.SUPPLY && level().isLoaded(chest.pos()) && ItemStores.at(level(), chest.pos()) != null) {
                 return chest;
             }
         }
@@ -1813,7 +1824,8 @@ public class BuilderEntity extends JourneymanEntity {
         }
         String list = String.join(", ", missing.subList(0, Math.min(5, missing.size())))
                 + (missing.size() > 5 ? " and " + (missing.size() - 5) + " more kinds of items" : "");
-        boolean hasDumpChest = reachableChests().stream().anyMatch(chest -> chest.role() == AssignedChest.Role.DUMP && level().isLoaded(chest.pos()));
+        boolean hasDumpChest = reachableChests().stream().anyMatch(chest -> chest.role() == AssignedChest.Role.DUMP && level().isLoaded(chest.pos())
+                && ItemStores.at(level(), chest.pos()) != null);
         pauseJob("I'm missing " + list + " for " + job.getFile() + (hasDumpChest ? ", and my dump chests don't have them either" : "")
                 + ". We'll continue once they're in a supply chest or a builder's inventory." + supplyChestProblems(),
                 tickCount >= LOAD_GRACE_TICKS);
@@ -1828,7 +1840,7 @@ public class BuilderEntity extends JourneymanEntity {
             return;
         }
         job.getSkippedPositions().addAll(done.getSkipped());
-        BuildPlan plan = BuildPlan.create((ServerLevel) level(), job.getSchematic(), job.transform(), job.getOptions());
+        BuildPlan plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());
         job.setPlan(plan);
         Set<BlockPos> leftover = new LinkedHashSet<>(plan.getToClear());
         plan.getToPlace().forEach(placement -> leftover.add(placement.pos()));
@@ -1931,12 +1943,12 @@ public class BuilderEntity extends JourneymanEntity {
             return getJourneymanName() + "'s inventory is full: it carries " + tools + " tools, " + extra + " more than it needs, and "
                     + (firstSupplyChest() == null ? "I have no supply chest to take the extra ones back. Please give me one or take"
                     : "my supply chests have no room to take the extra ones back. Please make room in my supply chests or take")
-                    + " some tools out of its inventory.";
+                    + " some tools out of its inventory." + supplyChestProblems();
         }
         String things = materials == 0 ? "tools it needs" : tools == 0 ? "materials the job still needs" : "tools and materials it still needs";
         return getJourneymanName() + "'s inventory is full of " + things + " (" + tools + " tools), so it has no room for what it clears"
                 + (supplyFull && materials > 0 ? " and my supply chests have no room to take any back. Please take out what it doesn't need"
-                + " or make room in my supply chests." : ". Please take out what it doesn't need.");
+                + " or make room in my supply chests." : ". Please take out what it doesn't need.") + supplyChestProblems();
     }
 
     @Nullable
@@ -2065,6 +2077,9 @@ public class BuilderEntity extends JourneymanEntity {
         if (getJob() == null) {
             return new Progress(isFollowing() ? "following its owner" : getComeTarget() != null ? "walking to you" : "idle", 0.0F, 0, 0);
         }
+        if (elsewhere) {
+            return new Progress("waiting in another dimension", 0.0F, 0, 0);
+        }
         if (waitingForForeman) {
             return new Progress("waiting for its foreman", 0.0F, 0, 0);
         }
@@ -2105,6 +2120,15 @@ public class BuilderEntity extends JourneymanEntity {
 
     @Override
     protected void tickWork() {
+        long now = level().getGameTime();
+        if (job != null && lastWorkTick >= 0 && now - lastWorkTick > FROZEN_TICKS) {
+            suspendWork();
+        }
+        lastWorkTick = now;
+        if (job == null && !overflow.isEmpty() && tickCount % 20 == 0) {
+            absorbOverflow();
+            inventory.setChanged();
+        }
         pickUpNearbyItems();
         if (finishing != null) {
             finishing.tick();
@@ -2140,15 +2164,25 @@ public class BuilderEntity extends JourneymanEntity {
             detachJob();
             return;
         }
-        if (foreman() == null) {
-            if (!waitingForForeman) {
-                waitingForForeman = true;
+        if (!level().dimension().equals(job.getDimension())) {
+            if (!elsewhere) {
+                elsewhere = true;
                 suspendWork();
             }
             return;
         }
-        if (waitingForForeman) {
+        ForemanEntity foreman = foreman();
+        if (foreman == null || !foreman.level().dimension().equals(job.getDimension())) {
+            if (!waitingForForeman) {
+                waitingForForeman = true;
+                suspendWork();
+            }
+            elsewhere = false;
+            return;
+        }
+        if (waitingForForeman || elsewhere) {
             waitingForForeman = false;
+            elsewhere = false;
             bestSiteDistance = Double.MAX_VALUE;
             ticksWithoutProgress = 0;
         }
@@ -2209,7 +2243,7 @@ public class BuilderEntity extends JourneymanEntity {
     @Nullable
     @Override
     protected StuckRecovery.Goal workGoal() {
-        if (job == null || waitingForForeman || work.getPhase() == BuildJob.Phase.PAUSED || work.getPhase() == BuildJob.Phase.LOADING) {
+        if (job == null || waitingForForeman || elsewhere || work.getPhase() == BuildJob.Phase.PAUSED || work.getPhase() == BuildJob.Phase.LOADING) {
             return null;
         }
         ChestVisit visit = visits.peek();
@@ -2233,6 +2267,9 @@ public class BuilderEntity extends JourneymanEntity {
     @Nullable
     @Override
     protected StuckRecovery.Goal unstickWorkGoal() {
+        if (job == null || !level().dimension().equals(job.getDimension())) {
+            return null;
+        }
         ChestVisit visit = visits.peek();
         return visit != null ? chestGoal(visit.getChest()) : siteGoal(job, true);
     }

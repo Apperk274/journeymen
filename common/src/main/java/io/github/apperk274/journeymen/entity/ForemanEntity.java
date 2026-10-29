@@ -21,6 +21,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -34,9 +35,12 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -55,6 +59,8 @@ public class ForemanEntity extends JourneymanEntity {
     private ServerBossEvent progressBar;
     private final Map<String, Long> relayed = new HashMap<>();
     private boolean returning;
+    private boolean away;
+    private long chestsRefreshedAt = Long.MIN_VALUE;
 
     public ForemanEntity(EntityType<? extends ForemanEntity> type, Level level) {
         super(type, level);
@@ -92,7 +98,37 @@ public class ForemanEntity extends JourneymanEntity {
     }
 
     public List<AssignedChest> getChests() {
+        refreshChests();
         return List.copyOf(chests);
+    }
+
+    private void refreshChests() {
+        Level level = level();
+        if (level.isClientSide || level.getGameTime() == chestsRefreshedAt) {
+            return;
+        }
+        chestsRefreshedAt = level.getGameTime();
+        Set<Long> seen = new HashSet<>();
+        List<AssignedChest> refreshed = new ArrayList<>();
+        for (AssignedChest chest : chests) {
+            AssignedChest current = chest;
+            if (level.isLoaded(chest.pos())) {
+                BlockPos other = Crew.otherChestHalf(level, chest.pos());
+                if (other != null) {
+                    current = new AssignedChest(chest.pos(), chest.role(), other.immutable());
+                } else if (ItemStores.at(level, chest.pos()) != null) {
+                    current = new AssignedChest(chest.pos(), chest.role(), null);
+                } else if (chest.pair() != null && level.isLoaded(chest.pair()) && ItemStores.at(level, chest.pair()) != null) {
+                    current = new AssignedChest(chest.pair(), chest.role(), null);
+                }
+            }
+            long key = level.isLoaded(current.pos()) ? Crew.chestKey(level, current.pos()) : current.pos().asLong();
+            if (seen.add(key)) {
+                refreshed.add(current);
+            }
+        }
+        chests.clear();
+        chests.addAll(refreshed);
     }
 
     @Nullable
@@ -108,15 +144,18 @@ public class ForemanEntity extends JourneymanEntity {
         if (existing != null) {
             return "That chest is already assigned as a " + existing.role().id() + " chest.";
         }
-        chests.add(new AssignedChest(pos.immutable(), role));
+        BlockPos other = Crew.otherChestHalf(level(), pos);
+        chests.add(new AssignedChest(pos.immutable(), role, other == null ? null : other.immutable()));
+        chestsRefreshedAt = Long.MIN_VALUE;
         return null;
     }
 
     @Nullable
     public AssignedChest chestAt(BlockPos pos) {
+        refreshChests();
         BlockPos otherHalf = Crew.otherChestHalf(level(), pos);
         for (AssignedChest chest : chests) {
-            if (chest.pos().equals(pos) || chest.pos().equals(otherHalf)) {
+            if (chest.pos().equals(pos) || chest.pos().equals(otherHalf) || pos.equals(chest.pair())) {
                 return chest;
             }
         }
@@ -124,7 +163,13 @@ public class ForemanEntity extends JourneymanEntity {
     }
 
     public boolean removeChest(BlockPos pos) {
-        return chests.removeIf(chest -> chest.pos().equals(pos));
+        AssignedChest chest = chestAt(pos);
+        if (chest == null) {
+            return false;
+        }
+        chests.remove(chest);
+        chestsRefreshedAt = Long.MIN_VALUE;
+        return true;
     }
 
     public List<JourneymanRegistry.Entry> crewEntries() {
@@ -152,7 +197,7 @@ public class ForemanEntity extends JourneymanEntity {
     }
 
     public static boolean canTakePart(BuilderEntity builder, ResourceKey<Level> dimension, BoundingBox area) {
-        return builder.isAlive() && builder.level().dimension().equals(dimension)
+        return builder.isAlive() && builder.level().dimension().equals(dimension) && Crew.isTicking(builder)
                 && PreCheck.horizontalDistance(builder.blockPosition(), area) <= JourneymenConfig.MAX_SITE_DISTANCE.get();
     }
 
@@ -166,6 +211,7 @@ public class ForemanEntity extends JourneymanEntity {
         relayed.clear();
         stopIdleOrders();
         returning = false;
+        away = false;
         getNavigation().stop();
         recruit(newJob);
     }
@@ -178,7 +224,7 @@ public class ForemanEntity extends JourneymanEntity {
         JourneymanRegistry registry = JourneymanRegistry.get(server);
         List<BuilderEntity> joining = new ArrayList<>();
         for (BuilderEntity builder : loadedCrew()) {
-            if (builder.getJob() == null
+            if (builder.getJob() == null && builder.level().dimension().equals(current.getDimension())
                     && (current.hasMember(builder.getUUID()) || canTakePart(builder, current.getDimension(), current.getArea()))) {
                 registry.joinJob(current, builder.getUUID());
                 joining.add(builder);
@@ -196,19 +242,24 @@ public class ForemanEntity extends JourneymanEntity {
 
     public void endJob(BuildJob current) {
         MinecraftServer server = level().getServer();
-        for (BuilderEntity member : Crew.loaded(server, current)) {
-            member.leaveWork();
-        }
         if (server != null) {
-            JourneymanRegistry.get(server).removeJob(current.getId());
+            endJobOf(server, current);
         }
         if (job == current) {
             job = null;
         }
         relayed.clear();
         returning = false;
+        away = false;
         removeProgressBar();
         getNavigation().stop();
+    }
+
+    public static void endJobOf(MinecraftServer server, BuildJob current) {
+        for (BuilderEntity member : Crew.loaded(server, current)) {
+            member.leaveWork();
+        }
+        JourneymanRegistry.get(server).removeJob(current.getId());
     }
 
     public void finishJob(BuildJob done) {
@@ -242,6 +293,20 @@ public class ForemanEntity extends JourneymanEntity {
         BuildJob current = getJob();
         if (current == null) {
             return;
+        }
+        if (!current.getDimension().equals(level().dimension())) {
+            if (!away) {
+                away = true;
+                getNavigation().stop();
+                notifyOwner("I'm in " + level().dimension().location() + " now, away from the site of " + current.getFile() + " in "
+                        + current.getDimension().location() + ", so my crew waits until I'm back there. Bring me back, or cancel the job with "
+                        + "/journeymen foreman cancel " + getJourneymanName() + ".");
+            }
+            return;
+        }
+        if (away) {
+            away = false;
+            notifyOwner("I'm back at the site of " + current.getFile() + ", so my crew carries on.");
         }
         if (current.getSchematic() == null) {
             loadSchematic(current);
@@ -281,11 +346,8 @@ public class ForemanEntity extends JourneymanEntity {
     }
 
     private void keepPost(BuildJob current) {
-        if (!current.getDimension().equals(level().dimension())) {
-            return;
-        }
         BoundingBox area = current.getArea();
-        BlockPos post = insidePost(area);
+        BlockPos post = isInJobArea(blockPosition()) ? postOutside(area) : null;
         if (post != null) {
             if (tickCount % 20 == 0 || getNavigation().isDone()) {
                 walkTowards(Vec3.atBottomCenterOf(post));
@@ -311,19 +373,22 @@ public class ForemanEntity extends JourneymanEntity {
         }
     }
 
-    @Nullable
-    private BlockPos insidePost(BoundingBox area) {
+    private BlockPos postOutside(BoundingBox area) {
         BlockPos pos = blockPosition();
-        if (pos.getX() < area.minX() || pos.getX() > area.maxX() || pos.getZ() < area.minZ() || pos.getZ() > area.maxZ()) {
-            return null;
+        int x = Mth.clamp(pos.getX(), area.minX(), area.maxX());
+        int z = Mth.clamp(pos.getZ(), area.minZ(), area.maxZ());
+        List<BlockPos> posts = new ArrayList<>(List.of(
+                new BlockPos(area.minX() - POST_OUTSIDE, pos.getY(), z),
+                new BlockPos(area.maxX() + POST_OUTSIDE, pos.getY(), z),
+                new BlockPos(x, pos.getY(), area.minZ() - POST_OUTSIDE),
+                new BlockPos(x, pos.getY(), area.maxZ() + POST_OUTSIDE)));
+        posts.sort(Comparator.comparingDouble(post -> post.distSqr(pos)));
+        for (BlockPos post : posts) {
+            if (!isInJobArea(post)) {
+                return post;
+            }
         }
-        BlockPos edge = outsideOf(area, true);
-        if (edge == null) {
-            return null;
-        }
-        int dx = Integer.signum(edge.getX() < area.minX() ? -1 : edge.getX() > area.maxX() ? 1 : 0);
-        int dz = Integer.signum(edge.getZ() < area.minZ() ? -1 : edge.getZ() > area.maxZ() ? 1 : 0);
-        return edge.offset(dx * (POST_OUTSIDE - 1), 0, dz * (POST_OUTSIDE - 1));
+        return posts.get(0);
     }
 
     @Nullable
@@ -333,7 +398,7 @@ public class ForemanEntity extends JourneymanEntity {
         if (current == null || !current.getDimension().equals(level().dimension())) {
             return null;
         }
-        BlockPos post = insidePost(current.getArea());
+        BlockPos post = isInJobArea(blockPosition()) ? postOutside(current.getArea()) : null;
         if (post != null) {
             return new StuckRecovery.Goal(StuckRecovery.Kind.SPOT, post, post, Math.sqrt(distanceToSqr(Vec3.atBottomCenterOf(post))),
                     "a post outside the site of " + current.getFile());
@@ -345,7 +410,7 @@ public class ForemanEntity extends JourneymanEntity {
     @Override
     protected StuckRecovery.Goal unstickWorkGoal() {
         BuildJob current = getJob();
-        return current == null ? null : siteGoal(current, true);
+        return current == null || !current.getDimension().equals(level().dimension()) ? null : siteGoal(current, true);
     }
 
     @Override
@@ -370,6 +435,10 @@ public class ForemanEntity extends JourneymanEntity {
         if (current == null) {
             return new JobStatus(BuildJob.Phase.WALKING, isFollowing() ? "following its owner" : getComeTarget() != null ? "walking to you" : "idle",
                     null, 0, 0);
+        }
+        if (!current.getDimension().equals(level().dimension())) {
+            return new JobStatus(BuildJob.Phase.PAUSED, "paused", getJourneymanName() + " is in " + level().dimension().location()
+                    + ", away from the site", 0, 0);
         }
         if (current.getSchematic() == null) {
             return new JobStatus(BuildJob.Phase.LOADING, "loading", null, 0, 0);
@@ -507,12 +576,15 @@ public class ForemanEntity extends JourneymanEntity {
         ListTag chestList = new ListTag();
         chests.forEach(chest -> chestList.add(chest.save()));
         tag.put("Chests", chestList);
+        tag.putBoolean("AwayFromSite", away);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         chests.clear();
+        chestsRefreshedAt = Long.MIN_VALUE;
+        away = tag.getBoolean("AwayFromSite");
         ListTag chestList = tag.getList("Chests", Tag.TAG_COMPOUND);
         for (int i = 0; i < chestList.size(); i++) {
             AssignedChest chest = AssignedChest.load(chestList.getCompound(i));

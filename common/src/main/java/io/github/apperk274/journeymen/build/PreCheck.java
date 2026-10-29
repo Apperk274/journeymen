@@ -147,10 +147,19 @@ public final class PreCheck {
 
         int supplyChests = Crew.countSupplyChests(foreman);
         String chests = supplyChests == 0 ? "no supply chests" : supplyChests + " supply chest" + (supplyChests == 1 ? "" : "s");
-        String counted = crew.isEmpty() ? "no builder's inventory (none is loaded here)"
-                : crew.size() == 1 ? crew.get(0).getJourneymanName() + "'s inventory" : "the inventories of " + Crew.names(crew);
-        check.stockNote = "Counted " + counted + (crew.size() > 1 ? ", and " : " and ") + foreman.getJourneymanName() + "'s " + chests + ".";
-        List<ItemStack> stock = Crew.stock(foreman, crew, check.problems);
+        String counted = working.isEmpty() ? "no builder's inventory (none can take part)"
+                : working.size() == 1 ? working.get(0).getJourneymanName() + "'s inventory" : "the inventories of " + Crew.names(working);
+        check.stockNote = "Counted " + counted + (working.size() > 1 ? ", and " : " and ") + foreman.getJourneymanName() + "'s " + chests + ".";
+        for (AssignedChest chest : foreman.getChests()) {
+            BlockPos other = Crew.otherChestHalf(level, chest.pos());
+            if (area.isInside(chest.pos()) || other != null && area.isInside(other)) {
+                BlockPos pos = chest.pos();
+                check.problem("The " + chest.role().id() + " chest at " + pos.getX() + " " + pos.getY() + " " + pos.getZ()
+                        + " is inside the site, so the crew would clear it. Move it out of the site, or stop using it with /journeymen foreman chest "
+                        + foreman.getJourneymanName() + " remove " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + ".");
+            }
+        }
+        List<ItemStack> stock = Crew.stock(foreman, working, check.problems);
         ItemCounter available = new ItemCounter();
         for (ItemStack stack : stock) {
             available.add(stack, stack.getCount());

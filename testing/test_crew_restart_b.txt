@@ -7,3 +7,8 @@ waitfor 5 nosprint journeymen builder status Steve.Sam =~ Job: none
 mark
 journeymen debug as Steve 0 1406 100 1306 journeymen foreman check Rook test_box.schem 1410 100 1310 none corner
 waitlog 10 0 to clear, 0 to place
+# Redo's job: the stones skipped before the stop stay skipped, though the supply chest has stone now
+forceload add 1472 1360 1535 1391
+waitlog 60 \[Steve\.Redo\] I couldn't build 1024 block\(s\) of test_restock\.schem !! I finished building test_restock|Exception
+waitlog \[Steve\.Redo\] I finished building test_restock\.schem
+waitfor 5 nosprint execute if data block 1488 100 1363 Items[15] =~ passed

@@ -1,0 +1,165 @@
+forceload add 3776 3776 3903 3903
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 3776 99 3776 3903 99 3839 minecraft:smooth_stone
+fill 3776 99 3840 3903 99 3903 minecraft:smooth_stone
+fill 3776 100 3776 3903 103 3807 minecraft:air
+fill 3776 100 3808 3903 103 3839 minecraft:air
+fill 3776 100 3840 3903 103 3871 minecraft:air
+fill 3776 100 3872 3903 103 3903 minecraft:air
+fill 3776 104 3776 3903 106 3839 minecraft:air
+fill 3776 104 3840 3903 106 3903 minecraft:air
+kill @e[type=item]
+# a builder working on a job doesn't go through a nether portal
+setblock 3786 100 3796 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+fill 3800 100 3786 3803 104 3786 minecraft:obsidian
+fill 3801 101 3786 3802 103 3786 minecraft:nether_portal[axis=x]
+journeymen debug as Steve 2 3790 100 3796 journeymen foreman summon Dim
+journeymen debug as Steve 2 3792 100 3796 journeymen builder summon Dim Nomad
+journeymen debug as Steve 0 3790 100 3796 journeymen foreman chest Dim add 3786 100 3796 supply
+mark
+journeymen debug as Steve 0 3790 100 3796 journeymen foreman build Dim test_row.schem 3790 100 3790 none corner
+waitlog nosprint Dim's crew is on the way: Nomad\. !!
+waitfor 30 nosprint journeymen builder status Steve.Nomad =~ Task: placing ([5-9]|[1-4]\d)/
+tp @e[type=journeymen:builder,name=Nomad] 3801.5 101 3786.5
+ticks 40
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Nomad,x=3776,y=0,z=3776,dx=127,dy=255,dz=127] =~ passed
+waitlog 20 \[Steve\.Dim\] I finished building test_row\.schem !!
+fill 3800 100 3786 3803 104 3786 minecraft:air
+# a builder taken to another dimension stops working there and never builds in it; brought back, it finishes
+execute in minecraft:the_nether run forceload add 3776 3776 3871 3807
+waitfor 30 execute in minecraft:the_nether if loaded 3776 0 3776 =~ passed
+waitfor 30 execute in minecraft:the_nether if loaded 3871 0 3807 =~ passed
+execute in minecraft:the_nether run fill 3786 98 3786 3853 106 3794 minecraft:stone
+execute in minecraft:the_nether run fill 3787 100 3787 3852 105 3793 minecraft:air
+fill 3790 100 3790 3849 100 3790 minecraft:air
+setblock 3786 100 3796 minecraft:air
+tp @e[type=journeymen:builder,name=Nomad] 3788 100 3796
+setblock 3786 100 3796 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+mark
+journeymen debug as Steve 0 3790 100 3796 journeymen foreman build Dim test_row.schem 3790 100 3790 none corner
+waitlog nosprint Dim's crew is on the way: Nomad\. !!
+waitfor 30 nosprint journeymen builder status Steve.Nomad =~ Task: placing ([5-9]|[1-4]\d)/
+execute in minecraft:the_nether run tp @e[type=journeymen:builder,name=Nomad] 3820 100 3791
+waitfor 5 nosprint journeymen builder status Steve.Nomad =~ Task: waiting in another dimension
+waitfor 5 nosprint journeymen foreman status Steve.Dim =~ Nomad: waiting in another dimension
+ticks 200
+waitfor 5 nosprint execute in minecraft:the_nether if blocks 3787 100 3790 3852 100 3790 3787 103 3790 all =~ passed
+tp @e[type=journeymen:builder,name=Nomad] 3792 100 3796
+waitlog 20 \[Steve\.Dim\] I finished building test_row\.schem !!
+waitfor 5 nosprint execute in minecraft:the_nether if blocks 3787 100 3790 3852 100 3790 3787 103 3790 all =~ passed
+# a foreman taken to another dimension pauses his job and says so; his crew waits until he is back
+fill 3790 100 3790 3849 100 3790 minecraft:air
+setblock 3786 100 3796 minecraft:air
+tp @e[type=journeymen:builder,name=Nomad] 3788 100 3796
+setblock 3786 100 3796 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+mark
+journeymen debug as Steve 0 3790 100 3796 journeymen foreman build Dim test_row.schem 3790 100 3790 none corner
+waitlog nosprint Dim's crew is on the way: Nomad\. !!
+waitfor 30 nosprint journeymen builder status Steve.Nomad =~ Task: placing ([5-9]|[1-4]\d)/
+execute in minecraft:the_nether run tp @e[type=journeymen:foreman,name=Dim] 3800 100 3792
+waitlog \[Steve\.Dim\] I'm in minecraft:the_nether now, away from the site of test_row\.schem in minecraft:overworld, so my crew waits until I'm back there\.
+waitfor 5 nosprint journeymen builder status Steve.Nomad =~ Task: waiting for its foreman
+waitfor 5 nosprint journeymen foreman status Steve.Dim =~ Phase: paused: Dim is in minecraft:the_nether
+ticks 200
+waitfor 5 nosprint journeymen builder status Steve.Nomad =~ Task: waiting for its foreman
+tp @e[type=journeymen:foreman,name=Dim] 3790 100 3796
+waitlog \[Steve\.Dim\] I'm back at the site of test_row\.schem, so my crew carries on\.
+waitlog 20 \[Steve\.Dim\] I finished building test_row\.schem !!
+# the job of a foreman who isn't loaded can still be cancelled
+fill 3790 100 3790 3849 100 3790 minecraft:air
+setblock 3786 100 3796 minecraft:air
+tp @e[type=journeymen:builder,name=Nomad] 3788 100 3796
+setblock 3786 100 3796 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+mark
+journeymen debug as Steve 0 3790 100 3796 journeymen foreman build Dim test_row.schem 3790 100 3790 none corner
+waitlog nosprint Dim's crew is on the way: Nomad\. !!
+waitfor 30 nosprint journeymen builder status Steve.Nomad =~ Task: placing ([5-9]|[1-4]\d)/
+execute in minecraft:the_nether run tp @e[type=journeymen:foreman,name=Dim] 3800 100 3792
+waitlog \[Steve\.Dim\] I'm in minecraft:the_nether now
+execute in minecraft:the_nether run forceload remove 3776 3776 3871 3807
+waitfor 30 execute in minecraft:the_nether if entity @e[type=journeymen:foreman,name=Dim,x=3776,y=0,z=3776,dx=95,dy=255,dz=31] =~ failed
+journeymen debug as Steve 0 3790 100 3796 journeymen foreman cancel Dim
+waitlog Dim's crew stopped working on test_row\.schem\.
+waitfor 5 nosprint journeymen builder status Steve.Nomad =~ Job: none
+waitfor 5 nosprint journeymen foreman status Steve.Dim =~ Job: none
+execute in minecraft:the_nether run forceload add 3776 3776 3871 3807
+waitfor 30 execute in minecraft:the_nether if entity @e[type=journeymen:foreman,name=Dim,x=3776,y=0,z=3776,dx=95,dy=255,dz=31] =~ passed
+waitfor 5 nosprint journeymen foreman status Steve.Dim =~ Job: none
+tp @e[type=journeymen:foreman,name=Dim] 3790 100 3796
+waitfor 5 nosprint execute if entity @e[type=journeymen:foreman,name=Dim,x=3776,y=0,z=3776,dx=127,dy=255,dz=127] =~ passed
+execute in minecraft:the_nether run forceload remove all
+# an owner who logs in under a new name keeps it on his journeymen
+journeymen debug as Renamer 2 3785 100 3830 journeymen foreman summon Ren
+waitlog Summoned foreman Ren
+journeymen debug rejoin Renamer Renamed
+waitlog \[debug rejoin\] Renamer joined as Renamed
+ticks 100
+waitfor 5 nosprint journeymen foreman status Renamed.Ren =~ Ren \(foreman of Renamed\)
+kill @e[type=journeymen:foreman,name=Ren]
+# a builder frozen in a loaded chunk that doesn't tick drops out of the crew: its claims go and the other builder finishes (supplied twice, as what the frozen one carries is out of reach)
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3790 100 3790 3849 100 3790 minecraft:air
+setblock 3786 100 3796 minecraft:air
+setblock 3794 100 3800 minecraft:chest[facing=south,type=right]
+setblock 3795 100 3800 minecraft:chest[facing=south,type=left]
+setblock 3794 100 3803 minecraft:chest[facing=south,type=right]
+setblock 3795 100 3803 minecraft:chest[facing=south,type=left]
+journeymen debug as Steve 2 3796 100 3810 journeymen foreman summon Frost
+journeymen debug as Steve 2 3792 100 3806 journeymen builder summon Frost Fro
+journeymen debug as Steve 2 3792 100 3808 journeymen builder summon Frost Zen
+journeymen debug as Steve 0 3792 100 3806 journeymen foreman chest Frost add 3794 100 3800 supply
+journeymen debug as Steve 0 3792 100 3806 journeymen foreman chest Frost add 3794 100 3803 supply
+mark
+journeymen debug as Steve 2 3792 100 3806 journeymen foreman supply Frost test_box.schem 3800 100 3800 none corner
+waitlog \] Supplied \d+ items
+journeymen debug as Steve 2 3792 100 3806 journeymen foreman supply Frost test_box.schem 3800 100 3800 none corner
+waitlog x2 \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 3792 100 3806 journeymen foreman build Frost test_box.schem 3800 100 3800 none corner
+waitlog Frost's crew is on the way: Fro and Zen\. !!
+waitlog \[crew\] Steve\.Fro claims \d+ blocks and reserves
+tp @e[type=journeymen:builder,name=Fro] 3910 100 3806
+waitlog 30 \[Steve\.Frost\] I finished building test_box\.schem !! which another builder claimed|can't start this job|\] I'm missing |\] I need |Exception
+tp @e[type=journeymen:builder,name=Fro] 3792 100 3806
+waitfor 5 nosprint journeymen builder status Steve.Fro =~ Job: none
+mark
+journeymen debug as Steve 0 3792 100 3806 journeymen foreman check Frost test_box.schem 3800 100 3800 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a foreman standing in another job's site walks to a post outside every site; an idle foreman where a block goes steps aside when asked; unstick never puts a journeyman into another job's site
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+setblock 3790 100 3820 minecraft:chest[facing=south,type=right]
+setblock 3791 100 3820 minecraft:chest[facing=south,type=left]
+setblock 3786 100 3878 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+journeymen debug as Steve 2 3796 100 3830 journeymen foreman summon Bee
+journeymen debug as Steve 2 3794 100 3832 journeymen builder summon Bee Bea
+journeymen debug as Steve 0 3794 100 3832 journeymen foreman chest Bee add 3790 100 3820 supply
+journeymen debug as Steve 2 3794 100 3832 journeymen foreman supply Bee test_fill.schem 3800 100 3820 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 3794 100 3832 journeymen foreman build Bee test_fill.schem 3800 100 3820 none corner
+waitlog Bee's crew is on the way: Bea\. !!
+journeymen debug as Steve 2 3830.5 100 3876.5 journeymen foreman summon Idler
+journeymen debug as Steve 2 3820.5 100 3868.5 journeymen foreman summon Adj
+journeymen debug as Steve 2 3788 100 3880 journeymen builder summon Adj Ada
+journeymen debug as Steve 0 3788 100 3880 journeymen foreman chest Adj add 3786 100 3878 supply
+mark
+journeymen debug as Steve 0 3788 100 3880 journeymen foreman build Adj test_row.schem 3800 100 3876 none corner
+waitlog Adj's crew is on the way: Ada\. !!
+ticks 100
+waitfor 5 nosprint execute if entity @e[type=journeymen:foreman,name=Adj,x=3800,y=99,z=3820,dx=51,dy=6,dz=51] =~ failed
+waitlog 30 \[Steve\.Adj\] I finished building test_row\.schem !! Someone is standing|can't start this job|\] I'm missing |\] I need |Exception
+journeymen debug as Steve 2 3785 100 3866 journeymen foreman summon Stuckee
+mark
+journeymen debug as Steve 0 3825 100 3869 journeymen foreman unstick Stuckee
+waitlog Stuckee got out of .* to
+waitfor 5 nosprint execute if entity @e[type=journeymen:foreman,name=Stuckee,x=3800,y=99,z=3820,dx=51,dy=6,dz=51] =~ failed
+journeymen debug as Steve 0 3794 100 3832 journeymen foreman cancel Bee
+waitlog Bee's crew stopped working on test_fill\.schem

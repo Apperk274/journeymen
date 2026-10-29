@@ -25,6 +25,7 @@ import net.minecraft.commands.arguments.TemplateRotationArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Rotation;
 import org.jetbrains.annotations.Nullable;
@@ -222,13 +223,19 @@ public class ForemanCommands {
     }
 
     private static int cancel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ForemanEntity foreman = Targets.foreman(context, FOREMAN);
-        BuildJob job = foreman.getJob();
+        MinecraftServer server = context.getSource().getServer();
+        JourneymanRegistry.Entry entry = Targets.resolve(context, FOREMAN, JourneymanRegistry.Kind.FOREMAN);
+        ForemanEntity foreman = Targets.find(server, entry) instanceof ForemanEntity loaded ? loaded : null;
+        BuildJob job = foreman != null ? foreman.getJob() : JourneymanRegistry.get(server).jobOf(entry.id());
         if (job == null) {
-            throw JourneymenCommand.fail(foreman.getJourneymanName() + " has no job.");
+            throw JourneymenCommand.fail(entry.name() + " has no job.");
         }
-        foreman.cancelJob();
-        context.getSource().sendSuccess(() -> Component.literal(foreman.getJourneymanName() + "'s crew stopped working on " + job.getFile() + "."), false);
+        if (foreman != null) {
+            foreman.cancelJob();
+        } else {
+            ForemanEntity.endJobOf(server, job);
+        }
+        context.getSource().sendSuccess(() -> Component.literal(entry.name() + "'s crew stopped working on " + job.getFile() + "."), false);
         return 1;
     }
 

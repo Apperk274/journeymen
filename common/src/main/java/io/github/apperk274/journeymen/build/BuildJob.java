@@ -216,7 +216,34 @@ public final class BuildJob {
         ListTag memberList = new ListTag();
         members.forEach(member -> memberList.add(new IntArrayTag(UUIDUtil.uuidToIntArray(member))));
         tag.put("Members", memberList);
+        ListTag redoList = new ListTag();
+        redoCounts.forEach((pos, count) -> redoList.add(new IntArrayTag(new int[]{pos.getX(), pos.getY(), pos.getZ(), count})));
+        tag.put("RedoCounts", redoList);
+        tag.put("Unclearable", positionList(unclearable));
+        Set<BlockPos> skipped = new LinkedHashSet<>(skippedPositions);
+        if (crewWork.getPlacing() != null) {
+            skipped.addAll(crewWork.getPlacing().getSkipped());
+        }
+        tag.put("Skipped", positionList(skipped));
         return tag;
+    }
+
+    private static ListTag positionList(Collection<BlockPos> positions) {
+        ListTag list = new ListTag();
+        positions.forEach(pos -> list.add(new IntArrayTag(new int[]{pos.getX(), pos.getY(), pos.getZ()})));
+        return list;
+    }
+
+    private static List<BlockPos> loadPositions(CompoundTag tag, String key) {
+        List<BlockPos> positions = new ArrayList<>();
+        ListTag list = tag.getList(key, Tag.TAG_INT_ARRAY);
+        for (int i = 0; i < list.size(); i++) {
+            int[] pos = list.getIntArray(i);
+            if (pos.length == 3) {
+                positions.add(new BlockPos(pos[0], pos[1], pos[2]));
+            }
+        }
+        return positions;
     }
 
     @Nullable
@@ -246,6 +273,15 @@ public final class BuildJob {
                 job.addMember(UUIDUtil.uuidFromIntArray(uuid));
             }
         }
+        ListTag redoList = tag.getList("RedoCounts", Tag.TAG_INT_ARRAY);
+        for (int i = 0; i < redoList.size(); i++) {
+            int[] redo = redoList.getIntArray(i);
+            if (redo.length == 4) {
+                job.redoCounts.put(new BlockPos(redo[0], redo[1], redo[2]), redo[3]);
+            }
+        }
+        job.unclearable.addAll(loadPositions(tag, "Unclearable"));
+        job.skippedPositions.addAll(loadPositions(tag, "Skipped"));
         return job;
     }
 }

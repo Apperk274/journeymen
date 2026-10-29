@@ -5,6 +5,39 @@ ticks 40
 fill 1400 99 1300 1440 99 1340 minecraft:grass_block
 fill 1400 100 1300 1440 106 1340 minecraft:air
 kill @e[type=item]
+# a job's skipped positions are saved: Redo's crew skips the 1024 stones of the bottom layer (skip-missing), then waits for Redo, who stands in a chunk that doesn't tick, until the server stops; the stone put into the supply chest meanwhile must stay unused after the restart (test_crew_restart_b)
+forceload add 1472 1360 1535 1391
+fill 1472 99 1360 1535 99 1391 minecraft:smooth_stone
+fill 1472 100 1360 1535 103 1391 minecraft:air
+setblock 1488 100 1362 minecraft:chest[facing=east,type=left]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:64},{Slot:1b,id:"minecraft:oak_planks",count:64},{Slot:2b,id:"minecraft:oak_planks",count:64},{Slot:3b,id:"minecraft:oak_planks",count:64},{Slot:4b,id:"minecraft:oak_planks",count:64},{Slot:5b,id:"minecraft:oak_planks",count:64},{Slot:6b,id:"minecraft:oak_planks",count:64},{Slot:7b,id:"minecraft:oak_planks",count:64},{Slot:8b,id:"minecraft:oak_planks",count:64},{Slot:9b,id:"minecraft:oak_planks",count:64},{Slot:10b,id:"minecraft:oak_planks",count:64},{Slot:11b,id:"minecraft:oak_planks",count:64},{Slot:12b,id:"minecraft:oak_planks",count:64},{Slot:13b,id:"minecraft:oak_planks",count:64},{Slot:14b,id:"minecraft:oak_planks",count:64},{Slot:15b,id:"minecraft:oak_planks",count:64}]}
+setblock 1488 100 1363 minecraft:chest[facing=east,type=right]
+journeymen debug as Steve 2 1482 100 1370 journeymen foreman summon Redo
+journeymen debug as Steve 2 1489 100 1366 journeymen builder summon Redo Rex
+journeymen debug as Steve 0 1489 100 1366 journeymen foreman chest Redo add 1488 100 1362 supply
+mark
+journeymen debug as Steve 0 1489 100 1366 journeymen foreman build Redo test_restock.schem 1490 100 1360 none corner skip-missing
+waitlog Redo's crew is on the way: Rex\. !!
+waitfor 20 journeymen foreman status Steve.Redo =~ Phase: placing \d+/1024\b
+forceload remove 1472 1360 1487 1375
+waitfor 5 nosprint journeymen builder status Steve.Rex =~ Task: waiting for its foreman
+item replace block 1488 100 1363 container.0 with minecraft:stone 64
+item replace block 1488 100 1363 container.1 with minecraft:stone 64
+item replace block 1488 100 1363 container.2 with minecraft:stone 64
+item replace block 1488 100 1363 container.3 with minecraft:stone 64
+item replace block 1488 100 1363 container.4 with minecraft:stone 64
+item replace block 1488 100 1363 container.5 with minecraft:stone 64
+item replace block 1488 100 1363 container.6 with minecraft:stone 64
+item replace block 1488 100 1363 container.7 with minecraft:stone 64
+item replace block 1488 100 1363 container.8 with minecraft:stone 64
+item replace block 1488 100 1363 container.9 with minecraft:stone 64
+item replace block 1488 100 1363 container.10 with minecraft:stone 64
+item replace block 1488 100 1363 container.11 with minecraft:stone 64
+item replace block 1488 100 1363 container.12 with minecraft:stone 64
+item replace block 1488 100 1363 container.13 with minecraft:stone 64
+item replace block 1488 100 1363 container.14 with minecraft:stone 64
+item replace block 1488 100 1363 container.15 with minecraft:stone 64
+ticks 100
+waitfor 5 nosprint journeymen builder status Steve.Rex =~ Task: waiting for its foreman
 setblock 1404 100 1304 minecraft:chest[facing=north,type=right]
 setblock 1405 100 1304 minecraft:chest[facing=north,type=left]
 setblock 1407 100 1304 minecraft:chest[facing=north,type=right]

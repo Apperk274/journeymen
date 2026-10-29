@@ -239,9 +239,16 @@ public final class StuckRecovery {
         BuildPlan plan = job == null ? null : job.getPlan();
         Map<BlockPos, BlockState> planned = plan == null ? Map.of() : plan.targetsByPosition();
         Set<BlockPos> toClear = plan == null ? Set.of() : new HashSet<>(plan.getToClear());
+        List<BoundingBox> otherAreas = new ArrayList<>();
+        for (BuildJob other : JourneymanRegistry.get(level.getServer()).jobs()) {
+            if (other != job && other.getDimension().equals(level.dimension())) {
+                otherAreas.add(other.getArea());
+            }
+        }
         BlockPos inside = null;
         for (BlockPos pos : candidates) {
-            if ((manual ? pos.equals(builder.blockPosition()) : pos.distSqr(center) >= current - 1.0) || !fits(level, goal, target, pos)) {
+            if ((manual ? pos.equals(builder.blockPosition()) : pos.distSqr(center) >= current - 1.0) || !fits(level, goal, target, pos)
+                    || otherAreas.stream().anyMatch(other -> other.isInside(pos) || other.isInside(pos.above()) || other.isInside(pos.below()))) {
                 continue;
             }
             boolean inArea = area != null && (area.isInside(pos) || area.isInside(pos.above()) || area.isInside(pos.below()));

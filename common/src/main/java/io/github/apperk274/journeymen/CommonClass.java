@@ -3,6 +3,7 @@ package io.github.apperk274.journeymen;
 import io.github.apperk274.journeymen.build.BlockDrops;
 import io.github.apperk274.journeymen.build.ChunkKeeper;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.platform.Services;
@@ -36,6 +37,12 @@ public class CommonClass {
     public static void onPlayerJoin(ServerPlayer player) {
         JourneymanRegistry registry = JourneymanRegistry.get(player.server);
         registry.updateOwnerName(player.getUUID(), player.getGameProfile().getName());
+        for (JourneymanRegistry.Entry entry : registry.ownedBy(player.getUUID())) {
+            JourneymanEntity journeyman = registry.loaded(player.server, entry.id());
+            if (journeyman != null) {
+                journeyman.refreshOwnerName(player.getGameProfile().getName());
+            }
+        }
         LinkModeService.forget(player);
         List<String> notices = registry.takeNotices(player.getUUID());
         if (!notices.isEmpty()) {

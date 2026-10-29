@@ -201,7 +201,7 @@ public final class PlacingTask {
                 builder.stepAwayFrom(pos);
                 return Status.WORKING;
             }
-            if (builder.inCrewMode() && builder.makeRoomAmongCrew(box)) {
+            if (builder.askToStepAside(box) && builder.inCrewMode()) {
                 deferred.put(entry, builder.tickCount + DEFER_TICKS);
                 return putBack();
             }
@@ -498,6 +498,7 @@ public final class PlacingTask {
         if (builder.inCrewMode()) {
             return crewPick();
         }
+        job.getCrewWork().keepOnly(builder.activeCrew());
         batch.clear();
         batchGroup = null;
         for (TreeMap<Integer, List<Entry>> group : List.of(work.supports, work.ramp)) {

@@ -286,6 +286,11 @@ public final class JourneymanRegistry extends SavedData {
     }
 
     @Override
+    public boolean isDirty() {
+        return super.isDirty() || !jobs.isEmpty();
+    }
+
+    @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         ListTag list = new ListTag();
         for (Entry entry : entries.values()) {

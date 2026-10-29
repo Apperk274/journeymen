@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen.command;
 
 import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.BuildJob;
+import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
@@ -93,6 +94,9 @@ public final class Status {
         if (job != null && builder.getJob() != job) {
             if (!builder.level().dimension().equals(job.getDimension())) {
                 return new CrewMember("in another dimension", false);
+            }
+            if (!Crew.isTicking(builder)) {
+                return new CrewMember("not ticking", false);
             }
             boolean close = ForemanEntity.canTakePart(builder, job.getDimension(), job.getArea());
             return new CrewMember(close ? "joining" : "too far from the site", close);

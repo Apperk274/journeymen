@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import io.github.apperk274.journeymen.CommonClass;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.ChunkKeeper;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
@@ -58,6 +59,10 @@ public class DebugCommands {
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .then(Commands.argument("gamemode", GameModeArgument.gameMode())
                                         .executes(DebugCommands::gameMode))))
+                .then(Commands.literal("rejoin")
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .then(Commands.argument("name", StringArgumentType.word())
+                                        .executes(DebugCommands::rejoin))))
                 .then(Commands.literal("use")
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                 .executes(DebugCommands::use)))
@@ -95,6 +100,16 @@ public class DebugCommands {
         ServerPlayer player = Services.PLATFORM.getFakePlayer(context.getSource().getLevel(), new GameProfile(UUIDUtil.createOfflinePlayerUUID(name), name));
         player.setGameMode(GameModeArgument.getGameMode(context, "gamemode"));
         Constants.LOG.info("[debug gamemode] {} is in {} mode", name, player.gameMode.getGameModeForPlayer().getName());
+        return 1;
+    }
+
+    private static int rejoin(CommandContext<CommandSourceStack> context) {
+        String player = StringArgumentType.getString(context, "player");
+        String name = StringArgumentType.getString(context, "name");
+        ServerPlayer joining = Services.PLATFORM.getFakePlayer(context.getSource().getLevel(),
+                new GameProfile(UUIDUtil.createOfflinePlayerUUID(player), name));
+        CommonClass.onPlayerJoin(joining);
+        Constants.LOG.info("[debug rejoin] {} joined as {}", player, name);
         return 1;
     }
 
