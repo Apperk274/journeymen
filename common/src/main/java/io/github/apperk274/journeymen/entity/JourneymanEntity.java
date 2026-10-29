@@ -9,6 +9,7 @@ import io.github.apperk274.journeymen.entity.ai.BuilderNodeEvaluator;
 import io.github.apperk274.journeymen.entity.ai.JourneymanMoveGoal;
 import io.github.apperk274.journeymen.entity.ai.OpenPassageGoal;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -88,6 +89,7 @@ public abstract class JourneymanEntity extends PathfinderMob {
     private OpenPassageGoal passageGoal;
     private final Map<BlockPos, Integer> openedPassages = new HashMap<>();
     private final Map<BlockPos, PassageRight> passageRights = new HashMap<>();
+    private final Map<GlobalPos, PassageRight> chestRights = new HashMap<>();
 
     private record PassageRight(boolean allowed, long until) {
     }
@@ -648,6 +650,20 @@ public abstract class JourneymanEntity extends PathfinderMob {
         for (BlockPos part : OpenPassageGoal.parts(level(), pos)) {
             passageRights.put(part.immutable(), result);
         }
+        return allowed;
+    }
+
+    public boolean mayOpenChest(BlockPos pos) {
+        long now = level().getGameTime();
+        GlobalPos key = GlobalPos.of(level().dimension(), pos.immutable());
+        PassageRight right = chestRights.get(key);
+        if (right != null && right.until() > now) {
+            return right.allowed();
+        }
+        chestRights.values().removeIf(old -> old.until() <= now);
+        boolean allowed = owner == null || !(level() instanceof ServerLevel serverLevel)
+                || OwnerRights.mayOpenContainer(serverLevel, owner, getOwnerName(), pos);
+        chestRights.put(key, new PassageRight(allowed, now + (allowed ? PASSAGE_ALLOWED_TICKS : PASSAGE_REFUSED_TICKS)));
         return allowed;
     }
 

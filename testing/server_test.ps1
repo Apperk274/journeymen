@@ -24,8 +24,21 @@ function Remove-Unreadable([string]$path) {
         Remove-Item -LiteralPath $path -Recurse -Force
     }
 }
+function Restore-Config([string]$path) {
+    $backup = "$path.debug-backup"
+    if (Test-Path -LiteralPath $backup) {
+        if ((Get-Item -LiteralPath $backup).Length -eq 0) {
+            Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue
+        } else {
+            Copy-Item -LiteralPath $backup $path -Force
+        }
+        Remove-Item -LiteralPath $backup
+    }
+}
 $unreadable = Join-Path $runDir "schematics\test_edge_unreadable"
 Remove-Unreadable $unreadable
+$config = Join-Path $runDir "config\journeymen.toml"
+Restore-Config $config
 $props = Join-Path $runDir "server.properties"
 $original = [System.IO.File]::ReadAllText($props)
 $started = Get-Date
@@ -67,5 +80,6 @@ try {
     if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     [System.IO.File]::WriteAllText($props, $original)
     Remove-Unreadable $unreadable
+    Restore-Config $config
 }
 "total $([int]((Get-Date) - $started).TotalSeconds) s, server log: $log"

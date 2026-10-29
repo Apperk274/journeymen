@@ -151,14 +151,23 @@ public final class PreCheck {
                     + positions(denied) + ".");
         }
 
-        int supplyChests = Crew.countSupplyChests(foreman);
+        List<AssignedChest> usable = foreman.usableChestsIn(level);
+        int supplyChests = (int) usable.stream().filter(chest -> chest.role() == AssignedChest.Role.SUPPLY).count();
         String chests = supplyChests == 0 ? "no supply chests" : supplyChests + " supply chest" + (supplyChests == 1 ? "" : "s");
         String counted = working.isEmpty() ? "no builder's inventory (none can take part)"
                 : working.size() == 1 ? working.get(0).getJourneymanName() + "'s inventory" : "the inventories of " + Crew.names(working);
         check.stockNote = "Counted " + counted + (working.size() > 1 ? ", and " : " and ") + foreman.getJourneymanName() + "'s " + chests + ".";
         for (AssignedChest chest : foreman.getChests()) {
+            if (!chest.isIn(level.dimension())) {
+                check.warning("The " + chest.role().id() + " chest at " + chest.pos().toShortString() + " is in " + chest.dimension().location()
+                        + ", not in " + level.dimension().location() + " where the site is, so the crew can't use it.");
+                continue;
+            }
             if (level.isLoaded(chest.pos()) && ItemStores.isLocked(level, chest.pos())) {
                 check.warning("The " + chest.role().id() + " chest at " + chest.pos().toShortString() + " is locked, so the crew can't use it.");
+            } else if (!usable.contains(chest)) {
+                check.warning(foreman.getOwnerName() + " isn't allowed to open the " + chest.role().id() + " chest at " + chest.pos().toShortString()
+                        + " (spawn protection or a claim), so the crew can't use it.");
             }
             BlockPos other = Crew.otherChestHalf(level, chest.pos());
             if (area.isInside(chest.pos()) || other != null && area.isInside(other)) {
@@ -168,7 +177,7 @@ public final class PreCheck {
                         + foreman.getJourneymanName() + " remove " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + ".");
             }
         }
-        List<ItemStack> stock = Crew.stock(foreman, working, check.problems);
+        List<ItemStack> stock = Crew.stock(level, usable, working, check.problems);
         ItemCounter available = new ItemCounter();
         for (ItemStack stack : stock) {
             available.add(stack, stack.getCount());
@@ -180,7 +189,7 @@ public final class PreCheck {
                 if (ItemMatch.hasVanillaData(entry.getKey())) {
                     line.append(Component.literal(" (with specific data, e.g. patterns or contents)"));
                 }
-                long inDump = Crew.countInDumpChests(foreman, entry.getKey());
+                long inDump = Crew.countInDumpChests(level, usable, entry.getKey());
                 if (inDump > 0) {
                     line.append(Component.literal(". " + inDump + " are in a dump chest, which doesn't count as stock"));
                 }

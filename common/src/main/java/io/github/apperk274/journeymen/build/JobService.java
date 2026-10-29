@@ -4,6 +4,7 @@ import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanRegistry;
+import io.github.apperk274.journeymen.platform.Services;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
 import net.minecraft.ChatFormatting;
@@ -24,6 +25,8 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 
 public final class JobService {
+
+    private static volatile int developmentDelay;
 
     private JobService() {
     }
@@ -52,18 +55,43 @@ public final class JobService {
 
     public static void supplyMissing(MinecraftServer server, ForemanEntity foreman, String file, BlockPos origin, Rotation rotation,
                                      BuildOptions options, ServerPlayer player, Consumer<Result> done) {
+        boolean listed = server.getPlayerList().getPlayer(player.getUUID()) == player;
         load(server, foreman, file, done, schematic -> {
-            MaterialSupply.Outcome outcome = MaterialSupply.supply(foreman, schematic, file, origin, rotation, options, true, player);
+            ServerPlayer current = listed ? server.getPlayerList().getPlayer(player.getUUID()) : player;
+            if (current == null || current.hasDisconnected()) {
+                done.accept(Result.failure(player.getGameProfile().getName() + " left, so nothing was supplied."));
+                return;
+            }
+            if (!current.isCreative()) {
+                done.accept(Result.failure("You aren't in creative mode anymore, so nothing was supplied."));
+                return;
+            }
+            if (!foreman.canBeCommandedBy(current)) {
+                done.accept(Result.failure("You can't give " + foreman.getJourneymanName() + " orders anymore, so nothing was supplied."));
+                return;
+            }
+            MaterialSupply.Outcome outcome = MaterialSupply.supply(foreman, schematic, file, origin, rotation, options, true, current);
             done.accept(check(foreman, file, origin, rotation, options, false, schematic).withSupplied(outcome));
         });
     }
 
+    public static void setDevelopmentDelay(int millis) {
+        developmentDelay = Math.max(0, millis);
+    }
+
     private static void load(MinecraftServer server, ForemanEntity foreman, String file, Consumer<Result> done, Consumer<Schematic> loaded) {
+        int delay = Services.PLATFORM.isDevelopmentEnvironment() ? developmentDelay : 0;
         CompletableFuture
                 .supplyAsync(() -> {
                     try {
+                        if (delay > 0) {
+                            Thread.sleep(delay);
+                        }
                         return SchematicFiles.load(file);
                     } catch (IOException e) {
+                        throw new CompletionException(e);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
                         throw new CompletionException(e);
                     }
                 }, Util.backgroundExecutor())

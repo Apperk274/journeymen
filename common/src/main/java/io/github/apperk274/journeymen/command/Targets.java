@@ -65,7 +65,14 @@ final class Targets {
             if (matches.isEmpty()) {
                 throw JourneymenCommand.fail(ownerName + " has no " + kind.id() + " named " + name + ".");
             }
-            entry = matches.get(0);
+            JourneymanRegistry.Entry mine = player == null ? null
+                    : matches.stream().filter(match -> match.owner().equals(player.getUUID())).findFirst().orElse(null);
+            if (mine == null && matches.size() > 1) {
+                List<String> owners = matches.stream().map(match -> match.owner().toString().substring(0, 8) + " " + Status.position(match)).toList();
+                throw JourneymenCommand.fail("Several players named " + ownerName + " have a journeyman named " + name + ": "
+                        + String.join(" and ", owners) + ", so it isn't clear which one you mean.");
+            }
+            entry = mine != null ? mine : matches.get(0);
             boolean own = player != null && entry.owner().equals(player.getUUID());
             if (!own && !source.hasPermission(Commands.LEVEL_GAMEMASTERS)) {
                 throw JourneymenCommand.fail("You can only command your own journeymen.");

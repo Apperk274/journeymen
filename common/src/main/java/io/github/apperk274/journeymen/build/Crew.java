@@ -67,7 +67,7 @@ public final class Crew {
     }
 
     public static List<ItemStack> stock(ForemanEntity foreman, List<BuilderEntity> builders, List<Component> problems) {
-        return stock(foreman.level(), foreman.getChests(), builders, problems);
+        return stock(foreman.level(), foreman.usableChestsIn(foreman.level()), builders, problems);
     }
 
     public static List<ItemStack> stock(Level level, List<AssignedChest> chests, List<BuilderEntity> builders, List<Component> problems) {
@@ -112,14 +112,9 @@ public final class Crew {
         return stock;
     }
 
-    public static int countSupplyChests(ForemanEntity foreman) {
-        return (int) foreman.getChests().stream().filter(chest -> chest.role() == AssignedChest.Role.SUPPLY).count();
-    }
-
-    public static long countInDumpChests(ForemanEntity foreman, ItemStack template) {
-        Level level = foreman.level();
+    public static long countInDumpChests(Level level, List<AssignedChest> chests, ItemStack template) {
         long count = 0;
-        for (AssignedChest chest : foreman.getChests()) {
+        for (AssignedChest chest : chests) {
             if (chest.role() != AssignedChest.Role.DUMP || !level.isLoaded(chest.pos())) {
                 continue;
             }

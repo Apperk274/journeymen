@@ -1,0 +1,85 @@
+forceload add 6848 4864 6975 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+kill @e[type=journeymen:recruiter]
+kill @e[type=minecraft:pig,x=6848,y=90,z=4864,dx=127,dy=30,dz=63]
+kill @e[type=minecraft:boat,x=6848,y=90,z=4864,dx=127,dy=30,dz=63]
+journeymen debug protect clear
+ticks 40
+fill 6848 99 4864 6975 99 4927 minecraft:smooth_stone
+fill 6848 100 4864 6975 103 4927 minecraft:air
+fill 6848 104 4864 6975 106 4927 minecraft:air
+kill @e[type=item]
+journeymen stall place 6860 100 4870 north
+ticks 20
+# a free foreman (foreman_cost_base 0) still opens the hiring screen: its price encodes as an empty stack
+journeymen debug config foreman_cost_base 0
+journeymen debug as FreeHirer 2 6860 100 4866 clear @s
+mark
+journeymen debug as FreeHirer 2 6860 100 4866 journeymen debug interact @e[type=journeymen:recruiter,x=6860,y=100,z=4871,distance=..2,limit=1]
+waitlog \[hire screen\] FreeHirer: price 0 \(free\), 0 of 3 foremen !! \[payload\]|Exception
+journeymen debug as FreeHirer 0 6860 100 4866 journeymen recruiter hire Freebie
+waitlog \[debug as FreeHirer\] You hired Freebie
+journeymen debug config foreman_cost_base 20
+kill @e[type=journeymen:foreman,name=Freebie]
+# the recruiter can't be leashed, and a boat doesn't seat him
+journeymen debug as Leasher 2 6860 100 4866 item replace entity @s weapon.mainhand with minecraft:lead 2
+journeymen debug as Leasher 2 6860 100 4866 journeymen debug interact @e[type=journeymen:recruiter,x=6860,y=100,z=4871,distance=..2,limit=1]
+waitlog \[debug interact\] Recruiter
+waitfor 5 nosprint execute if data entity @e[type=journeymen:recruiter,x=6860,y=100,z=4871,distance=..2,limit=1] leash =~ failed
+journeymen debug as Leasher 2 6860 100 4866 clear @s
+summon minecraft:boat 6860.5 100 4871.5
+ticks 20
+waitfor 5 nosprint execute if data entity @e[type=minecraft:boat,x=6860.5,y=100,z=4871.5,distance=..2,limit=1] Passengers[0] =~ failed
+kill @e[type=minecraft:boat,x=6848,y=90,z=4864,dx=127,dy=30,dz=63]
+# breaking and placing the stall again before the old recruiter's next check leaves one recruiter, not two
+tick freeze
+setblock 6860 100 4870 minecraft:air
+journeymen stall place 6860 100 4870 north
+waitfor 5 nosprint execute if entity @e[type=journeymen:recruiter,x=6855,y=95,z=4865,dx=10,dy=10,dz=10] =~ count: 1\b
+tick unfreeze
+ticks 60
+waitfor 5 nosprint execute if entity @e[type=journeymen:recruiter,x=6855,y=95,z=4865,dx=10,dy=10,dz=10] =~ count: 1\b
+# a stall isn't built into a mob, by command or with the item
+summon minecraft:pig 6879.5 100 4870.5 {NoAI:1b}
+journeymen stall place 6880 100 4870 north
+waitfor 5 nosprint execute if block 6880 100 4870 journeymen:recruiters_stall =~ failed
+waitfor 5 nosprint execute if entity @e[type=journeymen:recruiter,x=6875,y=95,z=4865,dx=10,dy=10,dz=10] =~ failed
+journeymen debug as Placer 2 6880.5 100 4866.5 clear @s
+journeymen debug as Placer 2 6880.5 100 4866.5 give @s journeymen:recruiters_stall
+journeymen debug as Placer 2 6880.5 100 4866.5 journeymen debug useitem 6880 99 4870 up
+waitlog \[debug useitem\] Placer on 6880, 99, 4870 up
+waitfor 5 nosprint execute if block 6880 100 4870 journeymen:recruiters_stall =~ failed
+kill @e[type=minecraft:pig,x=6848,y=90,z=4864,dx=127,dy=30,dz=63]
+ticks 30
+journeymen debug as Placer 2 6880.5 100 4866.5 journeymen debug useitem 6880 99 4870 up
+waitfor 5 nosprint execute if block 6880 100 4870 journeymen:recruiters_stall =~ passed
+journeymen debug as Placer 2 6880.5 100 4866.5 clear @s
+# an explosion always drops exactly one stall item, whichever part it hits first
+journeymen stall place 6900 100 4870 north
+journeymen debug explode 6900.5 100.5 4868.5 8 6900 100 4870
+ticks 5
+waitfor 5 nosprint execute if entity @e[type=item,x=6890,y=90,z=4860,dx=20,dy=20,dz=20,nbt={Item:{id:"journeymen:recruiters_stall"}}] =~ count: 1\b
+kill @e[type=item]
+journeymen stall place 6900 100 4870 north
+journeymen debug explode 6900.5 100.5 4868.5 8 6900 100 4870
+ticks 5
+waitfor 5 nosprint execute if entity @e[type=item,x=6890,y=90,z=4860,dx=20,dy=20,dz=20,nbt={Item:{id:"journeymen:recruiters_stall"}}] =~ count: 1\b
+kill @e[type=item]
+journeymen stall place 6900 100 4870 north
+journeymen debug explode 6900.5 100.5 4868.5 8 6900 100 4870
+ticks 5
+waitfor 5 nosprint execute if entity @e[type=item,x=6890,y=90,z=4860,dx=20,dy=20,dz=20,nbt={Item:{id:"journeymen:recruiters_stall"}}] =~ count: 1\b
+kill @e[type=item]
+journeymen stall place 6900 100 4870 north
+journeymen debug explode 6900.5 102.5 4868.5 8 6900 102 4870
+ticks 5
+waitfor 5 nosprint execute if entity @e[type=item,x=6890,y=90,z=4860,dx=20,dy=20,dz=20,nbt={Item:{id:"journeymen:recruiters_stall"}}] =~ count: 1\b
+kill @e[type=item]
+journeymen stall place 6900 100 4870 north
+journeymen debug explode 6900.5 101 4868.5 4 -
+ticks 5
+waitfor 5 nosprint execute if entity @e[type=item,x=6890,y=90,z=4860,dx=20,dy=20,dz=20,nbt={Item:{id:"journeymen:recruiters_stall"}}] =~ count: 1\b
+kill @e[type=item]
+fill 6895 99 4865 6905 99 4875 minecraft:smooth_stone
+kill @e[type=journeymen:recruiter]

@@ -4,27 +4,31 @@ import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.platform.Services;
 import io.github.apperk274.journeymen.hire.HirePrice;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.io.IOException;
-import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class JourneymenConfig {
 
     private static final List<Entry<?>> ENTRIES = new ArrayList<>();
+    private static final int MAX_SECONDS = 86400;
 
     public static final Entry<Double> SPEED_MULTIPLIER = add(decimal("speed_multiplier",
             "How fast builders break and place blocks. 1.0 is a survival player's pace.",
-            1.0, 0, 100));
+            1.0, 0.01, 100.0));
     public static final Entry<Boolean> KEEP_CHUNKS_LOADED = add(bool("keep_chunks_loaded",
             "Whether a foreman with a job keeps his own chunk, the site's chunks and his working builders' chunks loaded (entities ticking), so the crew builds while nobody is nearby.",
             false));
@@ -39,13 +43,13 @@ public final class JourneymenConfig {
             128, 1, Integer.MAX_VALUE));
     public static final Entry<Integer> REMINDER_INTERVAL_SECONDS = add(integer("reminder_interval_seconds",
             "How often a foreman reminds his owner of a paused job, in seconds.",
-            300, 1, Integer.MAX_VALUE));
+            300, 1, MAX_SECONDS));
     public static final Entry<Integer> WAIT_REPORT_SECONDS = add(integer("wait_report_seconds",
             "How long a builder waits for someone standing in its way before it tells its owner, in seconds.",
-            10, 0, Integer.MAX_VALUE));
+            10, 0, MAX_SECONDS));
     public static final Entry<Integer> STUCK_TELEPORT_SECONDS = add(integer("stuck_teleport_seconds",
             "How long a journeyman may be stuck without getting closer to where it is going (a chest, the build site, you) before it teleports to a safe spot next to it, in seconds (0 = never).",
-            20, 0, Integer.MAX_VALUE));
+            20, 0, MAX_SECONDS));
     public static final Entry<Integer> MAX_CREW_SIZE = add(integer("max_crew_size",
             "How many builders a foreman can have in his crew (0 = no limit).",
             8, 0, Integer.MAX_VALUE));
@@ -89,21 +93,33 @@ public final class JourneymenConfig {
     public static List<String> load() {
         List<String> problems = new ArrayList<>();
         Path file = file();
-        Properties properties = new Properties();
-        String readProblem = read(file, properties);
-        if (readProblem != null) {
-            problems.add(readProblem);
+        Parsed parsed = Parsed.EMPTY;
+        if (Files.exists(file)) {
+            try {
+                parsed = parse(Files.readAllLines(file, StandardCharsets.UTF_8), file.getFileName().toString());
+            } catch (IOException | UncheckedIOException e) {
+                problems.add("Could not read " + file + ": " + e.getMessage());
+            }
         }
+        problems.addAll(parsed.problems());
+        boolean missing = false;
         for (Entry<?> entry : ENTRIES) {
-            String problem = entry.read(properties.getProperty(entry.key));
+            String raw = parsed.values().get(entry.key);
+            missing |= raw == null;
+            String problem = entry.read(raw);
             if (problem != null) {
                 problems.add(problem);
             }
         }
-        try {
-            write(file, Entry::text);
-        } catch (IOException e) {
-            problems.add("Could not write " + file + ": " + e.getMessage());
+        parsed.unknown().keySet().forEach(key -> problems.add("Unknown key " + key + " (kept in the file, not used)"));
+        if (problems.isEmpty() && (missing || !Files.exists(file))) {
+            try {
+                write(file, Entry::text, Map.of());
+            } catch (IOException e) {
+                problems.add("Could not write " + file + ": " + e.getMessage());
+            }
+        } else if (!problems.isEmpty() && Files.exists(file)) {
+            problems.add("The file was left as it is; fix it and run /journeymen config reload.");
         }
         problems.forEach(problem -> Constants.LOG.warn("Config: {}", problem));
         return problems;
@@ -115,12 +131,11 @@ public final class JourneymenConfig {
     }
 
     public static Map<String, String> fileValues() {
-        Properties properties = new Properties();
-        read(file(), properties);
+        Parsed parsed = readFile();
         Map<String, String> values = new LinkedHashMap<>();
         for (Entry<?> entry : ENTRIES) {
-            String raw = properties.getProperty(entry.key);
-            values.put(entry.key, raw == null ? entry.text() : raw.trim());
+            String raw = parsed.values().get(entry.key);
+            values.put(entry.key, raw == null ? entry.text() : raw);
         }
         return values;
     }
@@ -147,7 +162,7 @@ public final class JourneymenConfig {
         }
         Path file = file();
         try {
-            write(file, entry -> merged.get(entry.key));
+            write(file, entry -> merged.get(entry.key), readFile().unknown());
         } catch (IOException e) {
             return new Saved(false, List.of("Could not write " + file + ": " + e.getMessage()));
         }
@@ -163,28 +178,108 @@ public final class JourneymenConfig {
         return null;
     }
 
-    private static String read(Path file, Properties properties) {
+    private static Parsed readFile() {
+        Path file = file();
         if (!Files.exists(file)) {
-            return null;
+            return Parsed.EMPTY;
         }
-        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-            return null;
-        } catch (IOException | IllegalArgumentException e) {
-            return "Could not read " + file + ": " + e.getMessage();
+        try {
+            return parse(Files.readAllLines(file, StandardCharsets.UTF_8), file.getFileName().toString());
+        } catch (IOException | UncheckedIOException e) {
+            return Parsed.EMPTY;
         }
     }
 
-    private static void write(Path file, Function<Entry<?>, String> valueOf) throws IOException {
+    private record Parsed(Map<String, String> values, Map<String, String> unknown, List<String> problems) {
+
+        static final Parsed EMPTY = new Parsed(Map.of(), Map.of(), List.of());
+    }
+
+    private static Parsed parse(List<String> lines, String name) {
+        Map<String, String> values = new LinkedHashMap<>();
+        Map<String, String> unknown = new LinkedHashMap<>();
+        List<String> problems = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i).strip();
+            if (i == 0 && line.startsWith("\uFEFF")) {
+                line = line.substring(1).strip();
+            }
+            if (line.isEmpty() || line.startsWith("#")) {
+                continue;
+            }
+            int equals = line.indexOf('=');
+            String key = equals < 0 ? "" : line.substring(0, equals).strip();
+            if (key.isEmpty()) {
+                problems.add("Line " + (i + 1) + " of " + name + " isn't key = value: " + line);
+                continue;
+            }
+            String value = value(line.substring(equals + 1).strip());
+            if (value == null) {
+                problems.add("Line " + (i + 1) + " of " + name + " has a quoted value without its closing quote or with text after it: " + line);
+                continue;
+            }
+            Map<String, String> target = entry(key) == null ? unknown : values;
+            if (target.put(key, value) != null) {
+                problems.add(key + " is set more than once in " + name + "; the last one counts");
+            }
+        }
+        return new Parsed(values, unknown, problems);
+    }
+
+    @Nullable
+    private static String value(String raw) {
+        if (!raw.startsWith("\"")) {
+            for (int i = 1; i < raw.length(); i++) {
+                if (raw.charAt(i) == '#' && Character.isWhitespace(raw.charAt(i - 1))) {
+                    return raw.substring(0, i).strip();
+                }
+            }
+            return raw;
+        }
+        StringBuilder value = new StringBuilder();
+        for (int i = 1; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == '\\' && i + 1 < raw.length()) {
+                value.append(raw.charAt(++i));
+            } else if (c == '"') {
+                String rest = raw.substring(i + 1).strip();
+                return rest.isEmpty() || rest.startsWith("#") ? value.toString() : null;
+            } else {
+                value.append(c);
+            }
+        }
+        return null;
+    }
+
+    private static String quoted(String value) {
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    private static void write(Path file, Function<Entry<?>, String> valueOf, Map<String, String> unknown) throws IOException {
         StringBuilder text = new StringBuilder("# Journeymen config. Changes apply after /journeymen config reload or a restart.\n");
         for (Entry<?> entry : ENTRIES) {
+            String value = valueOf.apply(entry);
             text.append('\n')
                     .append("# ").append(entry.comment).append('\n')
-                    .append("# Default: ").append(entry.defaultValue).append('\n')
-                    .append(entry.key).append(" = ").append(valueOf.apply(entry)).append('\n');
+                    .append("# ").append(capitalised(entry.range)).append(", default: ").append(entry.defaultValue).append('\n')
+                    .append(entry.key).append(" = ").append(entry.type == Type.TEXT ? quoted(value) : value).append('\n');
+        }
+        if (!unknown.isEmpty()) {
+            text.append("\n# Keys this version of Journeymen doesn't know, kept as they were:\n");
+            unknown.forEach((key, value) -> text.append(key).append(" = ").append(quoted(value)).append('\n'));
         }
         Files.createDirectories(file.getParent());
-        Files.writeString(file, text, StandardCharsets.UTF_8);
+        Path temp = file.resolveSibling(file.getFileName() + ".tmp");
+        Files.writeString(temp, text, StandardCharsets.UTF_8);
+        try {
+            Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(temp, file, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static String capitalised(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     private static Boolean parseBoolean(String value) {
@@ -200,9 +295,9 @@ public final class JourneymenConfig {
                 max == Integer.MAX_VALUE ? min + " or more" : min + " to " + max);
     }
 
-    private static Entry<Double> decimal(String key, String comment, double defaultValue, int above, int max) {
-        return new Entry<>(key, comment, defaultValue, Double::parseDouble, value -> value > above && value <= max, Type.DECIMAL,
-                "above " + above + ", at most " + max);
+    private static Entry<Double> decimal(String key, String comment, double defaultValue, double min, double max) {
+        return new Entry<>(key, comment, defaultValue, Double::parseDouble, value -> value >= min && value <= max, Type.DECIMAL,
+                min + " to " + max);
     }
 
     private static Entry<Boolean> bool(String key, String comment, boolean defaultValue) {

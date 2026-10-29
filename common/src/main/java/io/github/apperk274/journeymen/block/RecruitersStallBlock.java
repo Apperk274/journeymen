@@ -26,6 +26,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.pathfinder.PathComputationType;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -38,6 +39,7 @@ public class RecruitersStallBlock extends HorizontalDirectionalBlock {
 
     private static final VoxelShape POST = Block.box(6.0, 0.0, 6.0, 10.0, 16.0, 10.0);
     private static final VoxelShape AWNING = Block.box(0.0, 12.0, 0.0, 16.0, 16.0, 16.0);
+    private static final double RECRUITER_SEARCH = 16.0;
 
     public RecruitersStallBlock(Properties properties) {
         super(properties);
@@ -90,9 +92,11 @@ public class RecruitersStallBlock extends HorizontalDirectionalBlock {
         return true;
     }
 
-    public static boolean hasRoom(Level level, BlockPos origin, Direction facing) {
+    public boolean hasRoom(Level level, BlockPos origin, Direction facing) {
         for (StallPart part : StallPart.values()) {
-            if (part != StallPart.COUNTER_MIDDLE && !isFree(level, part.positionFrom(origin, facing))) {
+            BlockPos pos = part.positionFrom(origin, facing);
+            if (part != StallPart.COUNTER_MIDDLE && !isFree(level, pos)
+                    || !level.isUnobstructed(defaultBlockState().setValue(FACING, facing).setValue(PART, part), pos, CollisionContext.empty())) {
                 return false;
             }
         }
@@ -130,6 +134,10 @@ public class RecruitersStallBlock extends HorizontalDirectionalBlock {
             if (part != StallPart.COUNTER_MIDDLE) {
                 level.setBlock(part.positionFrom(origin, facing), defaultBlockState().setValue(FACING, facing).setValue(PART, part), Block.UPDATE_ALL);
             }
+        }
+        for (RecruiterEntity old : level.getEntitiesOfClass(RecruiterEntity.class, new AABB(origin).inflate(RECRUITER_SEARCH),
+                old -> origin.equals(old.getStall()))) {
+            old.discard();
         }
         RecruiterEntity recruiter = ModEntities.RECRUITER.create(level);
         if (recruiter != null) {

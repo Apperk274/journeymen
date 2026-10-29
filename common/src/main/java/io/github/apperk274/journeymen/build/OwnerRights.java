@@ -39,6 +39,15 @@ public final class OwnerRights {
         return probe(player, pos, () -> Services.PLATFORM.mayUseBlock(player, pos));
     }
 
+    public static boolean mayOpenContainer(ServerLevel level, UUID owner, String ownerName, BlockPos pos) {
+        if (!level.isLoaded(pos)) {
+            return true;
+        }
+        ServerPlayer actor = actor(level, owner, ownerName);
+        BlockPos other = Crew.otherChestHalf(level, pos);
+        return mayOpen(actor, pos) && (other == null || mayOpen(actor, other));
+    }
+
     private static boolean probe(ServerPlayer player, BlockPos pos, BooleanSupplier check) {
         if (!player.level().mayInteract(player, pos)) {
             return false;

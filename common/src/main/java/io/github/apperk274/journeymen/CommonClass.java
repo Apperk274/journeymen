@@ -5,6 +5,7 @@ import io.github.apperk274.journeymen.build.ChunkKeeper;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanRegistry;
+import io.github.apperk274.journeymen.entity.ProgressBars;
 import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.menu.RequestThrottle;
 import io.github.apperk274.journeymen.platform.Services;
@@ -30,10 +31,14 @@ public class CommonClass {
         BlockDrops.setServer(null);
         ChunkKeeper.reset();
         RequestThrottle.reset();
+        ProgressBars.reset();
+        LinkModeService.reset();
     }
 
     public static void onServerTick(MinecraftServer server) {
         ChunkKeeper.tick(server);
+        LinkModeService.tick(server);
+        ProgressBars.tick(server);
     }
 
     public static void onPlayerJoin(ServerPlayer player) {

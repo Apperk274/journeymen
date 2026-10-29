@@ -35,6 +35,10 @@ public class ConfirmScreen extends Screen {
         this.result = result;
     }
 
+    public int foremanId() {
+        return result.foremanId();
+    }
+
     public boolean matches(ScreenPayloads.CheckResult other) {
         return other.foremanId() == result.foremanId() && other.file().equals(result.file()) && other.origin().equals(result.origin());
     }

@@ -1,0 +1,49 @@
+# the config file reads TOML-style quoted strings and trailing comments, keeps unknown keys and isn't overwritten when it has problems
+journeymen debug configfile write # a hand-written config|speed_multiplier = 2.0 # faster|hire_cost_item = "minecraft:diamond" # quoted|max_chests = 5000|max_chests_typo = 7|stuck_teleport_seconds = 30
+mark
+journeymen debug as Admin 2 0 100 0 journeymen config reload
+waitlog \[debug as Admin\] Reloaded .* with problems
+waitlog \[debug as Admin\]   max_chests = 5000 is not valid
+waitlog \[debug as Admin\]   Unknown key max_chests_typo
+journeymen debug configfile show
+waitlog \[debug configfile\] live: speed_multiplier=2\.0 .*stuck_teleport_seconds=30 .*max_chests=128 hire_cost_item=minecraft:diamond
+waitlog \[debug configfile\] file: max_chests = 5000
+waitlog \[debug configfile\] file: max_chests_typo = 7
+waitlog \[debug configfile\] file: speed_multiplier = 2\.0 # faster
+# a line that isn't key = value is reported and the file is left alone
+journeymen debug configfile write max_crew_size = 3|this is not a setting
+mark
+journeymen debug as Admin 2 0 100 0 journeymen config reload
+waitlog \[debug as Admin\]   Line 2 of .* isn't key = value
+journeymen debug configfile show
+waitlog \[debug configfile\] live: .*max_crew_size=3
+waitlog \[debug configfile\] file: this is not a setting
+# a file that only lacks keys is completed, keeping its values
+journeymen debug configfile write max_crew_size = 4|hire_cost_item = #c:gems/emerald # a tag needs no quotes
+mark
+journeymen debug as Admin 2 0 100 0 journeymen config reload
+waitlog \[debug as Admin\] Reloaded
+journeymen debug configfile show
+waitlog \[debug configfile\] file: max_crew_size = 4
+waitlog \[debug configfile\] file: hire_cost_item = "#c:gems/emerald"
+waitlog \[debug configfile\] file: speed_multiplier = 1\.0
+waitlog \[debug configfile\] live: .*max_crew_size=4 .*hire_cost_item=#c:gems/emerald
+# seconds keys and speed_multiplier have ranges that keep their tick counts from overflowing
+journeymen debug configfile write reminder_interval_seconds = 1073741824|stuck_teleport_seconds = 200000000|wait_report_seconds = 99999999|speed_multiplier = 1e-50
+mark
+journeymen debug as Admin 2 0 100 0 journeymen config reload
+waitlog \[debug as Admin\]   reminder_interval_seconds = 1073741824 is not valid
+waitlog \[debug as Admin\]   stuck_teleport_seconds = 200000000 is not valid
+waitlog \[debug as Admin\]   wait_report_seconds = 99999999 is not valid
+waitlog \[debug as Admin\]   speed_multiplier = 1e-50 is not valid
+journeymen debug configfile show
+waitlog \[debug configfile\] live: speed_multiplier=1\.0 .*reminder_interval_seconds=300 wait_report_seconds=10 stuck_teleport_seconds=20
+mark
+journeymen debug config reminder_interval_seconds 1073741824
+waitlog \[debug config\] reminder_interval_seconds = 1073741824 is not valid
+journeymen debug config speed_multiplier 0.001
+waitlog \[debug config\] speed_multiplier = 0\.001 is not valid
+journeymen debug config stuck_teleport_seconds 86400
+waitlog \[debug config\] stuck_teleport_seconds = 86400 until the next config reload
+journeymen debug configfile restore
+waitlog \[debug configfile\] restored

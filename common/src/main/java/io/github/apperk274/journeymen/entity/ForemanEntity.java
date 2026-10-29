@@ -23,7 +23,6 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.BossEvent;
@@ -55,13 +54,10 @@ public class ForemanEntity extends JourneymanEntity {
     private static final int RETURN_GIVE_UP_TICKS = 1200;
     private static final int RETURN_RETRY_TICKS = 1200;
     private static final int RECRUIT_INTERVAL = 20;
-    private static final double PROGRESS_BAR_RANGE = 64.0;
 
     private final List<AssignedChest> chests = new ArrayList<>();
     @Nullable
     private BuildJob job;
-    @Nullable
-    private ServerBossEvent progressBar;
     private final Map<String, Long> relayed = new HashMap<>();
     private boolean returning;
     private boolean away;
@@ -113,28 +109,44 @@ public class ForemanEntity extends JourneymanEntity {
         return List.copyOf(chests);
     }
 
+    public List<AssignedChest> chestsIn(Level level) {
+        refreshChests();
+        return chests.stream().filter(chest -> chest.isIn(level.dimension())).toList();
+    }
+
+    public List<AssignedChest> usableChestsIn(Level level) {
+        return chestsIn(level).stream().filter(chest -> ownerMayOpen(level, chest.pos())).toList();
+    }
+
+    public boolean ownerMayOpen(Level level, BlockPos pos) {
+        return getOwner() == null || !(level instanceof ServerLevel serverLevel)
+                || OwnerRights.mayOpenContainer(serverLevel, getOwner(), getOwnerName(), pos);
+    }
+
     private void refreshChests() {
-        Level level = level();
-        if (level.isClientSide || level.getGameTime() == chestsRefreshedAt) {
+        Level here = level();
+        MinecraftServer server = here.getServer();
+        if (here.isClientSide || server == null || here.getGameTime() == chestsRefreshedAt) {
             return;
         }
-        chestsRefreshedAt = level.getGameTime();
-        Set<Long> seen = new HashSet<>();
+        chestsRefreshedAt = here.getGameTime();
+        Set<String> seen = new HashSet<>();
         List<AssignedChest> refreshed = new ArrayList<>();
         for (AssignedChest chest : chests) {
+            Level level = server.getLevel(chest.dimension());
             AssignedChest current = chest;
-            if (level.isLoaded(chest.pos())) {
+            if (level != null && level.isLoaded(chest.pos())) {
                 BlockPos other = Crew.otherChestHalf(level, chest.pos());
                 if (other != null) {
-                    current = new AssignedChest(chest.pos(), chest.role(), other.immutable());
+                    current = chest.withPlace(chest.pos(), other.immutable());
                 } else if (ItemStores.at(level, chest.pos()) != null) {
-                    current = new AssignedChest(chest.pos(), chest.role(), null);
+                    current = chest.withPlace(chest.pos(), null);
                 } else if (chest.pair() != null && level.isLoaded(chest.pair()) && ItemStores.at(level, chest.pair()) != null) {
-                    current = new AssignedChest(chest.pair(), chest.role(), null);
+                    current = chest.withPlace(chest.pair(), null);
                 }
             }
-            long key = level.isLoaded(current.pos()) ? Crew.chestKey(level, current.pos()) : current.pos().asLong();
-            if (seen.add(key)) {
+            long key = level != null && level.isLoaded(current.pos()) ? Crew.chestKey(level, current.pos()) : current.pos().asLong();
+            if (seen.add(current.dimension().location() + " " + key)) {
                 refreshed.add(current);
             }
         }
@@ -143,49 +155,59 @@ public class ForemanEntity extends JourneymanEntity {
     }
 
     @Nullable
-    public String addChest(BlockPos pos, AssignedChest.Role role) {
+    public String addChest(Level level, BlockPos pos, AssignedChest.Role role) {
         int max = JourneymenConfig.MAX_CHESTS.get();
         if (chests.size() >= max) {
             return "A foreman can have at most " + max + " chests (max_chests in the Journeymen config).";
         }
-        if (ItemStores.isLocked(level(), pos)) {
+        if (ItemStores.isLocked(level, pos)) {
             return "The chest at " + pos.toShortString() + " is locked, so " + getJourneymanName() + "'s builders couldn't open it.";
         }
-        if (ItemStores.at(level(), pos) == null) {
+        if (ItemStores.at(level, pos) == null) {
             return "There is no chest or other container at " + pos.toShortString() + ".";
         }
-        AssignedChest existing = chestAt(pos);
+        AssignedChest existing = chestAt(level, pos);
         if (existing != null) {
             return "That chest is already assigned as a " + existing.role().id() + " chest.";
         }
-        BlockPos other = Crew.otherChestHalf(level(), pos);
+        BlockPos other = Crew.otherChestHalf(level, pos);
         if (getOwner() == null) {
             return getJourneymanName() + " has no owner.";
         }
-        ServerPlayer actor = OwnerRights.actor((ServerLevel) level(), getOwner(), getOwnerName());
-        if (!OwnerRights.mayOpen(actor, pos) || other != null && !OwnerRights.mayOpen(actor, other)) {
+        if (!ownerMayOpen(level, pos)) {
             return getOwnerName() + " isn't allowed to open the chest at " + pos.toShortString() + " (spawn protection or a claim), so "
                     + getJourneymanName() + "'s builders couldn't use it.";
         }
-        chests.add(new AssignedChest(pos.immutable(), role, other == null ? null : other.immutable()));
+        chests.add(new AssignedChest(pos.immutable(), role, other == null ? null : other.immutable(), level.dimension()));
         chestsRefreshedAt = Long.MIN_VALUE;
         return null;
     }
 
     @Nullable
-    public AssignedChest chestAt(BlockPos pos) {
+    public AssignedChest chestAt(Level level, BlockPos pos) {
         refreshChests();
-        BlockPos otherHalf = Crew.otherChestHalf(level(), pos);
+        BlockPos otherHalf = Crew.otherChestHalf(level, pos);
         for (AssignedChest chest : chests) {
-            if (chest.pos().equals(pos) || chest.pos().equals(otherHalf) || pos.equals(chest.pair())) {
+            if (chest.isIn(level.dimension()) && (chest.pos().equals(pos) || chest.pos().equals(otherHalf) || pos.equals(chest.pair()))) {
                 return chest;
             }
         }
         return null;
     }
 
-    public boolean removeChest(BlockPos pos) {
-        AssignedChest chest = chestAt(pos);
+    public boolean removeChest(ResourceKey<Level> dimension, BlockPos pos) {
+        MinecraftServer server = level().getServer();
+        Level level = server == null ? null : server.getLevel(dimension);
+        AssignedChest chest = null;
+        if (level != null) {
+            chest = chestAt(level, pos);
+        } else {
+            for (AssignedChest candidate : chests) {
+                if (candidate.isIn(dimension) && (candidate.pos().equals(pos) || pos.equals(candidate.pair()))) {
+                    chest = candidate;
+                }
+            }
+        }
         if (chest == null) {
             return false;
         }
@@ -534,34 +556,20 @@ public class ForemanEntity extends JourneymanEntity {
     }
 
     private void updateProgressBar() {
-        ServerPlayer ownerPlayer = getOwnerPlayer();
+        ServerPlayer viewer = ProgressBars.viewer(this);
         BuildJob current = getJob();
-        boolean show = current != null && isAlive() && ownerPlayer != null && ownerPlayer.level() == level()
-                && ownerPlayer.distanceToSqr(this) <= PROGRESS_BAR_RANGE * PROGRESS_BAR_RANGE;
-        if (!show) {
+        if (current == null || !isAlive() || !ProgressBars.inRange(this, viewer)) {
             removeProgressBar();
             return;
         }
         JobStatus status = jobStatus();
         Component title = Component.literal(getJourneymanName() + "'s crew · " + current.getFile() + " · " + status.text());
         BossEvent.BossBarColor color = status.phase() == BuildJob.Phase.PAUSED ? BossEvent.BossBarColor.YELLOW : BossEvent.BossBarColor.GREEN;
-        if (progressBar == null) {
-            progressBar = new ServerBossEvent(title, color, BossEvent.BossBarOverlay.PROGRESS);
-        }
-        progressBar.setName(title);
-        progressBar.setColor(color);
-        progressBar.setProgress(Math.max(0.0F, Math.min(1.0F, status.fraction())));
-        if (!progressBar.getPlayers().contains(ownerPlayer)) {
-            progressBar.removeAllPlayers();
-            progressBar.addPlayer(ownerPlayer);
-        }
+        ProgressBars.show(this, viewer, title, color, status.fraction());
     }
 
     private void removeProgressBar() {
-        if (progressBar != null) {
-            progressBar.removeAllPlayers();
-            progressBar = null;
-        }
+        ProgressBars.remove(getUUID());
     }
 
     @Override
@@ -569,12 +577,6 @@ public class ForemanEntity extends JourneymanEntity {
         if (tickCount % 10 == 0) {
             updateProgressBar();
             ForemanScreenService.tick(this);
-        }
-        if (tickCount % 20 == 0) {
-            ServerPlayer ownerPlayer = getOwnerPlayer();
-            if (ownerPlayer != null) {
-                LinkModeService.tick(ownerPlayer);
-            }
         }
     }
 
@@ -594,6 +596,7 @@ public class ForemanEntity extends JourneymanEntity {
     @Override
     protected void onGone(boolean died) {
         removeProgressBar();
+        LinkModeService.foremanGone(this);
         BuildJob current = getJob();
         List<BuilderEntity> crew = loadedCrew();
         List<String> names = crewEntries().stream().map(JourneymanRegistry.Entry::name).toList();
@@ -625,7 +628,10 @@ public class ForemanEntity extends JourneymanEntity {
 
     @Override
     public void remove(RemovalReason reason) {
-        removeProgressBar();
+        if (!level().isClientSide) {
+            removeProgressBar();
+            LinkModeService.foremanGone(this);
+        }
         super.remove(reason);
     }
 
@@ -646,7 +652,7 @@ public class ForemanEntity extends JourneymanEntity {
         away = tag.getBoolean("AwayFromSite");
         ListTag chestList = tag.getList("Chests", Tag.TAG_COMPOUND);
         for (int i = 0; i < chestList.size(); i++) {
-            AssignedChest chest = AssignedChest.load(chestList.getCompound(i));
+            AssignedChest chest = AssignedChest.load(chestList.getCompound(i), level().dimension());
             if (chest != null) {
                 chests.add(chest);
             }

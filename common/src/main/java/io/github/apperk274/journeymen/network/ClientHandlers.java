@@ -5,6 +5,7 @@ import io.github.apperk274.journeymen.client.ConfirmScreen;
 import io.github.apperk274.journeymen.client.HireScreen;
 import io.github.apperk274.journeymen.client.PlacementMode;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 
 public final class ClientHandlers {
 
@@ -46,12 +47,29 @@ public final class ClientHandlers {
         }
         if (minecraft.screen instanceof ConfirmScreen confirm && confirm.matches(payload)) {
             confirm.update(payload);
-        } else {
+        } else if (minecraft.screen == null && PlacementMode.isActiveFor(payload.foremanId(), payload.file())) {
             minecraft.setScreen(new ConfirmScreen(payload));
         }
     }
 
     static void linkMode(ScreenPayloads.LinkMode payload) {
         ClientState.link = payload.active() ? payload : null;
+    }
+
+    static void journeymanGone(ScreenPayloads.Gone payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (PlacementMode.isActiveFor(payload.journeymanId(), null)) {
+            PlacementMode.stop();
+            if (minecraft.player != null) {
+                minecraft.player.displayClientMessage(Component.literal("Placement cancelled: that foreman is gone."), true);
+            }
+        }
+        if (minecraft.screen instanceof ConfirmScreen confirm && confirm.foremanId() == payload.journeymanId()) {
+            minecraft.setScreen(null);
+        }
+        ScreenPayloads.LinkMode link = ClientState.link;
+        if (link != null && link.foremanId() == payload.journeymanId()) {
+            ClientState.link = null;
+        }
     }
 }

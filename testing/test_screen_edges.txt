@@ -1,0 +1,63 @@
+forceload add 7360 4864 7423 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+kill @e[type=minecraft:armor_stand,tag=jmscreen]
+ticks 40
+fill 7360 99 4864 7423 99 4927 minecraft:smooth_stone
+fill 7360 100 4864 7423 104 4927 minecraft:air
+kill @e[type=item]
+# "Supply missing (creative)" re-checks creative mode once the schematic has loaded: a player who left creative meanwhile gets nothing
+setblock 7370 100 4870 minecraft:chest
+journeymen debug as Creator 2 7372 100 4872 journeymen foreman summon Crea
+journeymen debug as Creator 2 7373 100 4872 journeymen builder summon Crea Crebo
+journeymen debug as Creator 0 7372 100 4872 journeymen foreman chest Crea add 7370 100 4870 supply
+waitlog Crea uses the chest at 7370, 100, 4870 as a supply chest
+journeymen debug gamemode Creator creative
+journeymen debug delay 1000
+mark
+journeymen debug as Creator 2 7372 100 4872 journeymen debug action @e[type=journeymen:foreman,name=Crea,limit=1] supply_missing 7380 100 4880 test_st_one.schem|none|corner
+journeymen debug gamemode Creator survival
+waitlog \[debug reply\] You aren't in creative mode anymore, so nothing was supplied\. !! \[supply\]
+waitfor 5 nosprint execute if data block 7370 100 4870 Items[0] =~ failed
+journeymen debug delay 0
+# still in creative, it supplies
+ticks 20
+journeymen debug gamemode Creator creative
+mark
+journeymen debug as Creator 2 7372 100 4872 journeymen debug action @e[type=journeymen:foreman,name=Crea,limit=1] supply_missing 7380 100 4880 test_st_one.schem|none|corner
+waitlog \[supply\] Creator for Crea: Supplied 1 missing item
+journeymen debug gamemode Creator survival
+waitfor 5 nosprint execute if data block 7370 100 4870 Items[{id:"minecraft:stone",count:1}] =~ passed
+# link mode ends when its foreman dies or unloads
+summon minecraft:armor_stand 7390 100 4890 {Tags:["jmscreen"]}
+setblock 7385 100 4885 minecraft:chest
+journeymen debug as Linker 2 7388 100 4888 journeymen foreman summon Linky
+journeymen debug as Linker 2 7388 100 4888 journeymen debug action @e[type=journeymen:foreman,name=Linky,limit=1] link_supply 7388 100 4888 -
+mark
+journeymen debug as Linker 2 7388 100 4888 journeymen debug interact @e[type=minecraft:armor_stand,tag=jmscreen,limit=1]
+waitlog \[debug interact\] Armor Stand .* linking=true->true
+kill @e[type=journeymen:foreman,name=Linky]
+ticks 5
+mark
+journeymen debug as Linker 2 7388 100 4888 journeymen debug interact @e[type=minecraft:armor_stand,tag=jmscreen,limit=1]
+waitlog \[debug interact\] Armor Stand .* linking=false->false
+forceload add 7472 4864 7487 4879
+waitfor 30 execute if loaded 7472 0 4864 =~ passed
+fill 7472 99 4864 7487 99 4879 minecraft:smooth_stone
+fill 7472 100 4864 7487 103 4879 minecraft:air
+journeymen debug as Linker 2 7480 100 4872 journeymen foreman summon Linko
+journeymen debug as Linker 2 7480 100 4872 journeymen debug action @e[type=journeymen:foreman,name=Linko,limit=1] link_dump 7480 100 4872 -
+mark
+journeymen debug as Linker 2 7388 100 4888 journeymen debug interact @e[type=minecraft:armor_stand,tag=jmscreen,limit=1]
+waitlog \[debug interact\] Armor Stand .* linking=true->true
+forceload remove 7472 4864 7487 4879
+waitfor 30 execute if entity @e[type=journeymen:foreman,name=Linko] =~ failed
+ticks 25
+mark
+journeymen debug as Linker 2 7388 100 4888 journeymen debug interact @e[type=minecraft:armor_stand,tag=jmscreen,limit=1]
+waitlog \[debug interact\] Armor Stand .* linking=false->false
+forceload add 7472 4864 7487 4879
+waitfor 30 execute if entity @e[type=journeymen:foreman,name=Linko] =~ passed
+kill @e[type=journeymen:foreman,name=Linko]
+forceload remove 7472 4864 7487 4879
+kill @e[type=minecraft:armor_stand,tag=jmscreen]

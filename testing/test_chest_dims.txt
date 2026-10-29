@@ -1,0 +1,82 @@
+forceload add 6656 4864 6783 4895
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+journeymen debug protect clear
+ticks 40
+fill 6656 99 4864 6783 99 4895 minecraft:smooth_stone
+fill 6656 100 4864 6783 106 4895 minecraft:air
+kill @e[type=item]
+execute in minecraft:the_nether run forceload add 6656 4864 6735 4895
+waitfor 30 execute in minecraft:the_nether if loaded 6656 0 4864 =~ passed
+waitfor 30 execute in minecraft:the_nether if loaded 6735 0 4895 =~ passed
+execute in minecraft:the_nether run fill 6656 99 4864 6735 99 4895 minecraft:stone
+execute in minecraft:the_nether run fill 6656 100 4864 6735 105 4895 minecraft:air
+execute in minecraft:the_nether run kill @e[type=item,x=6656,y=90,z=4864,dx=79,dy=30,dz=31]
+setblock 6660 100 4870 minecraft:chest{Items:[{Slot:0b,id:"minecraft:cobblestone",count:5}]}
+journeymen debug as Steve 2 6664 100 4872 journeymen foreman summon Nethy
+journeymen debug as Steve 2 6665 100 4872 journeymen builder summon Nethy Nbuild
+journeymen debug as Steve 0 6664 100 4872 journeymen foreman chest Nethy add 6660 100 4870 supply
+waitlog Nethy uses the chest at 6660, 100, 4870 as a supply chest
+# a foreman taken to the Nether doesn't use a container there at his overworld chest's coordinates: the check warns about the chest in the other dimension and misses the planks
+execute in minecraft:the_nether run setblock 6660 100 4870 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+execute in minecraft:the_nether run tp @e[type=journeymen:foreman,name=Nethy] 6664 100 4872
+execute in minecraft:the_nether run tp @e[type=journeymen:builder,name=Nbuild] 6665 100 4872
+ticks 20
+mark
+execute in minecraft:the_nether run journeymen debug as Steve 0 6664 100 4872 journeymen foreman check Nethy test_row.schem 6662 100 4880 none corner
+waitlog The supply chest at 6660, 100, 4870 is in minecraft:overworld, not in minecraft:the_nether where the site is
+waitlog Missing 60 Oak Planks
+mark
+execute in minecraft:the_nether run journeymen debug as Steve 0 6664 100 4872 journeymen foreman chest Nethy list
+waitlog \[debug as Steve\] supply chest at 6660, 100, 4870 in minecraft:overworld
+# link mode in the Nether links the chest there instead of unlinking the overworld one at the same coordinates
+execute in minecraft:the_nether run journeymen debug as Steve 2 6664 100 4872 journeymen debug action @e[type=journeymen:foreman,name=Nethy,limit=1] link_supply 6664 100 4872 -
+execute in minecraft:the_nether run journeymen debug as Steve 2 6664 100 4872 journeymen debug use 6660 100 4870
+waitlog \[debug use\] handled=true
+execute in minecraft:the_nether run journeymen debug as Steve 2 6664 100 4872 journeymen debug interact @e[type=journeymen:foreman,name=Nethy,limit=1]
+waitlog \[debug interact\] Nethy
+mark
+execute in minecraft:the_nether run journeymen debug as Steve 0 6664 100 4872 journeymen foreman chest Nethy list
+waitlog \[debug as Steve\] supply chest at 6660, 100, 4870 in minecraft:overworld
+waitlog \[debug as Steve\] supply chest at 6660, 100, 4870$
+# the job in the Nether uses the Nether chest and leaves the overworld one alone
+mark
+execute in minecraft:the_nether run journeymen debug as Steve 0 6664 100 4872 journeymen foreman build Nethy test_row.schem 6662 100 4880 none corner
+waitlog Nethy's crew is on the way: Nbuild\. !!
+waitlog 30 \[Steve\.Nethy\] I finished building test_row\.schem !!
+waitfor 5 nosprint execute if data block 6660 100 4870 Items[{id:"minecraft:cobblestone",count:5}] =~ passed
+execute in minecraft:the_nether run journeymen debug as Steve 0 6664 100 4872 journeymen foreman chest Nethy remove 6660 100 4870
+waitlog Nethy no longer uses the chest at 6660, 100, 4870
+mark
+journeymen debug as Steve 0 6664 100 4872 journeymen foreman chest Nethy list
+waitlog \[debug as Steve\] supply chest at 6660, 100, 4870 in minecraft:overworld
+tp @e[type=journeymen:foreman,name=Nethy] 6664 100 4872
+tp @e[type=journeymen:builder,name=Nbuild] 6665 100 4872
+execute in minecraft:the_nether run forceload remove 6656 4864 6735 4895
+# a chest in a place the owner may not open (a claim) counts as locked: the check warns and misses its planks
+setblock 6680 100 4870 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+journeymen debug as Steve 0 6664 100 4872 journeymen foreman chest Nethy add 6680 100 4870 supply
+waitlog Nethy uses the chest at 6680, 100, 4870 as a supply chest
+journeymen debug protect 6680 100 4870 6680 100 4870 Nobody
+mark
+journeymen debug as Steve 0 6664 100 4872 journeymen foreman check Nethy test_row.schem 6662 100 4880 none corner
+waitlog Steve isn't allowed to open the supply chest at 6680, 100, 4870 \(spawn protection or a claim\), so the crew can't use it
+waitlog Missing 60 Oak Planks
+journeymen debug protect clear
+# the builder asks again at its visits (an allowed answer is kept for a minute, a refusal for 5): a chest claimed mid-job pauses the job, which finishes once the claim is gone
+journeymen debug config reminder_interval_seconds 5
+mark
+journeymen debug as Steve 0 6664 100 4872 journeymen foreman build Nethy test_row.schem 6662 100 4880 none corner
+waitlog nosprint Nethy's crew is on the way: Nbuild\. !!
+data modify block 6680 100 4870 Items set value []
+waitlog 20 \[Steve\.Nethy\] I'm missing 60 Oak Planks
+journeymen debug protect 6680 100 4870 6680 100 4870 Nobody
+ticks 1400
+data modify block 6680 100 4870 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:60}]
+mark
+ticks 200
+waitlog 10 \[Steve\.Nethy\] I'm missing 60 Oak Planks .* Steve isn't allowed to open my supply chest at 6680, 100, 4870 !! I finished building|Exception
+journeymen debug protect clear
+ticks 6100
+waitlog 30 \[Steve\.Nethy\] I finished building test_row\.schem !! Exception
+journeymen debug config reminder_interval_seconds 300

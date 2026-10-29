@@ -251,7 +251,7 @@ public class ForemanCommands {
         if (role == null) {
             throw JourneymenCommand.fail("Unknown chest role '" + roleId + "'. Use supply or dump.");
         }
-        String problem = foreman.addChest(pos, role);
+        String problem = foreman.addChest(source.getLevel(), pos, role);
         if (problem != null) {
             throw JourneymenCommand.fail(problem);
         }
@@ -263,7 +263,7 @@ public class ForemanCommands {
     private static int removeChest(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ForemanEntity foreman = Targets.foreman(context, FOREMAN);
         BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
-        if (!foreman.removeChest(pos)) {
+        if (!foreman.removeChest(context.getSource().getLevel().dimension(), pos)) {
             throw JourneymenCommand.fail(foreman.getJourneymanName() + " has no chest at " + pos.toShortString() + ".");
         }
         context.getSource().sendSuccess(() -> Component.literal(foreman.getJourneymanName() + " no longer uses the chest at " + pos.toShortString()
@@ -280,7 +280,8 @@ public class ForemanCommands {
             return 0;
         }
         for (AssignedChest chest : chests) {
-            source.sendSuccess(() -> Component.literal(chest.role().id() + " chest at " + chest.pos().toShortString()), false);
+            String where = chest.isIn(foreman.level().dimension()) ? "" : " in " + chest.dimension().location();
+            source.sendSuccess(() -> Component.literal(chest.role().id() + " chest at " + chest.pos().toShortString() + where), false);
         }
         return chests.size();
     }

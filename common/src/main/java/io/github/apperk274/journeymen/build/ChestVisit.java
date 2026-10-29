@@ -40,7 +40,8 @@ public final class ChestVisit {
         GONE,
         UNLOADED,
         UNREACHABLE,
-        LOCKED
+        LOCKED,
+        REFUSED
     }
 
     private final Kind kind;
@@ -135,6 +136,12 @@ public final class ChestVisit {
             failure = "The " + role() + " chest at " + chest.toShortString() + " is locked, so my builders can't open it. Unlock it or give me another "
                     + role() + " chest.";
             problem = Problem.LOCKED;
+            return Status.FAILED;
+        }
+        if (!builder.mayOpenChest(chest)) {
+            failure = builder.getOwnerName() + " isn't allowed to open the " + role() + " chest at " + chest.toShortString()
+                    + " (spawn protection or a claim), so my builders can't use it. Give me another " + role() + " chest.";
+            problem = Problem.REFUSED;
             return Status.FAILED;
         }
         ItemStore store = ItemStores.at(level, chest);

@@ -183,6 +183,15 @@ public class BuilderEntity extends JourneymanEntity {
         return foremanId;
     }
 
+    @Override
+    protected void syncRegistry() {
+        if (!reconciled && level() instanceof ServerLevel) {
+            reconcileForeman();
+            return;
+        }
+        super.syncRegistry();
+    }
+
     @Nullable
     public ForemanEntity foreman() {
         MinecraftServer server = level().getServer();
@@ -269,12 +278,12 @@ public class BuilderEntity extends JourneymanEntity {
 
     public List<AssignedChest> jobChests() {
         ForemanEntity foreman = foreman();
-        return foreman == null ? List.of() : foreman.getChests();
+        return foreman == null ? List.of() : foreman.chestsIn(level());
     }
 
     public boolean hasChest(BlockPos chest, AssignedChest.Role role) {
         ForemanEntity foreman = foreman();
-        AssignedChest assigned = foreman == null ? null : foreman.chestAt(chest);
+        AssignedChest assigned = foreman == null ? null : foreman.chestAt(level(), chest);
         return assigned != null && assigned.role() == role;
     }
 
@@ -290,7 +299,7 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     private List<AssignedChest> reachableChests() {
-        return jobChests().stream().filter(chest -> !isUnreachable(chest.pos())).toList();
+        return jobChests().stream().filter(chest -> !isUnreachable(chest.pos()) && mayOpenChest(chest.pos())).toList();
     }
 
     private boolean isUnreachable(BlockPos chest) {
@@ -2163,6 +2172,7 @@ public class BuilderEntity extends JourneymanEntity {
             case UNLOADED -> dumpChests("My", positions) + (positions.size() == 1 ? " isn't loaded." : " aren't loaded.");
             case UNREACHABLE -> dumpChests("My builders can't get to my", positions) + ".";
             case LOCKED -> dumpChests("My", positions) + (positions.size() == 1 ? " is locked." : " are locked.");
+            case REFUSED -> dumpChests(getOwnerName() + " isn't allowed to open my", positions) + " (spawn protection or a claim).";
         }));
         if (!full.isEmpty()) {
             sentences.add(dumpChests("My", full) + (full.size() == 1 ? " is full." : " are full."));
@@ -2176,6 +2186,7 @@ public class BuilderEntity extends JourneymanEntity {
                     case UNREACHABLE -> "Clear a way to " + (several ? "them" : "it") + " (they need to get within " + (int) ChestVisit.REACH
                             + " blocks) or give me another one with " + command + ".";
                     case LOCKED -> "Unlock " + (several ? "them" : "it") + " or give me another one with " + command + ".";
+                    case REFUSED -> "Give me another one with " + command + ".";
                 };
         return String.join(" ", sentences) + consequence + " " + fix;
     }
@@ -2202,6 +2213,9 @@ public class BuilderEntity extends JourneymanEntity {
                 problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" isn't loaded.");
             } else if (ItemStores.isLocked(level(), chest.pos())) {
                 problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" is locked.");
+            } else if (!mayOpenChest(chest.pos())) {
+                problems.append(" ").append(getOwnerName()).append(" isn't allowed to open my supply chest at ").append(chest.pos().toShortString())
+                        .append(" (spawn protection or a claim).");
             } else if (ItemStores.at(level(), chest.pos()) == null) {
                 problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" is gone.");
             } else if (isUnreachable(chest.pos())) {
@@ -2334,12 +2348,6 @@ public class BuilderEntity extends JourneymanEntity {
     protected void tickPeriodic() {
         if (tickCount % 10 == 0) {
             BuilderScreenService.tick(this);
-        }
-        if (tickCount % 20 == 0) {
-            ServerPlayer ownerPlayer = getOwnerPlayer();
-            if (ownerPlayer != null) {
-                LinkModeService.tick(ownerPlayer);
-            }
         }
     }
 

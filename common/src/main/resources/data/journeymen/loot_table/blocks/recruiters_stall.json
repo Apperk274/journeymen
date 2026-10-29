@@ -17,9 +17,6 @@
           "properties": {
             "part": "counter_middle"
           }
-        },
-        {
-          "condition": "minecraft:survives_explosion"
         }
       ]
     }

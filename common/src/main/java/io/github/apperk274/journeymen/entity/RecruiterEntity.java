@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen.entity;
 
 import io.github.apperk274.journeymen.block.ModBlocks;
 import io.github.apperk274.journeymen.block.RecruitersStallBlock;
+import io.github.apperk274.journeymen.block.StallPart;
 import io.github.apperk274.journeymen.hire.HireService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -10,6 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
@@ -22,6 +24,8 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 public class RecruiterEntity extends PathfinderMob {
+
+    private static final double MAX_DRIFT = 1.5;
 
     @Nullable
     private BlockPos stall;
@@ -54,11 +58,31 @@ public class RecruiterEntity extends PathfinderMob {
     @Override
     public void aiStep() {
         super.aiStep();
-        if (level() instanceof ServerLevel serverLevel && tickCount % 20 == 0
-                && (stall == null || !RecruitersStallBlock.isIntactCore(serverLevel, stall, ModBlocks.RECRUITERS_STALL))) {
+        if (!(level() instanceof ServerLevel serverLevel) || tickCount % 20 != 0 || stall != null && !serverLevel.isLoaded(stall)) {
+            return;
+        }
+        if (stall == null || !RecruitersStallBlock.isIntactCore(serverLevel, stall, ModBlocks.RECRUITERS_STALL)) {
             serverLevel.sendParticles(ParticleTypes.POOF, getX(), getY() + 1.0, getZ(), 12, 0.3, 0.5, 0.3, 0.02);
             discard();
+            return;
         }
+        BlockPos spot = StallPart.recruiterSpot(stall, serverLevel.getBlockState(stall).getValue(RecruitersStallBlock.FACING));
+        if (distanceToSqr(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5) > MAX_DRIFT * MAX_DRIFT) {
+            if (isPassenger()) {
+                stopRiding();
+            }
+            teleportTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5);
+        }
+    }
+
+    @Override
+    public boolean canBeLeashed() {
+        return false;
+    }
+
+    @Override
+    protected boolean canRide(Entity vehicle) {
+        return false;
     }
 
     @Override

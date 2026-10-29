@@ -124,12 +124,12 @@ public final class ChunkKeeper {
             }
             List<Spot> journeymen = new ArrayList<>();
             Spot foreman = spot(current, registry, job.getForeman());
-            if (foreman != null) {
+            if (foreman != null && foreman.dimension().equals(job.getDimension())) {
                 journeymen.add(foreman);
             }
             for (UUID member : job.getMembers()) {
                 Spot spot = spot(current, registry, member);
-                if (spot != null) {
+                if (spot != null && spot.dimension().equals(job.getDimension())) {
                     journeymen.add(spot);
                 }
             }

@@ -25,8 +25,11 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -152,7 +155,9 @@ public final class ForemanScreenService {
                 }
             }
             case "remove_chest" -> {
-                if (foreman.removeChest(action.pos())) {
+                ResourceLocation dimension = action.text().isBlank() ? null : ResourceLocation.tryParse(action.text().strip());
+                if (foreman.removeChest(dimension == null ? foreman.level().dimension() : ResourceKey.create(Registries.DIMENSION, dimension),
+                        action.pos())) {
                     ScreenActions.tell(reply, name + " no longer uses the chest at " + action.pos().toShortString() + ".", true);
                 } else {
                     ScreenActions.tell(reply, name + " has no chest at " + action.pos().toShortString() + ".", false);
@@ -259,7 +264,7 @@ public final class ForemanScreenService {
             if (result.started()) {
                 ScreenActions.tell(reply, foreman.getJourneymanName() + "'s crew is on the way to build " + file + ": " + Crew.list(result.crew()) + ".",
                         true);
-            } else if (result.error() != null && jobAction == JobAction.START) {
+            } else if (result.error() != null && jobAction != JobAction.CHECK) {
                 ScreenActions.tell(reply, result.error(), false);
             }
         };

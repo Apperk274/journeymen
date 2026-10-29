@@ -30,13 +30,14 @@ public final class ScreenPayloads {
             ComponentSerialization.STREAM_CODEC.apply(ByteBufCodecs.list());
     private static final StreamCodec<ByteBuf, BlockState> BLOCK_STATE = ByteBufCodecs.idMapper(Block.BLOCK_STATE_REGISTRY);
 
-    public record ChestEntry(BlockPos pos, boolean supply) {
+    public record ChestEntry(BlockPos pos, boolean supply, String dimension) {
 
         static void write(RegistryFriendlyByteBuf buf, List<ChestEntry> chests) {
             buf.writeVarInt(chests.size());
             for (ChestEntry chest : chests) {
                 buf.writeBlockPos(chest.pos);
                 buf.writeBoolean(chest.supply);
+                buf.writeUtf(chest.dimension);
             }
         }
 
@@ -44,7 +45,7 @@ public final class ScreenPayloads {
             int size = buf.readVarInt();
             List<ChestEntry> chests = new ArrayList<>();
             for (int i = 0; i < size; i++) {
-                chests.add(new ChestEntry(buf.readBlockPos(), buf.readBoolean()));
+                chests.add(new ChestEntry(buf.readBlockPos(), buf.readBoolean(), buf.readUtf()));
             }
             return chests;
         }
@@ -250,6 +251,18 @@ public final class ScreenPayloads {
             buf.writeBoolean(value.supply);
             ChestEntry.write(buf, value.chests);
         }, buf -> new LinkMode(buf.readVarInt(), buf.readBoolean(), buf.readBoolean(), ChestEntry.read(buf)));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    public record Gone(int journeymanId) implements CustomPacketPayload {
+
+        public static final Type<Gone> TYPE = payloadType("journeyman_gone");
+        public static final StreamCodec<RegistryFriendlyByteBuf, Gone> CODEC = StreamCodec.of(
+                (buf, value) -> buf.writeVarInt(value.journeymanId), buf -> new Gone(buf.readVarInt()));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

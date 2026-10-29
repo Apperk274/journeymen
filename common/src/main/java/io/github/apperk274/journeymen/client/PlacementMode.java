@@ -42,6 +42,8 @@ public final class PlacementMode {
     private static long lastScroll;
     @Nullable
     private static PreviewMesh mesh;
+    @Nullable
+    private static Level level;
 
     private PlacementMode() {
     }
@@ -51,6 +53,7 @@ public final class PlacementMode {
             freeMesh();
         }
         PlacementMode.active = true;
+        PlacementMode.level = Minecraft.getInstance().level;
         PlacementMode.foremanId = foremanId;
         PlacementMode.info = info;
         PlacementMode.options = options.strip();
@@ -64,6 +67,7 @@ public final class PlacementMode {
 
     public static void stop() {
         active = false;
+        level = null;
         info = null;
         origin = null;
         rotation = Rotation.NONE;
@@ -87,10 +91,22 @@ public final class PlacementMode {
     }
 
     public static boolean isActive() {
+        checkLevel();
         return active;
     }
 
+    public static boolean isActiveFor(int foreman, @Nullable String file) {
+        return isActive() && foremanId == foreman && (file == null || info != null && info.file().equals(file));
+    }
+
+    private static void checkLevel() {
+        if (active && Minecraft.getInstance().level != level) {
+            stop();
+        }
+    }
+
     public static boolean onScroll(double delta) {
+        checkLevel();
         Minecraft minecraft = Minecraft.getInstance();
         if (!active || minecraft.screen != null || minecraft.player == null || !minecraft.player.isShiftKeyDown() || delta == 0) {
             return false;
@@ -105,6 +121,7 @@ public final class PlacementMode {
     }
 
     public static boolean onUse() {
+        checkLevel();
         Minecraft minecraft = Minecraft.getInstance();
         if (!active || minecraft.player == null || info == null) {
             return false;
@@ -141,6 +158,7 @@ public final class PlacementMode {
         PoseStack poseStack = new PoseStack();
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         renderLinkedChests(poseStack, camera, buffers);
+        checkLevel();
         if (!active || info == null || minecraft.level == null) {
             return;
         }
@@ -184,6 +202,9 @@ public final class PlacementMode {
         Level level = Minecraft.getInstance().level;
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
         for (ScreenPayloads.ChestEntry chest : link.chests()) {
+            if (!chest.dimension().isEmpty()) {
+                continue;
+            }
             AABB box = chestBox(level, chest.pos()).inflate(0.02).move(-cameraPos.x, -cameraPos.y, -cameraPos.z);
             if (chest.supply()) {
                 LevelRenderer.renderLineBox(poseStack, lines, box, 0.2F, 1.0F, 0.2F, 1.0F);

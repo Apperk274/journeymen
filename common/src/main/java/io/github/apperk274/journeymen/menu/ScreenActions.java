@@ -29,6 +29,7 @@ public final class ScreenActions {
         Entity entity = player.level().getEntity(action.journeymanId());
         if (!(entity instanceof JourneymanEntity journeyman) || !journeyman.isAlive()) {
             tell(reply, "That journeyman is gone.", false);
+            Services.NETWORK.sendToPlayer(player, new ScreenPayloads.Gone(action.journeymanId()));
             return;
         }
         if (!journeyman.canBeCommandedBy(player)) {

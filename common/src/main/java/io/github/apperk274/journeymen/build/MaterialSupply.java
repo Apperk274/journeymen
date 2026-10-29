@@ -180,7 +180,7 @@ public final class MaterialSupply {
         }
 
         List<Target> chests = new ArrayList<>();
-        for (AssignedChest chest : foreman.getChests()) {
+        for (AssignedChest chest : foreman.usableChestsIn(level)) {
             if (chest.role() == AssignedChest.Role.SUPPLY && level.isLoaded(chest.pos())) {
                 ItemStore store = ItemStores.at(level, chest.pos());
                 if (store != null) {

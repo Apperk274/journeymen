@@ -1,0 +1,88 @@
+forceload add 7040 4864 7167 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 7040 99 4864 7167 99 4927 minecraft:smooth_stone
+fill 7040 100 4864 7167 103 4927 minecraft:air
+fill 7040 104 4864 7167 106 4927 minecraft:air
+kill @e[type=item]
+# <owner>.<name> naming two owners: the caller's own journeyman wins; anyone else is refused with both listed
+journeymen debug as Twin 2 7050 100 4870 journeymen foreman summon Gemma
+journeymen debug as Other 2 7060 100 4870 journeymen foreman summon Gemma
+waitlog x2 Summoned foreman Gemma
+journeymen debug rejoin Other Twin
+waitlog \[debug rejoin\] Other joined as Twin
+mark
+journeymen debug as Admin 2 7055 100 4875 journeymen foreman status Twin.Gemma
+waitlog \[debug as Admin\] Several players named Twin have a journeyman named Gemma: \w{8} at 7050 100 4870 in minecraft:overworld and \w{8} at 7060 100 4870 in minecraft:overworld
+journeymen debug as Twin 0 7050 100 4870 journeymen foreman status Twin.Gemma
+waitlog \[debug as Twin\]\s+at 7050 100 4870 in minecraft:overworld
+journeymen debug as Other 0 7060 100 4870 journeymen foreman status Twin.Gemma
+waitlog \[debug as Other\]\s+at 7060 100 4870 in minecraft:overworld
+kill @e[type=journeymen:foreman,name=Gemma]
+# a builder renamed before its first tick doesn't undo an adoption made while it was unloaded
+forceload add 7216 4880 7231 4895
+waitfor 30 execute if loaded 7216 0 4880 =~ passed
+fill 7216 99 4880 7231 99 4895 minecraft:smooth_stone
+fill 7216 100 4880 7231 103 4895 minecraft:air
+journeymen debug as Steve 2 7070 100 4880 journeymen foreman summon Lost
+journeymen debug as Steve 2 7224 100 4888 journeymen builder summon Lost Waif
+journeymen debug as Steve 2 7074 100 4880 journeymen foreman summon Adopter
+waitlog Summoned foreman Adopter
+forceload remove 7216 4880 7231 4895
+waitfor 30 execute if entity @e[type=journeymen:builder,name=Waif] =~ failed
+mark
+kill @e[type=journeymen:foreman,name=Lost]
+waitlog \[Steve\.Lost\] I died\. Waif has no foreman now
+journeymen debug as Steve 0 7074 100 4880 journeymen foreman adopt Adopter Waif
+waitlog Adopter adopted Waif\.
+forceload add 7232 4880 7247 4895
+waitfor 30 execute if entity @e[type=journeymen:builder,name=Waif] =~ passed
+mark
+journeymen debug as Steve 0 7074 100 4880 journeymen builder rename Waif Waifa
+waitlog Waif is now called Waifa\.
+forceload add 7216 4880 7231 4895
+ticks 40
+waitfor 5 nosprint journeymen builder status Steve.Waifa =~ Foreman: Adopter
+tp @e[type=journeymen:builder,name=Waifa] 7076 100 4880
+ticks 5
+forceload remove 7216 4880 7247 4895
+kill @e[type=journeymen:builder,name=Waifa]
+kill @e[type=journeymen:foreman,name=Adopter]
+# the progress bar goes when its foreman stops ticking and comes back when he ticks again
+journeymen debug bars watch Steve
+journeymen debug config speed_multiplier 0.1
+setblock 7090 100 4900 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+journeymen debug as Steve 2 7094 100 4902 journeymen foreman summon Barry
+journeymen debug as Steve 2 7095 100 4902 journeymen builder summon Barry Bobby
+journeymen debug as Steve 0 7094 100 4902 journeymen foreman chest Barry add 7090 100 4900 supply
+mark
+journeymen debug as Steve 0 7094 100 4902 journeymen foreman build Barry test_row.schem 7092 100 4910 none corner
+waitlog Barry's crew is on the way: Bobby\. !!
+waitfor 10 nosprint journeymen debug bars =~ Steve\.Barry: Barry's crew . test_row\.schem
+tp @e[type=journeymen:foreman,name=Barry] 7094 100 4935
+ticks 40
+waitfor 5 nosprint journeymen debug bars !~ Barry
+tp @e[type=journeymen:foreman,name=Barry] 7094 100 4902
+waitfor 10 nosprint journeymen debug bars =~ Steve\.Barry: Barry's crew . test_row\.schem
+# chunk tickets stay in the job's dimension: a builder or foreman taken to the Nether gets none there
+journeymen debug config keep_chunks_loaded true
+execute in minecraft:the_nether run forceload add 7040 4864 7055 4879
+waitfor 30 execute in minecraft:the_nether if loaded 7040 0 4864 =~ passed
+execute in minecraft:the_nether run fill 7040 99 4864 7055 99 4879 minecraft:stone
+execute in minecraft:the_nether run fill 7040 100 4864 7055 103 4879 minecraft:air
+waitfor 5 nosprint journeymen debug chunks =~ Steve\.Barry keeps \d+ site chunks of test_row\.schem in minecraft:overworld and Barry at
+execute in minecraft:the_nether run tp @e[type=journeymen:builder,name=Bobby] 7048 100 4870
+ticks 40
+waitfor 5 nosprint journeymen debug chunks !~ the_nether
+execute in minecraft:the_nether run tp @e[type=journeymen:foreman,name=Barry] 7046 100 4870
+ticks 40
+waitfor 5 nosprint journeymen debug chunks !~ the_nether
+tp @e[type=journeymen:foreman,name=Barry] 7094 100 4902
+tp @e[type=journeymen:builder,name=Bobby] 7095 100 4902
+journeymen debug config keep_chunks_loaded false
+execute in minecraft:the_nether run forceload remove 7040 4864 7055 4879
+journeymen debug as Steve 0 7094 100 4902 journeymen foreman cancel Barry
+waitlog Barry's crew stopped working on test_row\.schem\.
+waitfor 10 nosprint journeymen debug bars !~ Barry
+journeymen debug config speed_multiplier 1.0

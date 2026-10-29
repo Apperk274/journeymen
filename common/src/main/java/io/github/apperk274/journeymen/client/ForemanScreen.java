@@ -356,7 +356,7 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
             int index = chestBar.offset() + (int) ((y - LIST_TOP) / ROW);
             if (state != null && index < state.chests().size()) {
                 ScreenParts.click();
-                send("remove_chest", "", state.chests().get(index).pos());
+                send("remove_chest", state.chests().get(index).dimension(), state.chests().get(index).pos());
             }
             return true;
         }
@@ -545,7 +545,8 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
             BlockPos pos = chest.pos();
             Component line = Component.literal(chest.supply() ? "Supply " : "Dump ")
                     .withStyle(chest.supply() ? ChatFormatting.GREEN : ChatFormatting.GOLD)
-                    .append(Component.literal(pos.getX() + " " + pos.getY() + " " + pos.getZ()).withStyle(ChatFormatting.WHITE));
+                    .append(Component.literal(pos.getX() + " " + pos.getY() + " " + pos.getZ()).withStyle(ChatFormatting.WHITE))
+                    .append(Component.literal(chest.dimension().isEmpty() ? "" : " (" + chest.dimension() + ")").withStyle(ChatFormatting.GRAY));
             graphics.drawString(font, line, 10, y + 2, 0xFFFFFF, false);
             boolean hovered = mouseX >= right - 12 && mouseX < right && mouseY >= y && mouseY < y + ROW;
             graphics.drawString(font, "✕", right - 9, y + 2, hovered ? 0xFFFF5555 : 0xFFFFFFFF, false);
@@ -585,6 +586,8 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
         MutableComponent priceLine = Component.literal("Hire a builder: ");
         if (!price.isEmpty()) {
             priceLine.append(price.getCount() + " × ").append(price.getHoverName());
+        } else {
+            priceLine.append("free");
         }
         graphics.drawString(font, font.plainSubstrByWidth(priceLine.getString(), RIGHT - 28), 28, y, TEXT, false);
         Component second;

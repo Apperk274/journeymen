@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.platform;
 
+import io.github.apperk274.journeymen.network.JourneymenNetwork;
 import io.github.apperk274.journeymen.platform.services.INetworkHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -10,6 +11,7 @@ public class FabricNetworkHelper implements INetworkHelper {
 
     @Override
     public void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
+        JourneymenNetwork.checkInDevelopment(player, payload);
         ServerPlayNetworking.send(player, payload);
     }
 

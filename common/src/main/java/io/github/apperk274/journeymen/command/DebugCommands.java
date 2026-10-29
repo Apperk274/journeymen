@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.command;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -9,11 +10,13 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import io.github.apperk274.journeymen.CommonClass;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.ChunkKeeper;
+import io.github.apperk274.journeymen.build.JobService;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanRegistry;
+import io.github.apperk274.journeymen.entity.ProgressBars;
 import io.github.apperk274.journeymen.menu.BuilderMenu;
 import io.github.apperk274.journeymen.menu.ForemanMenu;
 import io.github.apperk274.journeymen.menu.LinkModeService;
@@ -37,11 +40,19 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.ExplosionDamageCalculator;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -90,6 +101,25 @@ public class DebugCommands {
                         .then(Commands.argument("key", StringArgumentType.word())
                                 .then(Commands.argument("value", StringArgumentType.greedyString())
                                         .executes(DebugCommands::config))))
+                .then(Commands.literal("configfile")
+                        .then(Commands.literal("write")
+                                .then(Commands.argument("text", StringArgumentType.greedyString())
+                                        .executes(DebugCommands::configFileWrite)))
+                        .then(Commands.literal("show").executes(DebugCommands::configFileShow))
+                        .then(Commands.literal("restore").executes(DebugCommands::configFileRestore)))
+                .then(Commands.literal("bars")
+                        .executes(DebugCommands::bars)
+                        .then(Commands.literal("watch")
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .executes(DebugCommands::barsWatch))))
+                .then(Commands.literal("explode")
+                        .then(Commands.argument("pos", Vec3Argument.vec3())
+                                .then(Commands.argument("radius", FloatArgumentType.floatArg(0.5F, 16.0F))
+                                        .then(Commands.argument("only", StringArgumentType.greedyString())
+                                                .executes(DebugCommands::explode)))))
+                .then(Commands.literal("delay")
+                        .then(Commands.argument("millis", IntegerArgumentType.integer(0, 10000))
+                                .executes(DebugCommands::delay)))
                 .then(Commands.literal("chunks").executes(DebugCommands::chunks))
                 .then(Commands.literal("paths").executes(DebugCommands::paths))
                 .then(Commands.literal("copyschematic")
@@ -208,6 +238,118 @@ public class DebugCommands {
         Constants.LOG.info("[debug copyschematic] {}", result);
         String reply = result;
         context.getSource().sendSuccess(() -> Component.literal(reply), false);
+        return 1;
+    }
+
+    private static Path configBackup() {
+        Path file = JourneymenConfig.file();
+        return file.resolveSibling(file.getFileName() + ".debug-backup");
+    }
+
+    private static int configFileWrite(CommandContext<CommandSourceStack> context) {
+        String text = StringArgumentType.getString(context, "text").replace('|', '\n') + "\n";
+        Path file = JourneymenConfig.file();
+        String result;
+        try {
+            Files.createDirectories(file.getParent());
+            if (!Files.exists(configBackup())) {
+                Files.writeString(configBackup(), Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "", StandardCharsets.UTF_8);
+            }
+            Files.writeString(file, text, StandardCharsets.UTF_8);
+            result = "wrote " + text.lines().count() + " lines to " + file.getFileName();
+        } catch (IOException e) {
+            result = "could not write " + file.getFileName() + ": " + e.getMessage();
+        }
+        return reply(context, "[debug configfile] ", result);
+    }
+
+    private static int configFileShow(CommandContext<CommandSourceStack> context) {
+        List<String> lines = new ArrayList<>();
+        try {
+            Files.readAllLines(JourneymenConfig.file(), StandardCharsets.UTF_8).stream().filter(line -> !line.isBlank() && !line.startsWith("#"))
+                    .forEach(line -> lines.add("file: " + line));
+        } catch (IOException e) {
+            lines.add("could not read the file: " + e.getMessage());
+        }
+        StringBuilder live = new StringBuilder("live:");
+        JourneymenConfig.entries().forEach(entry -> live.append(' ').append(entry.key()).append('=').append(entry.text()));
+        lines.add(live.toString());
+        lines.forEach(line -> reply(context, "[debug configfile] ", line));
+        return lines.size();
+    }
+
+    private static int configFileRestore(CommandContext<CommandSourceStack> context) {
+        Path file = JourneymenConfig.file();
+        String result;
+        try {
+            if (Files.exists(configBackup())) {
+                String original = Files.readString(configBackup(), StandardCharsets.UTF_8);
+                if (original.isEmpty()) {
+                    Files.deleteIfExists(file);
+                } else {
+                    Files.writeString(file, original, StandardCharsets.UTF_8);
+                }
+                Files.delete(configBackup());
+                result = "restored " + file.getFileName();
+            } else {
+                result = "nothing to restore";
+            }
+        } catch (IOException e) {
+            result = "could not restore " + file.getFileName() + ": " + e.getMessage();
+        }
+        JourneymenConfig.load();
+        ChunkKeeper.update(context.getSource().getServer());
+        return reply(context, "[debug configfile] ", result);
+    }
+
+    private static int bars(CommandContext<CommandSourceStack> context) {
+        List<String> lines = ProgressBars.describe();
+        if (lines.isEmpty()) {
+            lines = List.of("no progress bars");
+        }
+        lines.forEach(line -> reply(context, "[debug bars] ", line));
+        return lines.size();
+    }
+
+    private static int barsWatch(CommandContext<CommandSourceStack> context) {
+        String player = StringArgumentType.getString(context, "player");
+        ProgressBars.watch(player);
+        return reply(context, "[debug bars] ", player + " sees the progress bars of its foremen from anywhere");
+    }
+
+    private static int explode(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        Vec3 pos = Vec3Argument.getVec3(context, "pos");
+        float radius = FloatArgumentType.getFloat(context, "radius");
+        String only = StringArgumentType.getString(context, "only").strip();
+        BlockPos target = null;
+        if (!only.equals("-")) {
+            String[] parts = only.split(" +");
+            if (parts.length != 3) {
+                throw JourneymenCommand.fail("Give the one block to break as x y z, or - for all.");
+            }
+            target = new BlockPos(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+        }
+        BlockPos onlyPos = target;
+        ExplosionDamageCalculator calculator = new ExplosionDamageCalculator() {
+            @Override
+            public boolean shouldBlockExplode(Explosion explosion, BlockGetter level, BlockPos blockPos, BlockState state, float power) {
+                return onlyPos == null || onlyPos.equals(blockPos);
+            }
+        };
+        context.getSource().getLevel().explode(null, null, calculator, pos.x, pos.y, pos.z, radius, false, Level.ExplosionInteraction.MOB);
+        return reply(context, "[debug explode] ", "exploded at " + pos.x + " " + pos.y + " " + pos.z + " with radius " + radius
+                + (onlyPos == null ? "" : ", breaking only " + onlyPos.toShortString()));
+    }
+
+    private static int delay(CommandContext<CommandSourceStack> context) {
+        int millis = IntegerArgumentType.getInteger(context, "millis");
+        JobService.setDevelopmentDelay(millis);
+        return reply(context, "[debug delay] ", "screen checks, starts and supplies wait " + millis + " ms before loading their schematic");
+    }
+
+    private static int reply(CommandContext<CommandSourceStack> context, String prefix, String line) {
+        Constants.LOG.info("{}{}", prefix, line);
+        context.getSource().sendSuccess(() -> Component.literal(line), false);
         return 1;
     }
 

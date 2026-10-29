@@ -8,11 +8,14 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Rotation;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -30,7 +33,8 @@ public final class ScreenTest {
     private enum Step {
         OFF, START, LOADING, SETUP, OPEN, PICK, JOB_SHOT, CHESTS_TAB, CHESTS_SHOT, CREW_TAB, CREW_SHOT, ORDERS_TAB, ORDERS_SHOT,
         BUILDER_OPEN, BUILDER_SHOT, BUILDER_ORDERS, BUILDER_ORDERS_SHOT, CHECK, CONFIRM_SHOT, SCROLLED_SHOT, SUPPLY, SUPPLIED_SHOT, STARTED,
-        RUNNING, RUNNING_SHOT, CREW_RUNNING, CREW_RUNNING_SHOT, DONE
+        RUNNING, RUNNING_SHOT, CREW_RUNNING, CREW_RUNNING_SHOT, LATE_RESULT, GONE_REPLY, LINK_OPEN, LINK_STARTED, LINK_ENDED, DIMENSION,
+        DONE
     }
 
     private static Step step;
@@ -39,6 +43,9 @@ public final class ScreenTest {
     private static int foremanId = -1;
     private static int builderId = -1;
     private static BlockPos origin = BlockPos.ZERO;
+    private static final int GONE_ID = Integer.MAX_VALUE - 7;
+    @Nullable
+    private static ScreenPayloads.SchematicInfo late;
 
     private ScreenTest() {
     }
@@ -202,6 +209,11 @@ public final class ScreenTest {
                 if (ticks > 10) {
                     shot(minecraft, "builder_orders");
                     minecraft.setScreen(null);
+                    if (ClientState.info == null) {
+                        finish("no schematic info for placement mode");
+                        return;
+                    }
+                    PlacementMode.resume(foremanId, ClientState.info, Rotation.NONE, "");
                     Services.NETWORK.sendToServer(new ScreenPayloads.Action(foremanId, "check", schematic + "\nnone\n", origin));
                     next(Step.CHECK);
                 }
@@ -280,6 +292,61 @@ public final class ScreenTest {
                 if (ticks > 10) {
                     shot(minecraft, "crew_running");
                     minecraft.setScreen(null);
+                    late = ClientState.info;
+                    if (late == null) {
+                        finish("no schematic info for placement mode");
+                        return;
+                    }
+                    PlacementMode.resume(foremanId, late, Rotation.NONE, "");
+                    Services.NETWORK.sendToServer(new ScreenPayloads.Action(foremanId, "check", schematic + "\nnone\n", origin));
+                    PlacementMode.stop();
+                    minecraft.setScreen(new ChatScreen(""));
+                    next(Step.LATE_RESULT);
+                }
+            }
+            case LATE_RESULT -> {
+                if (ticks > 100) {
+                    log("late check result: the open screen is " + (screen == null ? "none" : screen.getClass().getSimpleName()));
+                    minecraft.setScreen(null);
+                    PlacementMode.resume(GONE_ID, late, Rotation.NONE, "");
+                    Services.NETWORK.sendToServer(new ScreenPayloads.Action(GONE_ID, "check", schematic + "\nnone\n", origin));
+                    next(Step.GONE_REPLY);
+                }
+            }
+            case GONE_REPLY -> {
+                if (!PlacementMode.isActive() || ticks > 100) {
+                    log("placement mode after a gone reply: " + (PlacementMode.isActive() ? "still on" : "off"));
+                    PlacementMode.stop();
+                    interact(minecraft, foremanId);
+                    next(Step.LINK_OPEN);
+                }
+            }
+            case LINK_OPEN -> {
+                if (screen instanceof ForemanScreen && ticks > 20) {
+                    press(screen, "Chests");
+                    press(screen, "Link supply chests");
+                    next(Step.LINK_STARTED);
+                }
+            }
+            case LINK_STARTED -> {
+                if (ClientState.link != null && ticks > 10 || ticks > 100) {
+                    log("link outlines while linking: " + (ClientState.link != null ? "on" : "off"));
+                    PreviewBenchmark.command("journeymen foreman kill Boss");
+                    next(Step.LINK_ENDED);
+                }
+            }
+            case LINK_ENDED -> {
+                if (ClientState.link == null || ticks > 100) {
+                    log("link outlines after the foreman died: " + (ClientState.link != null ? "on" : "off"));
+                    PlacementMode.resume(foremanId, late, Rotation.NONE, "");
+                    PreviewBenchmark.command("execute in minecraft:the_nether run tp @s ~ 120 ~");
+                    next(Step.DIMENSION);
+                }
+            }
+            case DIMENSION -> {
+                boolean nether = minecraft.level != null && minecraft.level.dimension() == Level.NETHER;
+                if (nether && ticks > 40 || ticks > 400) {
+                    log("placement mode after changing dimension: " + (PlacementMode.isActive() ? "still on" : "off"));
                     finish("done");
                 }
             }

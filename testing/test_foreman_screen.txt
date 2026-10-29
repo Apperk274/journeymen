@@ -58,7 +58,7 @@ journeymen debug as Crewer 2 2320 100 2317 journeymen debug interact @e[type=jou
 waitlog \[screen\] Crewer opens Rita's screen on the Job tab
 journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] remove_chest 2312 100 2310 -
 waitlog \[debug reply\] Rita no longer uses the chest at 2312, 100, 2310\.
-waitlog \[debug action\] Rita .* chests=\[AssignedChest\[pos=BlockPos\{x=2310, y=100, z=2310\}, role=SUPPLY, pair=null\], AssignedChest\[pos=BlockPos\{x=2314, y=100, z=2310\}, role=DUMP, pair=null\]\]$
+waitlog \[debug action\] Rita .* chests=\[AssignedChest\[pos=BlockPos\{x=2310, y=100, z=2310\}, role=SUPPLY, pair=null, dimension=minecraft:overworld\], AssignedChest\[pos=BlockPos\{x=2314, y=100, z=2310\}, role=DUMP, pair=null, dimension=minecraft:overworld\]\]$
 journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] remove_chest 2312 100 2310 -
 waitlog \[debug reply\] Rita has no chest at 2312, 100, 2310\.
 journeymen debug as Crewer 2 2320 100 2317 journeymen debug action @e[type=journeymen:foreman,name=Rita,limit=1] check 2330 100 2330 test_missing.schem|none|corner

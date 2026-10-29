@@ -14,7 +14,7 @@ public record OpenHireScreenPayload(int recruiterId, ItemStack price, String cos
     public static final Type<OpenHireScreenPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "open_hire_screen"));
     public static final StreamCodec<RegistryFriendlyByteBuf, OpenHireScreenPayload> CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, OpenHireScreenPayload::recruiterId,
-            ItemStack.STREAM_CODEC, OpenHireScreenPayload::price,
+            ItemStack.OPTIONAL_STREAM_CODEC, OpenHireScreenPayload::price,
             ByteBufCodecs.STRING_UTF8, OpenHireScreenPayload::cost,
             ByteBufCodecs.VAR_INT, OpenHireScreenPayload::owned,
             ByteBufCodecs.VAR_INT, OpenHireScreenPayload::max,
