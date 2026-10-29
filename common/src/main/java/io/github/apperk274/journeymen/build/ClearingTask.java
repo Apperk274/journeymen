@@ -120,7 +120,6 @@ public final class ClearingTask {
             return Status.BLOCKED;
         }
         if (state.getDestroySpeed(level, target) < 0.0F) {
-            work.done(state);
             work.skipped.add(target);
             finishTarget();
             return Status.WORKING;
@@ -144,7 +143,8 @@ public final class ClearingTask {
             }
             return Status.NEEDS_TOOL;
         }
-        int slot = ToolChoice.choose(inventory, state, level, target, job.getOptions().allowBreakingEnchanted(), work.requiredRemaining);
+        int slot = ToolChoice.choose(inventory, state, level, target, job.getOptions().allowBreakingEnchanted(), work.requiredRemaining,
+                work.toolUses());
         if (slot == ToolChoice.NONE) {
             needToolFor(state, target);
             resetProgress();
@@ -184,7 +184,7 @@ public final class ClearingTask {
             lastStage = stage;
         }
         if (progress >= 1.0F) {
-            breakTarget(state, slot);
+            breakTarget(slot);
         }
         return Status.WORKING;
     }
@@ -225,7 +225,7 @@ public final class ClearingTask {
         neededToolDescription = "a tool that can mine " + state.getBlock().getName().getString() + " at " + pos.toShortString();
     }
 
-    private void breakTarget(BlockState state, int slot) {
+    private void breakTarget(int slot) {
         Container inventory = builder.getInventory();
         ItemStack tool = slot == ToolChoice.HAND ? ItemStack.EMPTY : inventory.getItem(slot);
         ServerPlayer actor = builder.actor();
@@ -239,11 +239,9 @@ public final class ClearingTask {
         inventory.setChanged();
         level.destroyBlockProgress(builder.getId(), target, -1);
         builder.captureDrops(target);
-        work.done(state);
         if (broken) {
             cleared++;
             work.cleared++;
-            work.requiredRemaining.computeIfPresent(state, (key, count) -> count > 1 ? count - 1 : null);
             builder.showInHand(slot == ToolChoice.HAND ? ItemStack.EMPTY : inventory.getItem(slot));
         } else {
             work.skipped.add(target);
@@ -400,7 +398,7 @@ public final class ClearingTask {
             return false;
         }
         return cache.computeIfAbsent(state, key -> ToolChoice.choose(builder.getInventory(), key, level, pos,
-                job.getOptions().allowBreakingEnchanted(), work.requiredRemaining) != ToolChoice.NONE);
+                job.getOptions().allowBreakingEnchanted(), work.requiredRemaining, work.toolUses()) != ToolChoice.NONE);
     }
 
     private void finishTarget() {

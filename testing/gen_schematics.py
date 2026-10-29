@@ -315,6 +315,12 @@ def gr_farm():
     return blocks
 
 
+def inv_paths():
+    blocks = {(x, y, z): state("air") for x in range(10) for y in range(4) for z in range(5)}
+    blocks.update({(x, 0, z): state("dirt_path") for x in range(10) for z in range(5)})
+    return blocks
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -372,6 +378,8 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_mv_snow.schem"), (1, 1, 1), {(0, 0, 0): state("powder_snow")})
     write_sponge_v3(os.path.join(out, "test_mv_web.schem"), (1, 1, 1), {(0, 0, 0): state("cobweb")})
     write_sponge_v3(os.path.join(out, "test_big_dig.schem"), (200, 10, 200), {})
+    write_sponge_v3(os.path.join(out, "test_inv_paths.schem"), (10, 4, 5), inv_paths())
+    write_sponge_v3(os.path.join(out, "test_inv_pots.schem"), (4, 1, 1), {(x, 0, 0): state("potted_dandelion") for x in range(4)})
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
         write_sponge_v3(os.path.join(out, "test_tfc_made.schem"), (7, 2, 3),

@@ -1,6 +1,7 @@
 package io.github.apperk274.journeymen.build;
 
 import io.github.apperk274.journeymen.config.JourneymenConfig;
+import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
@@ -116,6 +117,19 @@ public final class ToolPlan {
         }
         supply.forEach(this::addToPool);
         crewTools.forEach(this::addToPool);
+        for (Map.Entry<BlockRequirements.ToolUse, Integer> entry : work.toolUses().entrySet()) {
+            long left = entry.getValue();
+            for (Kind kind : kinds.values()) {
+                if (left <= 0) {
+                    break;
+                }
+                if (kind.damageable > 0 && Services.COMPAT.canDo(kind.example, entry.getKey())) {
+                    long reserved = Math.min(left, kind.durability);
+                    kind.durability -= reserved;
+                    left -= reserved;
+                }
+            }
+        }
 
         for (int index = 0; index < states.size(); index++) {
             Kind best = null;

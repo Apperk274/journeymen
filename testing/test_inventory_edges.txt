@@ -1,0 +1,281 @@
+forceload add 6400 4864 6591 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 6400 99 4864 6591 99 4927 minecraft:smooth_stone
+fill 6400 100 4864 6463 107 4927 minecraft:air
+fill 6464 100 4864 6527 107 4927 minecraft:air
+fill 6528 100 4864 6591 107 4927 minecraft:air
+kill @e[type=item]
+# a builder whose inventory is full of wool needs a pickaxe for stone: it dumps the wool first, then fetches the pickaxe and clears (it used to walk back and forth to the supply chest without a word)
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+fill 6440 100 4880 6443 100 4883 minecraft:stone
+setblock 6430 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:wooden_pickaxe",count:1}]}
+setblock 6434 100 4872 minecraft:chest{Items:[]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon FullBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon FullBoss Fully
+data modify entity @e[type=journeymen:builder,name=Fully,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:white_wool",count:64},{Slot:1b,id:"minecraft:white_wool",count:64},{Slot:2b,id:"minecraft:white_wool",count:64},{Slot:3b,id:"minecraft:white_wool",count:64},{Slot:4b,id:"minecraft:white_wool",count:64},{Slot:5b,id:"minecraft:white_wool",count:64},{Slot:6b,id:"minecraft:white_wool",count:64},{Slot:7b,id:"minecraft:white_wool",count:64},{Slot:8b,id:"minecraft:white_wool",count:64},{Slot:9b,id:"minecraft:white_wool",count:64},{Slot:10b,id:"minecraft:white_wool",count:64},{Slot:11b,id:"minecraft:white_wool",count:64},{Slot:12b,id:"minecraft:white_wool",count:64},{Slot:13b,id:"minecraft:white_wool",count:64},{Slot:14b,id:"minecraft:white_wool",count:64},{Slot:15b,id:"minecraft:white_wool",count:64},{Slot:16b,id:"minecraft:white_wool",count:64},{Slot:17b,id:"minecraft:white_wool",count:64},{Slot:18b,id:"minecraft:white_wool",count:64},{Slot:19b,id:"minecraft:white_wool",count:64},{Slot:20b,id:"minecraft:white_wool",count:64},{Slot:21b,id:"minecraft:white_wool",count:64},{Slot:22b,id:"minecraft:white_wool",count:64},{Slot:23b,id:"minecraft:white_wool",count:64},{Slot:24b,id:"minecraft:white_wool",count:64},{Slot:25b,id:"minecraft:white_wool",count:64},{Slot:26b,id:"minecraft:white_wool",count:64}]
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FullBoss add 6430 100 4872 supply
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FullBoss add 6434 100 4872 dump
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build FullBoss test_mv_dig.schem 6440 100 4880 none corner
+waitlog nosprint FullBoss's crew is on the way !!
+waitlog \[unload\] Steve\.Fully dumps 1728 items at 6434, 100, 4872: White Wool 1728 !!
+waitlog \[Steve\.FullBoss\] I finished building test_mv_dig\.schem !!
+# the same for a crew of two, both full of wool
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+fill 6440 100 4880 6443 100 4883 minecraft:stone
+setblock 6430 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:wooden_pickaxe",count:1},{Slot:1b,id:"minecraft:wooden_pickaxe",count:1}]}
+setblock 6434 100 4872 minecraft:chest{Items:[]}
+setblock 6434 100 4870 minecraft:chest{Items:[]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon FullCrew
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon FullCrew Fil
+journeymen debug as Steve 2 6438 100 4876 journeymen builder summon FullCrew Fig
+data modify entity @e[type=journeymen:builder,name=Fil,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:white_wool",count:64},{Slot:1b,id:"minecraft:white_wool",count:64},{Slot:2b,id:"minecraft:white_wool",count:64},{Slot:3b,id:"minecraft:white_wool",count:64},{Slot:4b,id:"minecraft:white_wool",count:64},{Slot:5b,id:"minecraft:white_wool",count:64},{Slot:6b,id:"minecraft:white_wool",count:64},{Slot:7b,id:"minecraft:white_wool",count:64},{Slot:8b,id:"minecraft:white_wool",count:64},{Slot:9b,id:"minecraft:white_wool",count:64},{Slot:10b,id:"minecraft:white_wool",count:64},{Slot:11b,id:"minecraft:white_wool",count:64},{Slot:12b,id:"minecraft:white_wool",count:64},{Slot:13b,id:"minecraft:white_wool",count:64},{Slot:14b,id:"minecraft:white_wool",count:64},{Slot:15b,id:"minecraft:white_wool",count:64},{Slot:16b,id:"minecraft:white_wool",count:64},{Slot:17b,id:"minecraft:white_wool",count:64},{Slot:18b,id:"minecraft:white_wool",count:64},{Slot:19b,id:"minecraft:white_wool",count:64},{Slot:20b,id:"minecraft:white_wool",count:64},{Slot:21b,id:"minecraft:white_wool",count:64},{Slot:22b,id:"minecraft:white_wool",count:64},{Slot:23b,id:"minecraft:white_wool",count:64},{Slot:24b,id:"minecraft:white_wool",count:64},{Slot:25b,id:"minecraft:white_wool",count:64},{Slot:26b,id:"minecraft:white_wool",count:64}]
+data modify entity @e[type=journeymen:builder,name=Fig,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:white_wool",count:64},{Slot:1b,id:"minecraft:white_wool",count:64},{Slot:2b,id:"minecraft:white_wool",count:64},{Slot:3b,id:"minecraft:white_wool",count:64},{Slot:4b,id:"minecraft:white_wool",count:64},{Slot:5b,id:"minecraft:white_wool",count:64},{Slot:6b,id:"minecraft:white_wool",count:64},{Slot:7b,id:"minecraft:white_wool",count:64},{Slot:8b,id:"minecraft:white_wool",count:64},{Slot:9b,id:"minecraft:white_wool",count:64},{Slot:10b,id:"minecraft:white_wool",count:64},{Slot:11b,id:"minecraft:white_wool",count:64},{Slot:12b,id:"minecraft:white_wool",count:64},{Slot:13b,id:"minecraft:white_wool",count:64},{Slot:14b,id:"minecraft:white_wool",count:64},{Slot:15b,id:"minecraft:white_wool",count:64},{Slot:16b,id:"minecraft:white_wool",count:64},{Slot:17b,id:"minecraft:white_wool",count:64},{Slot:18b,id:"minecraft:white_wool",count:64},{Slot:19b,id:"minecraft:white_wool",count:64},{Slot:20b,id:"minecraft:white_wool",count:64},{Slot:21b,id:"minecraft:white_wool",count:64},{Slot:22b,id:"minecraft:white_wool",count:64},{Slot:23b,id:"minecraft:white_wool",count:64},{Slot:24b,id:"minecraft:white_wool",count:64},{Slot:25b,id:"minecraft:white_wool",count:64},{Slot:26b,id:"minecraft:white_wool",count:64}]
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FullCrew add 6430 100 4872 supply
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FullCrew add 6434 100 4872 dump
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FullCrew add 6434 100 4870 dump
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build FullCrew test_mv_dig.schem 6440 100 4880 none corner
+waitlog nosprint FullCrew's crew is on the way: (Fil and Fig|Fig and Fil)\. !!
+waitlog x2 \[unload\] Steve\.(Fil|Fig) dumps 1728 items at .*: White Wool 1728 !!
+waitlog \[Steve\.FullCrew\] I finished building test_mv_dig\.schem !! which another builder claimed|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+# while placing: a builder carrying the job's dirt and stone and 25 stacks of wool needs a shovel for a path, so it dumps the wool, then fetches the shovel
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+setblock 6430 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:wooden_shovel",count:1}]}
+setblock 6434 100 4872 minecraft:chest{Items:[]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon PackBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon PackBoss Packy
+data modify entity @e[type=journeymen:builder,name=Packy,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:dirt",count:9},{Slot:1b,id:"minecraft:stone",count:6},{Slot:2b,id:"minecraft:white_wool",count:64},{Slot:3b,id:"minecraft:white_wool",count:64},{Slot:4b,id:"minecraft:white_wool",count:64},{Slot:5b,id:"minecraft:white_wool",count:64},{Slot:6b,id:"minecraft:white_wool",count:64},{Slot:7b,id:"minecraft:white_wool",count:64},{Slot:8b,id:"minecraft:white_wool",count:64},{Slot:9b,id:"minecraft:white_wool",count:64},{Slot:10b,id:"minecraft:white_wool",count:64},{Slot:11b,id:"minecraft:white_wool",count:64},{Slot:12b,id:"minecraft:white_wool",count:64},{Slot:13b,id:"minecraft:white_wool",count:64},{Slot:14b,id:"minecraft:white_wool",count:64},{Slot:15b,id:"minecraft:white_wool",count:64},{Slot:16b,id:"minecraft:white_wool",count:64},{Slot:17b,id:"minecraft:white_wool",count:64},{Slot:18b,id:"minecraft:white_wool",count:64},{Slot:19b,id:"minecraft:white_wool",count:64},{Slot:20b,id:"minecraft:white_wool",count:64},{Slot:21b,id:"minecraft:white_wool",count:64},{Slot:22b,id:"minecraft:white_wool",count:64},{Slot:23b,id:"minecraft:white_wool",count:64},{Slot:24b,id:"minecraft:white_wool",count:64},{Slot:25b,id:"minecraft:white_wool",count:64},{Slot:26b,id:"minecraft:white_wool",count:64}]
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest PackBoss add 6430 100 4872 supply
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest PackBoss add 6434 100 4872 dump
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build PackBoss test_made.schem 6440 100 4880 none corner
+waitlog nosprint PackBoss's crew is on the way !!
+waitlog \[unload\] Steve\.Packy dumps 1600 items at 6434, 100, 4872: White Wool 1600 !!
+waitlog \[Steve\.PackBoss\] I finished building test_made\.schem !! I couldn't build|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+# a builder carrying a worn enchanted wooden shovel (1 durability, which it may not use up) fetches the fresh one from supply and returns the worn one (it used to skip every wooden shovel because it already carried one)
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+setblock 6430 100 4872 minecraft:chest{Items:[]}
+setblock 6434 100 4872 minecraft:chest{Items:[]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon WornBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon WornBoss Worn
+data modify entity @e[type=journeymen:builder,name=Worn,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:wooden_shovel",count:1,components:{"minecraft:damage":58,"minecraft:enchantments":{levels:{"minecraft:unbreaking":1}}}}]
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest WornBoss add 6430 100 4872 supply
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest WornBoss add 6434 100 4872 dump
+mark
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman supply WornBoss test_made.schem 6440 100 4880 none corner missing-only
+waitlog nosprint Supplied 16 missing items !! Not enough room|Could not load
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build WornBoss test_made.schem 6440 100 4880 none corner
+waitlog nosprint WornBoss's crew is on the way !!
+waitlog \[tools\] Steve\.Worn at 6430, 100, 4872 returns 1 worn-out tools !!
+waitlog 20 \[Steve\.WornBoss\] I finished building test_made\.schem !! I couldn't build|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+waitfor 5 nosprint execute if data block 6430 100 4872 Items[{id:"minecraft:wooden_shovel",components:{"minecraft:damage":58}}] =~ passed
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman check WornBoss test_made.schem 6440 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# clearing 200 dirt with the one wooden shovel that `supply` gives for 50 dirt paths: its last 50 uses stay for the paths and the rest of the dirt is dug by hand (the shovel used to wear out on the dirt, and placing paused)
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+fill 6440 100 4880 6449 103 4884 minecraft:dirt
+setblock 6430 100 4872 minecraft:chest{Items:[]}
+setblock 6434 100 4872 minecraft:chest{Items:[]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon PathBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon PathBoss Pathy
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest PathBoss add 6430 100 4872 supply
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest PathBoss add 6434 100 4872 dump
+mark
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman supply PathBoss test_inv_paths.schem 6440 100 4880 none corner missing-only
+waitlog nosprint Supplied 51 missing items !! Not enough room|Could not load
+waitfor 5 nosprint execute if data block 6430 100 4872 Items[{id:"minecraft:wooden_shovel"}] =~ passed
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build PathBoss test_inv_paths.schem 6440 100 4880 none corner
+waitlog nosprint PathBoss's crew is on the way !!
+waitlog 30 \[Steve\.PathBoss\] I finished building test_inv_paths\.schem !! I couldn't build|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+waitfor 5 nosprint execute if block 6449 100 4884 minecraft:dirt_path =~ passed
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman check PathBoss test_inv_paths.schem 6440 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# blocks whose state changes before they are broken (walls and fences losing a neighbour) or that go with another one (a door's lower half): the counts of what is left to clear end at 0
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+fill 6440 100 4880 6443 100 4880 minecraft:cobblestone_wall
+fill 6440 100 4881 6443 100 4881 minecraft:oak_fence
+setblock 6440 100 4882 minecraft:oak_door[half=lower,facing=north]
+setblock 6440 101 4882 minecraft:oak_door[half=upper,facing=north]
+setblock 6430 100 4872 minecraft:chest{Items:[]}
+setblock 6434 100 4872 minecraft:chest{Items:[]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon LeakBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon LeakBoss Leaky
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest LeakBoss add 6430 100 4872 supply
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest LeakBoss add 6434 100 4872 dump
+mark
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman supply LeakBoss test_mv_dig.schem 6440 100 4880 none corner missing-only
+waitlog nosprint Supplied 1 missing item for !! Not enough room|Could not load
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build LeakBoss test_mv_dig.schem 6440 100 4880 none corner
+waitlog nosprint LeakBoss's crew is on the way !!
+waitlog \[clearing\] Steve\.Leaky cleared the site of test_mv_dig\.schem: 0 counted blocks left, 0 needing a tool !! counted blocks left|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+waitlog \[Steve\.LeakBoss\] I finished building test_mv_dig\.schem !!
+# a builder full of cobblestone the job doesn't need, with no dump chest: it asks for one and doesn't put the cobblestone into the supply chest (it used to store it there)
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+setblock 6430 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon JunkBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon JunkBoss Junky
+data modify entity @e[type=journeymen:builder,name=Junky,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest JunkBoss add 6430 100 4872 supply
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build JunkBoss test_row.schem 6440 100 4880 none corner
+waitlog nosprint JunkBoss's crew is on the way !!
+waitlog \[Steve\.JunkBoss\] Junky's inventory is full\. Give me a dump chest with /journeymen foreman chest JunkBoss add <pos> dump\. !! stores \d+ items at .*Cobblestone|I finished building
+waitfor 5 nosprint execute if data block 6430 100 4872 Items[{id:"minecraft:cobblestone"}] =~ failed
+setblock 6434 100 4872 minecraft:chest{Items:[]}
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest JunkBoss add 6434 100 4872 dump
+waitlog 20 \[Steve\.JunkBoss\] I finished building test_row\.schem !! stores \d+ items at .*Cobblestone|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+waitfor 5 nosprint execute if data block 6434 100 4872 Items[{id:"minecraft:cobblestone"}] =~ passed
+waitfor 5 nosprint execute if data block 6430 100 4872 Items[{id:"minecraft:cobblestone"}] =~ failed
+# armor and a bow a builder picked up are dumped with what it cleared; the helmet it wears stays on
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+fill 6440 100 4880 6443 100 4883 minecraft:dirt
+setblock 6430 100 4872 minecraft:chest{Items:[]}
+setblock 6434 100 4872 minecraft:chest{Items:[]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon ArmorBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon ArmorBoss Armory
+data modify entity @e[type=journeymen:builder,name=Armory,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:iron_chestplate",count:1},{Slot:1b,id:"minecraft:bow",count:1}]
+item replace entity @e[type=journeymen:builder,name=Armory,limit=1] armor.head with minecraft:iron_helmet
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest ArmorBoss add 6430 100 4872 supply
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest ArmorBoss add 6434 100 4872 dump
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build ArmorBoss test_mv_dig.schem 6440 100 4880 none corner
+waitlog nosprint ArmorBoss's crew is on the way !!
+waitlog \[Steve\.ArmorBoss\] I finished building test_mv_dig\.schem !!
+waitfor 5 nosprint execute if data block 6434 100 4872 Items[{id:"minecraft:iron_chestplate"}] =~ passed
+waitfor 5 nosprint execute if data block 6434 100 4872 Items[{id:"minecraft:bow"}] =~ passed
+waitfor 5 nosprint execute if items entity @e[type=journeymen:builder,name=Armory,limit=1] armor.head minecraft:iron_helmet =~ passed
+# a locked supply chest counts as empty in the pre-check (with a warning), so the other supply chest covers the job
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+setblock 6430 100 4872 minecraft:chest{Items:[]}
+setblock 6434 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon LockyBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon LockyBoss Locky
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest LockyBoss add 6430 100 4872 supply
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest LockyBoss add 6434 100 4872 supply
+data merge block 6430 100 4872 {Lock:"key"}
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman check LockyBoss test_row.schem 6440 100 4880 none corner
+waitlog Everything is ready !! There is no container
+waitlog supply chest at 6430, 100, 4872 is locked
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build LockyBoss test_row.schem 6440 100 4880 none corner
+waitlog nosprint LockyBoss's crew is on the way !!
+waitlog 20 \[Steve\.LockyBoss\] I finished building test_row\.schem !!
+data merge block 6430 100 4872 {Lock:""}
+# two builders each holding half of what potted dandelions need, with the supply chest full: the foreman says they can't hand anything over, and they finish once there is room
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+setblock 6430 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:cobblestone",count:64},{Slot:1b,id:"minecraft:cobblestone",count:64},{Slot:2b,id:"minecraft:cobblestone",count:64},{Slot:3b,id:"minecraft:cobblestone",count:64},{Slot:4b,id:"minecraft:cobblestone",count:64},{Slot:5b,id:"minecraft:cobblestone",count:64},{Slot:6b,id:"minecraft:cobblestone",count:64},{Slot:7b,id:"minecraft:cobblestone",count:64},{Slot:8b,id:"minecraft:cobblestone",count:64},{Slot:9b,id:"minecraft:cobblestone",count:64},{Slot:10b,id:"minecraft:cobblestone",count:64},{Slot:11b,id:"minecraft:cobblestone",count:64},{Slot:12b,id:"minecraft:cobblestone",count:64},{Slot:13b,id:"minecraft:cobblestone",count:64},{Slot:14b,id:"minecraft:cobblestone",count:64},{Slot:15b,id:"minecraft:cobblestone",count:64},{Slot:16b,id:"minecraft:cobblestone",count:64},{Slot:17b,id:"minecraft:cobblestone",count:64},{Slot:18b,id:"minecraft:cobblestone",count:64},{Slot:19b,id:"minecraft:cobblestone",count:64},{Slot:20b,id:"minecraft:cobblestone",count:64},{Slot:21b,id:"minecraft:cobblestone",count:64},{Slot:22b,id:"minecraft:cobblestone",count:64},{Slot:23b,id:"minecraft:cobblestone",count:64},{Slot:24b,id:"minecraft:cobblestone",count:64},{Slot:25b,id:"minecraft:cobblestone",count:64},{Slot:26b,id:"minecraft:cobblestone",count:64}]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon PotBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon PotBoss Potter
+journeymen debug as Steve 2 6438 100 4876 journeymen builder summon PotBoss Florist
+data modify entity @e[type=journeymen:builder,name=Potter,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:flower_pot",count:4}]
+data modify entity @e[type=journeymen:builder,name=Florist,limit=1] Inventory.Items set value [{Slot:0b,id:"minecraft:dandelion",count:4}]
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest PotBoss add 6430 100 4872 supply
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build PotBoss test_inv_pots.schem 6440 100 4880 none corner
+waitlog nosprint PotBoss's crew is on the way: (Potter and Florist|Florist and Potter)\. !!
+waitlog 20 \[Steve\.PotBoss\] My builders are waiting for materials other builders carry, and my supply chests have no room to take back what they need to hand over\. Please make room in my supply chests\. !! I finished building
+data merge block 6430 100 4872 {Items:[]}
+waitlog 20 \[Steve\.PotBoss\] I finished building test_inv_pots\.schem !! which another builder claimed|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman check PotBoss test_inv_pots.schem 6440 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# the only supply chest, far away, made a dump chest while the builder walks to it: it doesn't take from it but from the new supply chest
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+setblock 6430 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+setblock 6560 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon FarBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon FarBoss Farer
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FarBoss add 6560 100 4872 supply
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build FarBoss test_row.schem 6440 100 4880 none corner
+waitlog nosprint FarBoss's crew is on the way !!
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FarBoss remove 6560 100 4872
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FarBoss add 6560 100 4872 dump
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FarBoss add 6430 100 4872 supply
+waitlog 20 \[Steve\.FarBoss\] I finished building test_row\.schem !! from the supply chest at 6560, 100, 4872|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+waitlog \[fetch\] Steve\.Farer takes 60 items from the supply chest at 6430, 100, 4872
+waitfor 5 nosprint execute if data block 6560 100 4872 Items[{id:"minecraft:oak_planks",count:60}] =~ passed
+# the only supply chest, far away, removed while the builder walks to it: it doesn't take from it but from the new supply chest
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 6420 100 4864 6520 107 4895 minecraft:air
+setblock 6560 100 4872 minecraft:air
+setblock 6430 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+setblock 6560 100 4872 minecraft:chest{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+journeymen debug as Steve 2 6436 100 4878 journeymen foreman summon FarBoss
+journeymen debug as Steve 2 6437 100 4876 journeymen builder summon FarBoss Farer
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FarBoss add 6560 100 4872 supply
+mark
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman build FarBoss test_row.schem 6440 100 4880 none corner
+waitlog nosprint FarBoss's crew is on the way !!
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FarBoss remove 6560 100 4872
+journeymen debug as Steve 0 6436 100 4878 journeymen foreman chest FarBoss add 6430 100 4872 supply
+waitlog 20 \[Steve\.FarBoss\] I finished building test_row\.schem !! from the supply chest at 6560, 100, 4872|can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception
+waitlog \[fetch\] Steve\.Farer takes 60 items from the supply chest at 6430, 100, 4872
+waitfor 5 nosprint execute if data block 6560 100 4872 Items[{id:"minecraft:oak_planks",count:60}] =~ passed

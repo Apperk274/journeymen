@@ -9,6 +9,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -26,6 +27,8 @@ public final class ClearingWork {
     private final Long2ObjectOpenHashMap<IntArrayList> columns = new Long2ObjectOpenHashMap<>();
     final Map<BlockPos, BlockState> targets;
     final Map<BlockState, Integer> requiredRemaining = new HashMap<>();
+    private final Map<BlockPos, BlockState> planned = new HashMap<>();
+    private final Map<BlockRequirements.ToolUse, Integer> toolUses;
     private final Map<BlockState, Integer> remainingByState = new LinkedHashMap<>();
     private final Map<BlockState, BlockPos> examples = new HashMap<>();
     final List<BlockPos> skipped = new ArrayList<>();
@@ -112,14 +115,20 @@ public final class ClearingWork {
         }
     }
 
-    public ClearingWork(ServerLevel level, List<BlockPos> toClear, List<BlockPos> fluids, Map<BlockPos, BlockState> targets) {
+    public ClearingWork(ServerLevel level, List<BlockPos> toClear, List<BlockPos> fluids, Map<BlockPos, BlockState> targets,
+                        Map<BlockRequirements.ToolUse, Integer> toolUses) {
         this.targets = targets;
+        this.toolUses = new EnumMap<>(BlockRequirements.ToolUse.class);
+        this.toolUses.putAll(toolUses);
         for (BlockPos pos : fluids) {
             add(pos);
         }
         for (BlockPos pos : toClear) {
             add(pos);
             BlockState state = level.getBlockState(pos);
+            if (planned.putIfAbsent(pos.immutable(), state) != null) {
+                continue;
+            }
             remainingByState.merge(state, 1, Integer::sum);
             examples.putIfAbsent(state, pos.immutable());
             if (ToolChoice.needsTool(state, level, pos)) {
@@ -151,6 +160,11 @@ public final class ClearingWork {
             return;
         }
         count--;
+        BlockState state = planned.remove(pos);
+        if (state != null) {
+            remainingByState.computeIfPresent(state, (key, left) -> left > 1 ? left - 1 : null);
+            requiredRemaining.computeIfPresent(state, (key, left) -> left > 1 ? left - 1 : null);
+        }
         if (layer.size() == 0) {
             remaining.remove(pos.getY());
         }
@@ -169,12 +183,20 @@ public final class ClearingWork {
         return column != null && !column.isEmpty() && column.getInt(0) == pos.getY();
     }
 
-    void done(BlockState state) {
-        remainingByState.computeIfPresent(state, (key, count) -> count > 1 ? count - 1 : null);
-    }
-
     public Map<BlockState, Integer> remainingByState() {
         return remainingByState;
+    }
+
+    public Map<BlockRequirements.ToolUse, Integer> toolUses() {
+        return toolUses;
+    }
+
+    public int countedLeft() {
+        return remainingByState.values().stream().mapToInt(Integer::intValue).sum();
+    }
+
+    public int requiredLeft() {
+        return requiredRemaining.values().stream().mapToInt(Integer::intValue).sum();
     }
 
     public BlockPos example(BlockState state) {

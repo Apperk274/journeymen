@@ -114,6 +114,10 @@ public final class CrewWork {
         }
     }
 
+    public boolean anyStarving() {
+        return !starving.isEmpty();
+    }
+
     public boolean othersStarving(UUID member) {
         for (UUID other : starving) {
             if (!other.equals(member)) {

@@ -75,6 +75,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 
 public class BuilderEntity extends JourneymanEntity {
 
@@ -142,6 +143,7 @@ public class BuilderEntity extends JourneymanEntity {
     @Nullable
     private BuildPlan needsPlan;
     private ItemCounter needs = new ItemCounter();
+    private Map<BlockRequirements.ToolUse, Integer> needsToolUses = Map.of();
     @Nullable
     private String lastNotice;
     private int lastNoticeTick;
@@ -268,6 +270,12 @@ public class BuilderEntity extends JourneymanEntity {
     public List<AssignedChest> jobChests() {
         ForemanEntity foreman = foreman();
         return foreman == null ? List.of() : foreman.getChests();
+    }
+
+    public boolean hasChest(BlockPos chest, AssignedChest.Role role) {
+        ForemanEntity foreman = foreman();
+        AssignedChest assigned = foreman == null ? null : foreman.chestAt(chest);
+        return assigned != null && assigned.role() == role;
     }
 
     public List<ItemStack> collectStock(List<Component> problems) {
@@ -537,9 +545,16 @@ public class BuilderEntity extends JourneymanEntity {
         if (tickCount - idleSince >= LEAVE_SITE_TICKS && getNavigation().isDone()) {
             leaveSite();
         }
-        if (handBack && tickCount - idleSince >= HAND_BACK_TICKS && tickCount >= storeBlockedUntil && hasSpareItems(new ItemCounter())) {
+        if (handBack && tickCount - idleSince >= HAND_BACK_TICKS && hasSpareItems(new ItemCounter())) {
             idleSince = tickCount;
-            queueUnload(new ItemCounter());
+            if (queueStore(new ItemCounter())) {
+                queueDump();
+            } else if (job.getCrewWork().anyStarving()) {
+                pauseJob("My builders are waiting for materials other builders carry, and " + (firstSupplyChest() == null
+                        ? "I have no supply chest to take back what they need to hand over. Please give me one."
+                        : "my supply chests have no room to take back what they need to hand over. Please make room in my supply chests.")
+                        + supplyChestProblems());
+            }
         }
     }
 
@@ -582,7 +597,7 @@ public class BuilderEntity extends JourneymanEntity {
         if (!plan.getToClear().isEmpty()) {
             CrewWork shared = job.getCrewWork();
             if (shared.getClearing() == null && shared.getPlacing() == null && !shared.isClearingDone()) {
-                shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), fluidsInTheWay(plan), plan.targetsByPosition()));
+                shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), fluidsInTheWay(plan), plan.targetsByPosition(), toolUses(plan)));
             }
             queueToolRestock(null);
         } else if (fluidsInTheWay(plan).isEmpty()) {
@@ -712,6 +727,7 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     public void restockToolsAt(ItemStore store, BlockPos chest, Predicate<ItemStack> mustHave) {
+        returnWornTools(store, chest);
         ToolPlan plan = toolPlan();
         int returned = 0;
         int taken = 0;
@@ -1173,9 +1189,8 @@ public class BuilderEntity extends JourneymanEntity {
             return new ItemCounter();
         }
         BuildPlan plan = job.getPlan();
-        if (plan != null && plan != needsPlan) {
-            needsPlan = plan;
-            needs = plan.requirements(registryAccess()).items();
+        if (plan != null) {
+            requirementsOf(plan);
         }
         ItemCounter result = plan == null ? new ItemCounter() : needs.copy();
         if (!level().dimension().equals(job.getDimension())) {
@@ -1197,6 +1212,20 @@ public class BuilderEntity extends JourneymanEntity {
             result.add(entry.getKey(), entry.getValue() - result.count(entry.getKey()));
         }
         return result;
+    }
+
+    private void requirementsOf(BuildPlan plan) {
+        if (plan != needsPlan) {
+            BuildPlan.Requirements requirements = plan.requirements(registryAccess());
+            needsPlan = plan;
+            needs = requirements.items();
+            needsToolUses = requirements.toolUses();
+        }
+    }
+
+    private Map<BlockRequirements.ToolUse, Integer> toolUses(BuildPlan plan) {
+        requirementsOf(plan);
+        return needsToolUses;
     }
 
     private ItemCounter supplyShortfall() {
@@ -1235,9 +1264,12 @@ public class BuilderEntity extends JourneymanEntity {
 
     public void fetchFrom(ItemStore store, BlockPos chest, Predicate<ItemStack> wanted, boolean oneEach, boolean fromDump) {
         ItemCounter fetched = new ItemCounter();
+        if (oneEach && !fromDump) {
+            returnWornTools(store, chest);
+        }
         for (int slot = 0; slot < store.size(); slot++) {
             ItemStack stack = store.get(slot);
-            if (oneEach && !stack.isEmpty() && findSlot(carried -> carried.is(stack.getItem())) >= 0) {
+            if (oneEach && !stack.isEmpty() && findSlot(carried -> carried.is(stack.getItem()) && wanted.test(carried)) >= 0) {
                 continue;
             }
             int count = stack.isEmpty() || !wanted.test(stack) ? 0 : Math.min(oneEach ? 1 : stack.getCount(), roomFor(stack));
@@ -1252,8 +1284,41 @@ public class BuilderEntity extends JourneymanEntity {
         logFetch(fromDump, chest, fetched);
     }
 
+    private void returnWornTools(ItemStore store, BlockPos chest) {
+        if (job == null) {
+            return;
+        }
+        int returned = 0;
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (isWornOut(stack, job.getOptions().allowBreakingEnchanted()) && store.insert(stack.copy()).isEmpty()) {
+                inventory.setItem(slot, ItemStack.EMPTY);
+                returned++;
+            }
+        }
+        if (returned > 0) {
+            inventory.setChanged();
+            Constants.trace("[tools] {}.{} at {} returns {} worn-out tools", getOwnerName(), getJourneymanName(), chest.toShortString(), returned);
+        }
+    }
+
+    private static boolean isWornOut(ItemStack stack, boolean allowBreakingEnchanted) {
+        return !stack.isEmpty() && stack.isDamageableItem() && isTool(stack) && ToolCheck.usableDurability(stack, allowBreakingEnchanted) < 1;
+    }
+
     private static boolean isTool(ItemStack stack) {
-        return stack.get(DataComponents.TOOL) != null || stack.isDamageableItem();
+        if (stack.get(DataComponents.TOOL) != null) {
+            return true;
+        }
+        if (!stack.isDamageableItem()) {
+            return false;
+        }
+        for (BlockRequirements.ToolUse use : BlockRequirements.ToolUse.values()) {
+            if (Services.COMPAT.canDo(stack, use)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasFreeSlot() {
@@ -1403,7 +1468,7 @@ public class BuilderEntity extends JourneymanEntity {
                 plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());
                 job.setPlan(plan);
             }
-            shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), fluidsInTheWay(plan), plan.targetsByPosition()));
+            shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), fluidsInTheWay(plan), plan.targetsByPosition(), toolUses(plan)));
         }
         if (clearing != null) {
             clearedSomething |= clearing.getOwnCleared() > 0;
@@ -1426,6 +1491,10 @@ public class BuilderEntity extends JourneymanEntity {
                 return;
             }
             List<BlockPos> skipped = done.getSkipped();
+            if (Services.PLATFORM.isDevelopmentEnvironment()) {
+                Constants.LOG.info("[clearing] {}.{} cleared the site of {}: {} counted blocks left, {} needing a tool", getOwnerName(),
+                        getJourneymanName(), job.getFile(), done.countedLeft(), done.requiredLeft());
+            }
             shared.noteCleared(done.getCleared() > 0);
             BuildPlan plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());
             job.setPlan(plan);
@@ -1442,7 +1511,7 @@ public class BuilderEntity extends JourneymanEntity {
                 }
             }
             if (!leftover.isEmpty() || !fluids.isEmpty()) {
-                shared.setClearing(new ClearingWork((ServerLevel) level(), leftover, fluids, plan.targetsByPosition()));
+                shared.setClearing(new ClearingWork((ServerLevel) level(), leftover, fluids, plan.targetsByPosition(), toolUses(plan)));
                 clearing = new ClearingTask(this, job, shared.getClearing());
                 return;
             }
@@ -1792,20 +1861,24 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     private boolean queueUnload(ItemCounter keep) {
-        boolean queued = false;
-        if (hasDumpableItems()) {
-            for (AssignedChest chest : reachableChests()) {
-                if (chest.role() == AssignedChest.Role.DUMP && level().isLoaded(chest.pos())) {
-                    queueVisit(ChestVisit.dump(chest.pos()));
-                    queued = true;
-                    break;
-                }
-            }
-        }
+        boolean queued = queueDump();
         if (tickCount >= storeBlockedUntil && hasSpareItems(keep)) {
             queued |= queueStore(keep);
         }
         return queued;
+    }
+
+    private boolean queueDump() {
+        if (!hasDumpableItems()) {
+            return false;
+        }
+        for (AssignedChest chest : reachableChests()) {
+            if (chest.role() == AssignedChest.Role.DUMP && level().isLoaded(chest.pos())) {
+                queueVisit(ChestVisit.dump(chest.pos()));
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasSpareItems(ItemCounter keep) {
@@ -1817,8 +1890,7 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     private List<ItemStack> itemsToStore(@Nullable ItemCounter keep) {
-        ItemCounter toStore = keep == null ? supplyShortfall() : null;
-        ItemCounter remaining = keep == null ? null : keep.copy();
+        ToIntFunction<ItemStack> amounts = storeAmounts(keep);
         List<ItemStack> result = new ArrayList<>();
         List<ItemStack> carried = new ArrayList<>(inventory.getItems());
         carried.addAll(overflow);
@@ -1826,12 +1898,26 @@ public class BuilderEntity extends JourneymanEntity {
             if (stack.isEmpty() || isTool(stack)) {
                 continue;
             }
-            int count = toStore != null ? (int) toStore.remove(stack, stack.getCount()) : stack.getCount() - (int) remaining.remove(stack, stack.getCount());
+            int count = amounts.applyAsInt(stack);
             if (count > 0) {
                 result.add(stack.copyWithCount(count));
             }
         }
         return result;
+    }
+
+    private ToIntFunction<ItemStack> storeAmounts(@Nullable ItemCounter keep) {
+        if (keep == null) {
+            ItemCounter toStore = supplyShortfall();
+            return stack -> (int) toStore.remove(stack, stack.getCount());
+        }
+        ItemCounter remaining = keep.copy();
+        ItemCounter needed = jobNeeds();
+        return stack -> {
+            long kept = remaining.remove(stack, stack.getCount());
+            needed.remove(stack, kept);
+            return (int) needed.remove(stack, stack.getCount() - kept);
+        };
     }
 
     private boolean queueStore(@Nullable ItemCounter keep) {
@@ -1860,8 +1946,7 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     public void storeInto(ItemStore store, BlockPos chest, @Nullable ItemCounter keep) {
-        ItemCounter toStore = keep == null ? supplyShortfall() : null;
-        ItemCounter remaining = keep == null ? null : keep.copy();
+        ToIntFunction<ItemStack> amounts = storeAmounts(keep);
         ItemCounter stored = new ItemCounter();
         List<ItemStack> carried = new ArrayList<>(inventory.getItems());
         carried.addAll(overflow);
@@ -1869,8 +1954,7 @@ public class BuilderEntity extends JourneymanEntity {
             if (stack.isEmpty() || isTool(stack)) {
                 continue;
             }
-            moveInto(store, stack, toStore != null ? (int) toStore.remove(stack, stack.getCount())
-                    : stack.getCount() - (int) remaining.remove(stack, stack.getCount()), stored);
+            moveInto(store, stack, amounts.applyAsInt(stack), stored);
         }
         overflow.removeIf(ItemStack::isEmpty);
         absorbOverflow();
@@ -1950,7 +2034,7 @@ public class BuilderEntity extends JourneymanEntity {
         List<BlockPos> toClear = plan.getToClear().stream().filter(this::withinRedoLimit).toList();
         List<BlockPos> fluids = fluidsInTheWay(plan);
         if (!toClear.isEmpty() || !fluids.isEmpty()) {
-            shared.setClearing(new ClearingWork((ServerLevel) level(), toClear, fluids, plan.targetsByPosition()));
+            shared.setClearing(new ClearingWork((ServerLevel) level(), toClear, fluids, plan.targetsByPosition(), toolUses(plan)));
             clearing = new ClearingTask(this, job, shared.getClearing());
             work.setPhase(BuildJob.Phase.CLEARING);
             return;
@@ -2136,7 +2220,9 @@ public class BuilderEntity extends JourneymanEntity {
             }
             ItemStore store = ItemStores.at(level(), chest.pos());
             if (store != null && containsMatching(store, wanted)) {
-                if (work.getPhase() == BuildJob.Phase.CLEARING && clearing != null) {
+                if (!hasFreeSlot()) {
+                    makeRoomForTool();
+                } else if (work.getPhase() == BuildJob.Phase.CLEARING && clearing != null) {
                     queueToolRestock(wanted);
                 } else {
                     queueVisit(ChestVisit.fetchOneEach(chest.pos(), wanted));
@@ -2150,6 +2236,16 @@ public class BuilderEntity extends JourneymanEntity {
             return;
         }
         pauseJob("I need " + description + " for " + getJourneymanName() + "." + supplyChestProblems());
+    }
+
+    private void makeRoomForTool() {
+        if (work.getPhase() == BuildJob.Phase.CLEARING) {
+            startDump();
+            return;
+        }
+        long toolSlots = inventory.getItems().stream().filter(stack -> !stack.isEmpty() && isTool(stack)).count();
+        ItemCounter keep = placing == null ? new ItemCounter() : placing.upcomingNeeds((int) Math.max(0, INVENTORY_SIZE - toolSlots - 1), new ItemCounter());
+        makeRoom(keep);
     }
 
     private static boolean containsMatching(ItemStore store, Predicate<ItemStack> wanted) {

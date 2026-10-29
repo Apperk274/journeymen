@@ -122,6 +122,10 @@ public final class ChestVisit {
 
     public Status tick(BuilderEntity builder) {
         ServerLevel level = (ServerLevel) builder.level();
+        if (!builder.hasChest(chest, fromDump ? AssignedChest.Role.DUMP : AssignedChest.Role.SUPPLY)) {
+            abort(level);
+            return Status.DONE;
+        }
         if (!level.isLoaded(chest)) {
             failure = "The " + role() + " chest at " + chest.toShortString() + " isn't loaded.";
             problem = Problem.UNLOADED;

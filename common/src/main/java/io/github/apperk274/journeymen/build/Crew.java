@@ -94,6 +94,9 @@ public final class Crew {
                 problems.add(Component.literal("The supply chest at " + chest.pos().toShortString() + " isn't loaded."));
                 continue;
             }
+            if (ItemStores.isLocked(level, chest.pos())) {
+                continue;
+            }
             ItemStore store = ItemStores.at(level, chest.pos());
             if (store == null) {
                 problems.add(Component.literal("There is no container at " + chest.pos().toShortString() + " anymore (supply chest)."));
