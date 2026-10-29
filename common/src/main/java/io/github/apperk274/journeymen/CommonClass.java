@@ -6,6 +6,7 @@ import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanRegistry;
 import io.github.apperk274.journeymen.menu.LinkModeService;
+import io.github.apperk274.journeymen.menu.RequestThrottle;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -28,6 +29,7 @@ public class CommonClass {
     public static void onServerStopped() {
         BlockDrops.setServer(null);
         ChunkKeeper.reset();
+        RequestThrottle.reset();
     }
 
     public static void onServerTick(MinecraftServer server) {

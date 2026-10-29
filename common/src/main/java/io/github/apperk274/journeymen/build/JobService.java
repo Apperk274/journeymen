@@ -80,7 +80,12 @@ public final class JobService {
                         done.accept(Result.failure(foreman.getJourneymanName() + " is gone."));
                         return;
                     }
-                    loaded.accept(schematic);
+                    try {
+                        loaded.accept(schematic);
+                    } catch (RuntimeException e) {
+                        Constants.LOG.error("Failed to check schematic {}", file, e);
+                        done.accept(Result.failure("Could not check " + file + ": " + e.getMessage()));
+                    }
                 }, server);
     }
 

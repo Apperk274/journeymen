@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen;
 
 import io.github.apperk274.journeymen.block.ModBlocks;
 import io.github.apperk274.journeymen.client.ClientState;
+import io.github.apperk274.journeymen.command.DebugProtection;
 import io.github.apperk274.journeymen.command.JourneymenCommand;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.entity.ModEntities;
@@ -14,12 +15,15 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -55,6 +59,13 @@ public class JourneymenFabric implements ModInitializer {
                     : level.isClientSide() && ClientState.link != null;
             return handled ? InteractionResult.SUCCESS : InteractionResult.PASS;
         });
+        if (FabricLoader.getInstance().isDevelopmentEnvironment()) {
+            UseBlockCallback.EVENT.register((player, level, hand, hit) ->
+                    DebugProtection.denies("use", player, hit.getBlockPos()) ? InteractionResult.FAIL : InteractionResult.PASS);
+            AttackBlockCallback.EVENT.register((player, level, hand, pos, direction) ->
+                    DebugProtection.denies("attack", player, pos) ? InteractionResult.FAIL : InteractionResult.PASS);
+            PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, blockEntity) -> !DebugProtection.denies("break", player, pos));
+        }
         ServerLifecycleEvents.SERVER_STARTING.register(CommonClass::onServerStarting);
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> CommonClass.onServerStopped());
         ServerTickEvents.END_SERVER_TICK.register(CommonClass::onServerTick);

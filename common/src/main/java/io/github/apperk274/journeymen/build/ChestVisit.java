@@ -39,7 +39,8 @@ public final class ChestVisit {
     public enum Problem {
         GONE,
         UNLOADED,
-        UNREACHABLE
+        UNREACHABLE,
+        LOCKED
     }
 
     private final Kind kind;
@@ -124,6 +125,12 @@ public final class ChestVisit {
         if (!level.isLoaded(chest)) {
             failure = "The " + role() + " chest at " + chest.toShortString() + " isn't loaded.";
             problem = Problem.UNLOADED;
+            return Status.FAILED;
+        }
+        if (ItemStores.isLocked(level, chest)) {
+            failure = "The " + role() + " chest at " + chest.toShortString() + " is locked, so my builders can't open it. Unlock it or give me another "
+                    + role() + " chest.";
+            problem = Problem.LOCKED;
             return Status.FAILED;
         }
         ItemStore store = ItemStores.at(level, chest);

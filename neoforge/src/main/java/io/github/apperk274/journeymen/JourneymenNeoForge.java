@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen;
 
 import io.github.apperk274.journeymen.block.ModBlocks;
 import io.github.apperk274.journeymen.client.ClientState;
+import io.github.apperk274.journeymen.command.DebugProtection;
 import io.github.apperk274.journeymen.command.JourneymenCommand;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.entity.ModEntities;
@@ -10,18 +11,21 @@ import io.github.apperk274.journeymen.item.ModItems;
 import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.network.JourneymenNetwork;
 import io.github.apperk274.journeymen.platform.NeoForgeMenuHelper;
+import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
@@ -74,6 +78,29 @@ public class JourneymenNeoForge {
                 event.setCancellationResult(InteractionResult.SUCCESS);
             }
         });
+        if (Services.PLATFORM.isDevelopmentEnvironment()) {
+            NeoForge.EVENT_BUS.addListener((PlayerInteractEvent.RightClickBlock event) -> {
+                if (DebugProtection.denies("use", event.getEntity(), event.getPos())) {
+                    event.setCanceled(true);
+                    event.setCancellationResult(InteractionResult.FAIL);
+                }
+            });
+            NeoForge.EVENT_BUS.addListener((PlayerInteractEvent.LeftClickBlock event) -> {
+                if (DebugProtection.denies("attack", event.getEntity(), event.getPos())) {
+                    event.setCanceled(true);
+                }
+            });
+            NeoForge.EVENT_BUS.addListener((BlockEvent.EntityPlaceEvent event) -> {
+                if (event.getEntity() instanceof Player player && DebugProtection.denies("place", player, event.getPos())) {
+                    event.setCanceled(true);
+                }
+            });
+            NeoForge.EVENT_BUS.addListener((BlockEvent.BreakEvent event) -> {
+                if (DebugProtection.denies("break", event.getPlayer(), event.getPos())) {
+                    event.setCanceled(true);
+                }
+            });
+        }
         NeoForge.EVENT_BUS.addListener((ServerStartingEvent event) -> CommonClass.onServerStarting(event.getServer()));
         NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> CommonClass.onServerStopped());
         NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) -> CommonClass.onServerTick(event.getServer()));

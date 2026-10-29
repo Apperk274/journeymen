@@ -161,6 +161,10 @@ public final class MaterialSupply {
         ServerLevel level = (ServerLevel) foreman.level();
         String name = foreman.getJourneymanName();
         PlacementTransform transform = PlacementTransform.of(schematic, origin, rotation, options.corner());
+        String sizeProblem = PreCheck.sizeProblem(level, schematic.getSize(), transform.area(schematic.getSize()));
+        if (sizeProblem != null) {
+            return Outcome.failure(sizeProblem + " Nothing was given.");
+        }
         if (!BuildPlan.isLoaded(level, transform.area(schematic.getSize()))) {
             return Outcome.failure("Part of the site isn't loaded. Go closer to it and try again. Nothing was given.");
         }

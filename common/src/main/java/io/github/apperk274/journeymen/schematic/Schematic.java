@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.schematic;
 
+import io.github.apperk274.journeymen.config.JourneymenConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
@@ -13,6 +14,7 @@ import java.util.Set;
 public final class Schematic {
 
     public static final int NO_BLOCK = -1;
+    public static final long HARD_MAX_VOLUME = 1L << 26;
 
     private final Vec3i size;
     private final Vec3i pasteOffset;
@@ -94,12 +96,14 @@ public final class Schematic {
     }
 
     static int volume(int width, int height, int length) throws SchematicException {
-        if (width < 0 || height < 0 || length < 0) {
-            throw new SchematicException("Schematic has a negative size: " + width + "x" + height + "x" + length);
+        if (width <= 0 || height <= 0 || length <= 0) {
+            throw new SchematicException("Schematic has an empty or negative size: " + width + "x" + height + "x" + length);
         }
         long volume = (long) width * height * length;
-        if (volume > Integer.MAX_VALUE) {
-            throw new SchematicException("Schematic is too large: " + width + "x" + height + "x" + length);
+        long limit = JourneymenConfig.MAX_JOB_VOLUME.get();
+        if (volume > Math.min(limit, HARD_MAX_VOLUME)) {
+            throw new SchematicException("Schematic is too large: " + width + "x" + height + "x" + length + " is " + volume + " blocks; the limit is "
+                    + (limit <= HARD_MAX_VOLUME ? limit + " (max_job_volume in the Journeymen config)." : HARD_MAX_VOLUME + "."));
         }
         return (int) volume;
     }

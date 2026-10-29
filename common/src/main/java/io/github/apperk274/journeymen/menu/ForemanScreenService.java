@@ -94,17 +94,20 @@ public final class ForemanScreenService {
             return new ScreenPayloads.Hiring(ItemStack.EMPTY, 0, false, false, builders, maxBuilders, maxCrew, name,
                     "The hire price item in the Journeymen config doesn't exist.");
         }
-        int price = HireService.builderPrice(builders);
+        long price = HireService.builderPrice(builders);
         int have = cost.count(player.getInventory());
+        boolean free = player.getAbilities().instabuild;
         String problem = "";
-        if (foreman.isCrewFull()) {
+        if (!free && !HireService.payable(price)) {
+            problem = "A builder would cost more than anyone can pay. Ask an admin to lower hire_cost_base or hire_cost_step.";
+        } else if (foreman.isCrewFull()) {
             problem = "His crew is full (" + maxCrew + " builders).";
         } else if (maxBuilders > 0 && builders >= maxBuilders) {
             problem = (player.getUUID().equals(owner) ? "You have " : foreman.getOwnerName() + " has ") + builders
                     + " builders, the most you can hire.";
         }
-        boolean free = player.getAbilities().instabuild;
-        return new ScreenPayloads.Hiring(cost.display(player.getInventory(), price), have, free || have >= price, free,
+        return new ScreenPayloads.Hiring(cost.display(player.getInventory(), HireService.shownPrice(price)), have,
+                free || HireService.payable(price) && have >= price, free,
                 builders, maxBuilders, maxCrew, name, problem);
     }
 
@@ -221,9 +224,14 @@ public final class ForemanScreenService {
             ScreenActions.tell(reply, e.getMessage(), false);
             return;
         }
+        if (!RequestThrottle.tryStart(player, action.action(), true)) {
+            ScreenActions.tell(reply, RequestThrottle.BUSY, false);
+            return;
+        }
         BlockPos origin = action.pos();
         Rotation finalRotation = rotation;
         Consumer<JobService.Result> done = result -> {
+            RequestThrottle.finish(player);
             List<Component> lines = new ArrayList<>();
             MaterialSupply.Outcome supplied = result.supplied();
             if (supplied != null) {
@@ -261,6 +269,10 @@ public final class ForemanScreenService {
     }
 
     static void sendSchematicInfo(ServerPlayer player, String file, Consumer<Component> reply) {
+        if (!RequestThrottle.tryStart(player, "schematic_info", false)) {
+            ScreenActions.tell(reply, RequestThrottle.BUSY, false);
+            return;
+        }
         CompletableFuture
                 .supplyAsync(() -> {
                     try {
@@ -271,6 +283,7 @@ public final class ForemanScreenService {
                     }
                 }, Util.backgroundExecutor())
                 .whenCompleteAsync((loaded, error) -> {
+                    RequestThrottle.finish(player);
                     if (error != null) {
                         Throwable cause = error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
                         ScreenActions.tell(reply, "Could not load " + file + ": " + cause.getMessage(), false);

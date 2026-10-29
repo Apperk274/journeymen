@@ -1,0 +1,62 @@
+forceload add 4544 4480 4607 4543
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+journeymen debug protect clear
+ticks 40
+fill 4544 99 4480 4607 99 4543 minecraft:smooth_stone
+fill 4544 100 4480 4607 104 4543 minecraft:air
+kill @e[type=item]
+journeymen debug gamemode Secu survival
+journeymen debug as Secu 2 4550 100 4500 clear @s
+# ---- 1: sign and book text from a schematic is copied without commands, hover events or selectors
+setblock 4550 100 4490 minecraft:chest
+journeymen debug as Secu 2 4555 100 4494 journeymen foreman summon DecoBoss
+journeymen debug as Secu 2 4556 100 4494 journeymen builder summon DecoBoss DecoBob
+journeymen debug as Secu 2 4555 100 4494 journeymen foreman chest DecoBoss add 4550 100 4490 supply
+mark
+journeymen debug as Secu 2 4555 100 4494 journeymen foreman supply DecoBoss test_sec_decor.nbt 4560 100 4490 none corner
+waitlog Supplied \d+ items for test_sec_decor\.nbt !! Not enough room|Could not load
+journeymen debug as Secu 2 4555 100 4494 journeymen foreman build DecoBoss test_sec_decor.nbt 4560 100 4490 none corner
+waitlog 20 \[Secu\.DecoBoss\] I finished building test_sec_decor\.nbt !!
+waitfor 5 nosprint data get block 4560 101 4491 front_text =~ Click me
+waitfor 5 nosprint data get block 4560 101 4491 front_text !~ clickEvent|hoverEvent|insertion|selector|nbt"
+waitfor 5 nosprint data get block 4560 101 4491 back_text =~ Back
+waitfor 5 nosprint data get block 4560 101 4491 back_text !~ clickEvent|score
+waitfor 5 nosprint data get block 4564 101 4491 front_text =~ Click me
+waitfor 5 nosprint data get block 4564 101 4491 front_text !~ clickEvent|hoverEvent|insertion|selector|nbt"
+waitfor 5 nosprint data get block 4562 101 4491 Book =~ written_book
+waitfor 5 nosprint data get block 4562 101 4491 Book !~ clickEvent|selector
+mark
+journeymen debug as Secu 2 4555 100 4494 journeymen foreman check DecoBoss test_sec_decor.nbt 4560 100 4490 none corner
+waitlog 10 0 to clear, 0 to place
+# ---- 2: a supply chest locked during a job, and in the pre-check
+setblock 4550 100 4510 minecraft:chest
+item replace block 4550 100 4510 container.0 with minecraft:oak_planks 60
+journeymen debug as Secu 2 4556 100 4516 journeymen foreman summon LockBoss
+journeymen debug as Secu 2 4558 100 4518 journeymen builder summon LockBoss LockBob
+journeymen debug as Secu 2 4556 100 4516 journeymen foreman chest LockBoss add 4550 100 4510 supply
+mark
+journeymen debug as Secu 2 4556 100 4516 journeymen foreman build LockBoss test_row.schem 4545 100 4520 none corner
+waitlog nosprint LockBoss's crew is on the way: LockBob\. !!
+data merge block 4550 100 4510 {Lock:"key"}
+waitlog supply chest at 4550, 100, 4510 is locked !! I finished building
+data merge block 4550 100 4510 {Lock:""}
+waitlog 20 \[Secu\.LockBoss\] I finished building test_row\.schem !! Exception
+item replace block 4550 100 4510 container.0 with minecraft:oak_planks 60
+data merge block 4550 100 4510 {Lock:"key"}
+mark
+journeymen debug as Secu 2 4556 100 4516 journeymen foreman check LockBoss test_row.schem 4545 101 4520 none corner
+waitlog supply chest at 4550, 100, 4510 is locked !! Everything is ready
+data merge block 4550 100 4510 {Lock:""}
+# ---- 10: placing doesn't fire block break events
+setblock 4550 100 4530 minecraft:chest
+item replace block 4550 100 4530 container.0 with minecraft:oak_planks 60
+journeymen debug protect 4545 100 4535 4604 101 4535 -
+journeymen debug as Secu 2 4556 100 4532 journeymen foreman summon PlaceBoss
+journeymen debug as Secu 2 4558 100 4532 journeymen builder summon PlaceBoss PlaceBob
+journeymen debug as Secu 2 4556 100 4532 journeymen foreman chest PlaceBoss add 4550 100 4530 supply
+mark
+journeymen debug as Secu 2 4556 100 4532 journeymen foreman build PlaceBoss test_row.schem 4545 100 4535 none corner
+waitlog 20 \[Secu\.PlaceBoss\] I finished building test_row\.schem !! \[protect\] break|Exception|can't start this job
+waitlog \[protect\] (use|place) by Secu at 4604, 100, 4535: allowed
+journeymen debug protect clear

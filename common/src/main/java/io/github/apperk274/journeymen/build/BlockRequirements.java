@@ -178,7 +178,7 @@ public final class BlockRequirements {
 
     private static void addIfPresent(List<ItemStack> items, ItemStack stack) {
         if (!stack.isEmpty()) {
-            items.add(stack.copy());
+            items.add(SafeText.item(stack).copy());
         }
     }
 }

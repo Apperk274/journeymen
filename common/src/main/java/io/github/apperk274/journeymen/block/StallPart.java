@@ -23,7 +23,8 @@ public enum StallPart implements StringRepresentable {
     AWNING_BACK_MIDDLE("awning_back_middle", 0, 2, 1),
     AWNING_BACK_RIGHT("awning_back_right", 1, 2, 1);
 
-    public static final List<int[]> FREE_SPACE = List.of(new int[]{0, 1, 0}, new int[]{0, 0, 1}, new int[]{0, 1, 1});
+    public static final List<int[]> FREE_SPACE = List.of(new int[]{0, 1, 0}, new int[]{0, 0, 1}, new int[]{0, 1, 1}, new int[]{0, 0, -1},
+            new int[]{0, 1, -1});
 
     private final String name;
     private final int across;

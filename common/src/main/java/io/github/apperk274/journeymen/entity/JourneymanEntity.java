@@ -526,6 +526,11 @@ public abstract class JourneymanEntity extends PathfinderMob {
     }
 
     @Override
+    public boolean canBeLeashed() {
+        return false;
+    }
+
+    @Override
     public boolean removeWhenFarAway(double distanceToClosestPlayer) {
         return false;
     }

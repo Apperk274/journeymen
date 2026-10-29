@@ -24,6 +24,8 @@ public interface IPlatformHelper {
 
     boolean mayPlace(ServerPlayer player, BlockPos pos, BlockState state);
 
+    boolean mayUseBlock(ServerPlayer player, BlockPos pos);
+
     default String getEnvironmentName() {
         return isDevelopmentEnvironment() ? "development" : "production";
     }

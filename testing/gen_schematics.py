@@ -97,6 +97,46 @@ def made(path="dirt_path", farmland=state("farmland", moisture=0), dirt="stone")
     return blocks
 
 
+def sec_decor():
+    click = '{"text":"Click me","color":"red","clickEvent":{"action":"run_command","value":"/op Mallory"}}'
+    hover = '{"text":"Hover","hoverEvent":{"action":"show_text","contents":"x"},"insertion":"/op Mallory"}'
+    selector = '{"selector":"@a"}'
+    nbt = '{"nbt":"Pos","entity":"@p"}'
+    score = '{"score":{"name":"@p","objective":"x"}}'
+    back = '{"text":"Back","clickEvent":{"action":"run_command","value":"/op Mallory"}}'
+    text = {"messages": [click, hover, selector, nbt], "color": "black", "has_glowing_text": Byte(0)}
+    back_text = {"messages": [back, score, '""', '""'], "color": "black", "has_glowing_text": Byte(0)}
+    book = {"id": "minecraft:written_book", "count": 1, "components": {"minecraft:written_book_content": {
+        "title": {"raw": "Rules"}, "author": "Mallory", "resolved": Byte(0),
+        "pages": [{"raw": click}, {"raw": selector}]}}}
+    blocks = {(x, 0, z): state("stone") for x in range(5) for z in range(3)}
+    blocks[(0, 1, 1)] = state("oak_sign", rotation=0, waterlogged=False)
+    blocks[(2, 1, 1)] = state("lectern", facing="north", has_book=True, powered=False)
+    blocks[(4, 2, 1)] = state("stone")
+    blocks[(4, 1, 1)] = state("oak_hanging_sign", attached=False, rotation=0, waterlogged=False)
+    entities = {
+        (0, 1, 1): {"id": "minecraft:sign", "is_waxed": Byte(0), "front_text": text, "back_text": back_text},
+        (2, 1, 1): {"id": "minecraft:lectern", "Book": book, "Page": 0},
+        (4, 1, 1): {"id": "minecraft:hanging_sign", "is_waxed": Byte(0), "front_text": text, "back_text": back_text},
+    }
+    return blocks, entities
+
+
+def write_sec_huge(path):
+    write(path, {"Schematic": {
+        "Version": 3, "DataVersion": DATA_VERSION, "Width": Short(1024), "Height": Short(256), "Length": Short(1024),
+        "Blocks": {"Palette": {"minecraft:stone": 0}, "Data": ByteArray(bytes(1)), "BlockEntities": []},
+    }})
+
+
+def write_sec_bloat(path):
+    write(path, {"Schematic": {
+        "Version": 3, "DataVersion": DATA_VERSION, "Width": Short(1), "Height": Short(1), "Length": Short(1),
+        "Blocks": {"Palette": {"minecraft:stone": 0}, "Data": ByteArray(bytes(1)), "BlockEntities": []},
+        "Padding": ByteArray(bytes(140 * 1024 * 1024)),
+    }})
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -111,6 +151,10 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_putback.schem"), (27, 2, 8), putback())
     write_sponge_v3(os.path.join(out, "test_redo.schem"), (16, 4, 16), redo())
     write_sponge_v3(os.path.join(out, "test_made.schem"), (7, 2, 3), made())
+    write_structure(os.path.join(out, "test_sec_decor.nbt"), (5, 3, 3), *sec_decor())
+    write_structure(os.path.join(out, "test_sec_empty.nbt"), (0, 0, 0), {})
+    write_sec_huge(os.path.join(out, "test_sec_huge.schem"))
+    write_sec_bloat(os.path.join(out, "test_sec_bloat.schem"))
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
         write_sponge_v3(os.path.join(out, "test_tfc_made.schem"), (7, 2, 3),

@@ -57,7 +57,7 @@ final class Targets {
         JourneymanRegistry registry = JourneymanRegistry.get(source.getServer());
         ServerPlayer player = source.getPlayer();
         JourneymanRegistry.Entry entry;
-        int dot = raw.indexOf('.');
+        int dot = raw.lastIndexOf('.');
         if (dot >= 0) {
             String ownerName = raw.substring(0, dot);
             String name = raw.substring(dot + 1);

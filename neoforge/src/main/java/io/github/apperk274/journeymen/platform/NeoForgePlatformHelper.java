@@ -7,7 +7,10 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
@@ -57,5 +60,12 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
     @Override
     public boolean mayPlace(ServerPlayer player, BlockPos pos, BlockState state) {
         return !EventHooks.onBlockPlace(player, BlockSnapshot.create(player.level().dimension(), player.level(), pos), Direction.UP);
+    }
+
+    @Override
+    public boolean mayUseBlock(ServerPlayer player, BlockPos pos) {
+        PlayerInteractEvent.RightClickBlock event = CommonHooks.onRightClickBlock(player, InteractionHand.MAIN_HAND, pos,
+                new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false));
+        return event.isCanceled() ? event.getCancellationResult().consumesAction() : event.getUseBlock() != TriState.FALSE;
     }
 }

@@ -5,6 +5,7 @@ import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.build.CrewWork;
 import io.github.apperk274.journeymen.build.ItemStores;
+import io.github.apperk274.journeymen.build.OwnerRights;
 import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.menu.ForemanMenu;
@@ -20,6 +21,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerBossEvent;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
@@ -137,6 +139,9 @@ public class ForemanEntity extends JourneymanEntity {
         if (chests.size() >= max) {
             return "A foreman can have at most " + max + " chests (max_chests in the Journeymen config).";
         }
+        if (ItemStores.isLocked(level(), pos)) {
+            return "The chest at " + pos.toShortString() + " is locked, so " + getJourneymanName() + "'s builders couldn't open it.";
+        }
         if (ItemStores.at(level(), pos) == null) {
             return "There is no chest or other container at " + pos.toShortString() + ".";
         }
@@ -145,6 +150,14 @@ public class ForemanEntity extends JourneymanEntity {
             return "That chest is already assigned as a " + existing.role().id() + " chest.";
         }
         BlockPos other = Crew.otherChestHalf(level(), pos);
+        if (getOwner() == null) {
+            return getJourneymanName() + " has no owner.";
+        }
+        ServerPlayer actor = OwnerRights.actor((ServerLevel) level(), getOwner(), getOwnerName());
+        if (!OwnerRights.mayOpen(actor, pos) || other != null && !OwnerRights.mayOpen(actor, other)) {
+            return getOwnerName() + " isn't allowed to open the chest at " + pos.toShortString() + " (spawn protection or a claim), so "
+                    + getJourneymanName() + "'s builders couldn't use it.";
+        }
         chests.add(new AssignedChest(pos.immutable(), role, other == null ? null : other.immutable()));
         chestsRefreshedAt = Long.MIN_VALUE;
         return null;

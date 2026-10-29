@@ -1,0 +1,140 @@
+forceload add 4480 4480 4543 4543
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+kill @e[type=journeymen:recruiter]
+kill @e[type=minecraft:marker,tag=jmsec]
+journeymen debug protect clear
+ticks 40
+fill 4480 99 4480 4543 99 4543 minecraft:smooth_stone
+fill 4480 100 4480 4543 104 4543 minecraft:air
+kill @e[type=item]
+journeymen stall place 4520 100 4520 north
+journeymen debug gamemode Secu survival
+journeymen debug as Secu 2 4500 100 4500 clear @s
+journeymen debug as Secu 2 4500 100 4502 journeymen foreman summon SecBoss
+journeymen debug as Secu 2 4501 100 4502 journeymen builder summon SecBoss SecBob
+ticks 20
+# ---- 2: chests the owner couldn't open
+setblock 4490 100 4490 minecraft:chest{Lock:"secret"}
+setblock 4492 100 4490 minecraft:chest
+setblock 4494 100 4490 minecraft:chest
+setblock 4496 100 4490 minecraft:chest
+journeymen debug protect 4492 100 4490 4492 100 4490 Mallory
+journeymen debug protect 4494 100 4490 4494 100 4490 Secu
+mark
+journeymen debug as Secu 0 4500 100 4500 journeymen foreman chest SecBoss add 4490 100 4490 supply
+waitlog The chest at 4490, 100, 4490 is locked, so SecBoss's builders couldn't open it\. !! uses the chest at
+journeymen debug as Secu 0 4500 100 4500 journeymen foreman chest SecBoss add 4492 100 4490 supply
+waitlog Secu isn't allowed to open the chest at 4492, 100, 4490 !! uses the chest at
+journeymen debug as Admin 2 4500 100 4500 journeymen foreman chest Secu.SecBoss add 4492 100 4490 dump
+waitlog x2 Secu isn't allowed to open the chest at 4492, 100, 4490 !! uses the chest at
+journeymen debug as Admin 2 4500 100 4500 journeymen foreman chest Secu.SecBoss add 4494 100 4490 supply
+waitlog SecBoss uses the chest at 4494, 100, 4490 as a supply chest\. !! isn't allowed
+journeymen debug as Secu 2 4500 100 4500 journeymen debug action @e[type=journeymen:foreman,name=SecBoss,limit=1] link_supply ~ ~ ~ -
+journeymen debug as Secu 2 4500 100 4500 journeymen debug use 4490 100 4490
+journeymen debug as Secu 2 4500 100 4500 journeymen debug use 4492 100 4490
+journeymen debug as Secu 2 4500 100 4500 journeymen debug use 4496 100 4490
+waitlog x3 \[debug use\] handled=true
+journeymen debug as Secu 2 4500 100 4500 journeymen debug interact @e[type=journeymen:foreman,name=SecBoss,limit=1]
+waitlog \[debug interact\] SecBoss .*linking=true->false
+mark
+journeymen debug as Secu 0 4500 100 4500 journeymen foreman chest SecBoss list
+waitlog x2 \[debug as Secu\] supply chest at 449[46], 100, 4490 !! chest at 449[02], 100, 4490
+journeymen debug protect clear
+# ---- 3: a hire price beyond what anyone can pay
+journeymen debug as SecHirer 2 4520 100 4515 clear @s
+journeymen debug as SecHirer 2 4520 100 4515 give @s minecraft:emerald 20
+mark
+journeymen debug as SecHirer 0 4520 100 4515 journeymen recruiter hire SecOne
+waitlog You hired SecOne for 20 Emerald\.
+journeymen debug config foreman_cost_step 2147483647
+journeymen debug as SecHirer 0 4520 100 4515 journeymen recruiter hire SecTwo
+waitlog A foreman would cost more than 2147483647 Emerald now !! You hired SecTwo
+journeymen config reload
+journeymen debug as SecHirer 2 4520 100 4515 journeymen builder summon SecOne SecB1
+journeymen debug config hire_cost_step 2147483647
+journeymen debug as SecHirer 0 4520 100 4515 journeymen foreman hire SecOne SecB2
+waitlog A builder would cost more than 2147483647 Emerald now !! hired SecB2
+journeymen config reload
+# ---- 6: no room in front of the stall
+tp @e[type=journeymen:foreman,name=SecOne] 4526 100 4512
+fill 4519 100 4518 4521 101 4519 minecraft:stone
+journeymen debug as SecHirer 2 4520 100 4515 clear @s
+journeymen debug as SecHirer 2 4520 100 4515 give @s minecraft:emerald 100
+mark
+journeymen debug as SecHirer 0 4520 100 4515 journeymen recruiter hire SecThree
+waitlog There is no room in front of the stall for a new foreman !! You hired
+journeymen debug as SecHirer 2 4520 100 4515 clear @s minecraft:emerald 0
+waitlog \[debug as SecHirer\] Found 100 matching
+fill 4519 100 4518 4521 101 4519 minecraft:air
+journeymen debug as SecHirer 0 4520 100 4515 journeymen recruiter hire SecThree
+waitlog You hired SecThree for \d+ Emerald\.
+# ---- 7: leads
+journeymen debug as Secu 2 4500 100 4500 item replace entity @s weapon.mainhand with minecraft:lead 2
+journeymen debug as Secu 2 4500 100 4500 journeymen debug interact @e[type=journeymen:builder,name=SecBob,limit=1]
+journeymen debug as Secu 2 4500 100 4500 journeymen debug interact @e[type=journeymen:foreman,name=SecBoss,limit=1]
+waitlog x2 \[debug interact\] SecBo
+waitfor 5 nosprint execute if data entity @e[type=journeymen:builder,name=SecBob,limit=1] leash =~ failed
+waitfor 5 nosprint execute if data entity @e[type=journeymen:foreman,name=SecBoss,limit=1] leash =~ failed
+journeymen debug as Secu 2 4500 100 4500 clear @s
+# ---- 8: schematic errors don't show the server's paths
+mark
+journeymen debug as Secu 2 4500 100 4500 journeymen debug action @e[type=journeymen:foreman,name=SecBoss,limit=1] schematic_info ~ ~ ~ nope.nbt
+waitlog \[debug reply\] Could not load nope\.nbt: There is no schematic named nope\.nbt in the schematics folder\. !! [A-Za-z]:\\
+journeymen debug as Secu 2 4500 100 4500 journeymen debug action @e[type=journeymen:foreman,name=SecBoss,limit=1] schematic_info ~ ~ ~ ../nope.nbt
+waitlog \[debug reply\] Could not load \.\./nope\.nbt: Schematics must be inside the schematics folder\. !! [A-Za-z]:\\
+journeymen debug as Secu 0 4500 100 4500 journeymen foreman check SecBoss nope.nbt
+waitlog \[debug as Secu\] Could not load nope\.nbt: There is no schematic named nope\.nbt in the schematics folder\. !! [A-Za-z]:\\
+# ---- 9: owner names starting with a dot
+journeymen debug as .Flood 2 4505 100 4505 journeymen foreman summon FloodBoss
+mark
+journeymen debug as Admin 2 4500 100 4500 journeymen foreman status .Flood.FloodBoss
+waitlog \[debug as Admin\] FloodBoss \(foreman of \.Flood\) !! has no foreman
+# ---- 4: heavy screen actions are throttled
+summon minecraft:marker 4500 101 4500 {Tags:["jmsec"]}
+summon minecraft:marker 4500 101 4500 {Tags:["jmsec"]}
+mark
+execute as @e[type=minecraft:marker,tag=jmsec] run journeymen debug as Secu 2 4500 100 4500 journeymen debug action @e[type=journeymen:foreman,name=SecBoss,limit=1] schematic_info ~ ~ ~ test_box.schem
+waitlog \[debug reply\] Busy with your last request\. Try again in a moment\.
+ticks 40
+mark
+execute as @e[type=minecraft:marker,tag=jmsec] run journeymen debug as Secu 2 4500 100 4500 journeymen debug action @e[type=journeymen:foreman,name=SecBoss,limit=1] check 4510 100 4510 test_box.schem|none|
+waitlog \[debug reply\] Busy with your last request\.
+waitlog \[check\] Secu for SecBoss
+ticks 40
+mark
+journeymen debug as Secu 2 4500 100 4500 journeymen debug action @e[type=journeymen:foreman,name=SecBoss,limit=1] check 4510 100 4510 test_box.schem|none|
+waitlog nosprint \[check\] Secu for SecBoss
+journeymen debug as Secu 2 4500 100 4500 journeymen debug action @e[type=journeymen:foreman,name=SecBoss,limit=1] check 4510 100 4510 test_box.schem|none|
+waitlog nosprint \[debug reply\] Busy with your last request\.
+ticks 40
+mark
+journeymen debug as Secu 2 4500 100 4500 journeymen debug action @e[type=journeymen:foreman,name=SecBoss,limit=1] check 4510 100 4510 test_box.schem|none|
+waitlog \[check\] Secu for SecBoss !! Busy with
+kill @e[type=minecraft:marker,tag=jmsec]
+# ---- 5: schematic sizes are checked before anything is allocated
+mark
+journeymen debug as Admin 2 4500 100 4500 journeymen schematic materials test_sec_huge.schem
+waitlog 20 Could not load test_sec_huge\.schem: .*too large !! ends early|heap space
+journeymen debug as Admin 2 4500 100 4500 journeymen schematic materials test_sec_empty.nbt
+waitlog Could not load test_sec_empty\.nbt: .*empty !! Nothing to place
+journeymen debug as Admin 2 4500 100 4500 journeymen schematic materials test_sec_bloat.schem
+waitlog Could not load test_sec_bloat\.schem: .*too large to read !! Stone
+setblock 4496 100 4490 minecraft:chest
+journeymen debug as Secu 0 4500 100 4500 journeymen foreman chest SecBoss add 4496 100 4490 supply
+journeymen debug as Admin 2 4500 100 4500 journeymen foreman supply Secu.SecBoss test_hang.schem 4510 318 4510 none corner
+waitlog The build would reach outside the world's height limits !! Supplied|didn't fit|Not enough room
+# ---- 11: a stall reaching into a protected area
+journeymen debug protect 4530 102 4530 4534 102 4534 Mallory
+journeymen debug as Secu 2 4532 100 4527 clear @s
+journeymen debug as Secu 2 4532 100 4527 give @s journeymen:recruiters_stall
+mark
+journeymen debug as Secu 2 4532 100 4527 journeymen debug useitem 4532 99 4532 up
+waitlog \[debug useitem\] Secu on 4532, 99, 4532 up
+waitfor 5 nosprint execute if block 4532 100 4532 journeymen:recruiters_stall =~ failed
+waitfor 5 nosprint execute if block 4531 102 4532 journeymen:recruiters_stall =~ failed
+journeymen debug as Secu 2 4532 100 4527 clear @s journeymen:recruiters_stall 0
+waitlog \[debug as Secu\] Found 1 matching
+journeymen debug protect clear
+journeymen debug as Secu 2 4532 100 4527 journeymen debug useitem 4532 99 4532 up
+waitfor 5 nosprint execute if block 4531 102 4532 journeymen:recruiters_stall =~ passed

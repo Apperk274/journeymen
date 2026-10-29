@@ -42,6 +42,9 @@ final class LitematicaReader {
             if (size.getX() == 0 || size.getY() == 0 || size.getZ() == 0) {
                 throw new SchematicException("Region " + name + " has an empty size");
             }
+            if (size.getX() == Integer.MIN_VALUE || size.getY() == Integer.MIN_VALUE || size.getZ() == Integer.MIN_VALUE) {
+                throw new SchematicException("Region " + name + " is too large");
+            }
             BlockPos min = new BlockPos(minCorner(position.getX(), size.getX()), minCorner(position.getY(), size.getY()), minCorner(position.getZ(), size.getZ()));
             regions.add(new Region(name, regionTag, min, new Vec3i(Math.abs(size.getX()), Math.abs(size.getY()), Math.abs(size.getZ()))));
         }
@@ -140,7 +143,11 @@ final class LitematicaReader {
         return new BlockPos(tag.getInt("x"), tag.getInt("y"), tag.getInt("z"));
     }
 
-    private static int minCorner(int position, int size) {
-        return size > 0 ? position : position + size + 1;
+    private static int minCorner(int position, int size) throws SchematicException {
+        long corner = size > 0 ? position : (long) position + size + 1;
+        if (corner < Integer.MIN_VALUE || corner > Integer.MAX_VALUE) {
+            throw new SchematicException("Litematic region lies outside the coordinate range");
+        }
+        return (int) corner;
     }
 }

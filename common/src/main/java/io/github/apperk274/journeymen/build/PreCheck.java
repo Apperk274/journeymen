@@ -1,6 +1,5 @@
 package io.github.apperk274.journeymen.build;
 
-import com.mojang.authlib.GameProfile;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
@@ -15,7 +14,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -48,20 +46,28 @@ public final class PreCheck {
         this.area = area;
     }
 
+    @Nullable
+    public static String sizeProblem(ServerLevel level, Vec3i size, BoundingBox area) {
+        long volume = (long) size.getX() * size.getY() * size.getZ();
+        if (volume > JourneymenConfig.MAX_JOB_VOLUME.get()) {
+            return "The schematic is too large (" + volume + " blocks; the limit is " + JourneymenConfig.MAX_JOB_VOLUME.get() + ").";
+        }
+        if (area.minY() < level.getMinBuildHeight() || area.maxY() >= level.getMaxBuildHeight()) {
+            return "The build would reach outside the world's height limits (" + level.getMinBuildHeight() + " to "
+                    + (level.getMaxBuildHeight() - 1) + ").";
+        }
+        return null;
+    }
+
     public static PreCheck run(ForemanEntity foreman, Schematic schematic, PlacementTransform transform, BuildOptions options) {
         ServerLevel level = (ServerLevel) foreman.level();
         Vec3i size = schematic.getSize();
         PreCheck check = new PreCheck(transform.area(size));
         BoundingBox area = check.area;
 
-        long volume = (long) size.getX() * size.getY() * size.getZ();
-        if (volume > JourneymenConfig.MAX_JOB_VOLUME.get()) {
-            check.problem("The schematic is too large (" + volume + " blocks; the limit is " + JourneymenConfig.MAX_JOB_VOLUME.get() + ").");
-            return check;
-        }
-        if (area.minY() < level.getMinBuildHeight() || area.maxY() >= level.getMaxBuildHeight()) {
-            check.problem("The build would reach outside the world's height limits (" + level.getMinBuildHeight() + " to "
-                    + (level.getMaxBuildHeight() - 1) + ").");
+        String sizeProblem = sizeProblem(level, size, area);
+        if (sizeProblem != null) {
+            check.problem(sizeProblem);
             return check;
         }
         if (foreman.getOwner() == null) {
@@ -127,18 +133,12 @@ public final class PreCheck {
 
         Set<BlockPos> positions = new LinkedHashSet<>(plan.getToClear());
         plan.getToPlace().forEach(placement -> positions.add(placement.pos()));
-        ServerPlayer actor = Services.PLATFORM.getFakePlayer(level, new GameProfile(foreman.getOwner(), foreman.getOwnerName()));
+        ServerPlayer actor = OwnerRights.actor(level, foreman.getOwner(), foreman.getOwnerName());
         List<BlockPos> denied = new ArrayList<>();
-        ItemStack held = actor.getMainHandItem();
-        actor.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        try {
-            for (BlockPos pos : positions) {
-                if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayStartBreaking(actor, pos)) {
-                    denied.add(pos);
-                }
+        for (BlockPos pos : positions) {
+            if (!OwnerRights.mayStartBreaking(actor, pos)) {
+                denied.add(pos);
             }
-        } finally {
-            actor.setItemInHand(InteractionHand.MAIN_HAND, held);
         }
         if (!denied.isEmpty()) {
             check.problem(foreman.getOwnerName() + " isn't allowed to build at " + denied.size() + " position(s) of the site (spawn protection or a claim), e.g. "
@@ -151,6 +151,9 @@ public final class PreCheck {
                 : working.size() == 1 ? working.get(0).getJourneymanName() + "'s inventory" : "the inventories of " + Crew.names(working);
         check.stockNote = "Counted " + counted + (working.size() > 1 ? ", and " : " and ") + foreman.getJourneymanName() + "'s " + chests + ".";
         for (AssignedChest chest : foreman.getChests()) {
+            if (level.isLoaded(chest.pos()) && ItemStores.isLocked(level, chest.pos())) {
+                check.warning("The " + chest.role().id() + " chest at " + chest.pos().toShortString() + " is locked, so the crew can't use it.");
+            }
             BlockPos other = Crew.otherChestHalf(level, chest.pos());
             if (area.isInside(chest.pos()) || other != null && area.isInside(other)) {
                 BlockPos pos = chest.pos();

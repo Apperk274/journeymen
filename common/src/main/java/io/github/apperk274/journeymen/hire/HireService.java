@@ -21,7 +21,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,6 +35,7 @@ public final class HireService {
 
     public static final double RANGE = 8.0;
     private static final int[][] BESIDE = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}};
+    private static final int[][] STALL_FRONT = {{0, -1}, {-1, -1}, {1, -1}, {0, -2}, {-1, -2}, {1, -2}};
 
     private HireService() {
     }
@@ -42,12 +45,28 @@ public final class HireService {
         return HirePrice.parse(JourneymenConfig.HIRE_COST_ITEM.get());
     }
 
-    public static int foremanPrice(int owned) {
-        return JourneymenConfig.FOREMAN_COST_BASE.get() + JourneymenConfig.FOREMAN_COST_STEP.get() * owned;
+    public static long foremanPrice(int owned) {
+        return price(JourneymenConfig.FOREMAN_COST_BASE.get(), JourneymenConfig.FOREMAN_COST_STEP.get(), owned);
     }
 
-    public static int builderPrice(int owned) {
-        return JourneymenConfig.HIRE_COST_BASE.get() + JourneymenConfig.HIRE_COST_STEP.get() * owned;
+    public static long builderPrice(int owned) {
+        return price(JourneymenConfig.HIRE_COST_BASE.get(), JourneymenConfig.HIRE_COST_STEP.get(), owned);
+    }
+
+    private static long price(long base, long step, long owned) {
+        try {
+            return Math.addExact(base, Math.multiplyExact(step, owned));
+        } catch (ArithmeticException e) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    public static boolean payable(long price) {
+        return price >= 0 && price <= Integer.MAX_VALUE;
+    }
+
+    public static int shownPrice(long price) {
+        return (int) Math.max(0, Math.min(Integer.MAX_VALUE, price));
     }
 
     public static int owned(ServerPlayer player, JourneymanRegistry.Kind kind) {
@@ -63,7 +82,7 @@ public final class HireService {
         }
         int owned = owned(player, JourneymanRegistry.Kind.FOREMAN);
         String name = JourneymanNames.random(player.getRandom(), new HashSet<>(JourneymanRegistry.get(player.server).namesOf(player.getUUID())));
-        Services.NETWORK.sendToPlayer(player, new OpenHireScreenPayload(recruiter.getId(), cost.display(player.getInventory(), foremanPrice(owned)),
+        Services.NETWORK.sendToPlayer(player, new OpenHireScreenPayload(recruiter.getId(), cost.display(player.getInventory(), shownPrice(foremanPrice(owned))),
                 JourneymenConfig.HIRE_COST_ITEM.get(), owned, JourneymenConfig.MAX_FOREMEN_PER_PLAYER.get(), name));
     }
 
@@ -119,20 +138,22 @@ public final class HireService {
         if (problem != null) {
             return error(problem);
         }
-        int price = foremanPrice(owned);
-        Payment payment = pay(player, cost, price, "a foreman");
+        Payment payment = payment(player, cost, foremanPrice(owned), "a foreman", "foreman_cost_base or foreman_cost_step");
         if (payment.error() != null) {
             return List.of(payment.error());
         }
         ServerLevel level = player.serverLevel();
         BlockState core = level.getBlockState(origin);
         Direction facing = core.getValue(RecruitersStallBlock.FACING);
-        BlockPos spot = StallPart.offset(origin, facing, 0, 0, -1);
-        ForemanEntity foreman = spawnForeman(level, player.getUUID(), player.getGameProfile().getName(), name, Vec3.atBottomCenterOf(spot),
-                facing.toYRot());
-        if (foreman == null) {
-            return error("Could not hire a foreman.");
+        Vec3 spot = stallSpot(level, origin, facing);
+        if (spot == null) {
+            return error("There is no room in front of the stall for a new foreman. Clear the space in front of the counter.");
         }
+        ForemanEntity foreman = spawnForeman(level, player.getUUID(), player.getGameProfile().getName(), name, spot, facing.toYRot());
+        if (foreman == null) {
+            return error("Could not hire a foreman. Nothing was paid.");
+        }
+        charge(player, cost, payment);
         return List.of(Component.literal("You hired " + name + " for ").append(payment.paid())
                 .append(Component.literal(". He hires builders for you: /journeymen foreman hire " + name + ".")).withStyle(ChatFormatting.GREEN));
     }
@@ -168,15 +189,19 @@ public final class HireService {
         if (problem != null) {
             return error(problem);
         }
-        int price = builderPrice(owned);
-        Payment payment = pay(player, cost, price, "a builder");
+        Payment payment = payment(player, cost, builderPrice(owned), "a builder", "hire_cost_base or hire_cost_step");
         if (payment.error() != null) {
             return List.of(payment.error());
         }
-        BuilderEntity builder = spawnBuilder((ServerLevel) foreman.level(), foreman, name, besideOf(foreman), foreman.getYRot());
-        if (builder == null) {
-            return error("Could not hire a builder.");
+        Vec3 spot = besideOf(foreman);
+        if (spot == null) {
+            return error("There is no room next to " + foreman.getJourneymanName() + " for a new builder.");
         }
+        BuilderEntity builder = spawnBuilder((ServerLevel) foreman.level(), foreman, name, spot, foreman.getYRot());
+        if (builder == null) {
+            return error("Could not hire a builder. Nothing was paid.");
+        }
+        charge(player, cost, payment);
         return List.of(Component.literal(foreman.getJourneymanName() + " hired " + name + " for ").append(payment.paid())
                 .append(Component.literal(".")).withStyle(ChatFormatting.GREEN));
     }
@@ -206,37 +231,64 @@ public final class HireService {
         return null;
     }
 
-    private record Payment(@Nullable Component paid, @Nullable Component error) {
+    private record Payment(int amount, @Nullable Component paid, @Nullable Component error) {
     }
 
-    private static Payment pay(ServerPlayer player, HirePrice cost, int price, String what) {
-        int have = cost.count(player.getInventory());
+    private static Payment payment(ServerPlayer player, HirePrice cost, long price, String what, String keys) {
         Component itemName = cost.display(player.getInventory(), 1).getHoverName();
-        if (!player.getAbilities().instabuild && have < price) {
-            return new Payment(null, Component.literal("Hiring " + what + " costs " + price + " ").append(itemName)
+        boolean free = player.getAbilities().instabuild;
+        if (!free && !payable(price)) {
+            return new Payment(0, null, Component.literal("A" + what.substring(1) + " would cost more than " + Integer.MAX_VALUE + " ").append(itemName)
+                    .append(Component.literal(" now, which nobody can pay. Ask an admin to lower " + keys + " in the Journeymen config."))
+                    .withStyle(ChatFormatting.RED));
+        }
+        int amount = shownPrice(price);
+        int have = cost.count(player.getInventory());
+        if (!free && have < amount) {
+            return new Payment(0, null, Component.literal("Hiring " + what + " costs " + amount + " ").append(itemName)
                     .append(Component.literal(", but you only have " + have + ".")).withStyle(ChatFormatting.RED));
         }
-        if (!player.getAbilities().instabuild) {
-            player.getInventory().clearOrCountMatchingItems(cost::matches, price, player.inventoryMenu.getCraftSlots());
+        return new Payment(free ? 0 : amount, Component.literal(amount + " ").append(itemName), null);
+    }
+
+    private static void charge(ServerPlayer player, HirePrice cost, Payment payment) {
+        if (payment.amount() > 0) {
+            player.getInventory().clearOrCountMatchingItems(cost::matches, payment.amount(), player.inventoryMenu.getCraftSlots());
         }
-        return new Payment(Component.literal(price + " ").append(itemName), null);
     }
 
     private static List<Component> error(String message) {
         return List.of(Component.literal(message).withStyle(ChatFormatting.RED));
     }
 
+    @Nullable
     public static Vec3 besideOf(JourneymanEntity journeyman) {
         ServerLevel level = (ServerLevel) journeyman.level();
         BlockPos base = journeyman.blockPosition();
         for (int[] offset : BESIDE) {
             BlockPos pos = base.offset(offset[0], 0, offset[1]);
             Vec3 feet = Vec3.atBottomCenterOf(pos);
-            if (level.noCollision(journeyman.getType().getDimensions().makeBoundingBox(feet)) && !level.getBlockState(pos.below()).isAir()) {
+            if (fits(level, ModEntities.BUILDER, feet) && !level.getBlockState(pos.below()).isAir()) {
                 return feet;
             }
         }
-        return journeyman.position();
+        return fits(level, ModEntities.BUILDER, journeyman.position()) ? journeyman.position() : null;
+    }
+
+    @Nullable
+    private static Vec3 stallSpot(ServerLevel level, BlockPos origin, Direction facing) {
+        for (int[] offset : STALL_FRONT) {
+            Vec3 feet = Vec3.atBottomCenterOf(StallPart.offset(origin, facing, offset[0], 0, offset[1]));
+            if (fits(level, ModEntities.FOREMAN, feet)) {
+                return feet;
+            }
+        }
+        return null;
+    }
+
+    private static boolean fits(ServerLevel level, EntityType<?> type, Vec3 feet) {
+        AABB box = type.getDimensions().makeBoundingBox(feet);
+        return level.getWorldBorder().isWithinBounds(BlockPos.containing(feet)) && level.noCollision(box) && !level.containsAnyLiquid(box);
     }
 
     @Nullable

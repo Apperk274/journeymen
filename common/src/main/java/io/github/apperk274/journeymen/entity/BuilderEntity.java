@@ -1,6 +1,5 @@
 package io.github.apperk274.journeymen.entity;
 
-import com.mojang.authlib.GameProfile;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.BlockRequirements;
@@ -15,6 +14,7 @@ import io.github.apperk274.journeymen.build.ItemCounter;
 import io.github.apperk274.journeymen.build.ItemMatch;
 import io.github.apperk274.journeymen.build.ItemStore;
 import io.github.apperk274.journeymen.build.ItemStores;
+import io.github.apperk274.journeymen.build.OwnerRights;
 import io.github.apperk274.journeymen.build.PlacingTask;
 import io.github.apperk274.journeymen.build.PlacingWork;
 import io.github.apperk274.journeymen.build.PreCheck;
@@ -1036,7 +1036,7 @@ public class BuilderEntity extends JourneymanEntity {
 
     public ServerPlayer actor() {
         ServerLevel serverLevel = (ServerLevel) level();
-        ServerPlayer actor = Services.PLATFORM.getFakePlayer(serverLevel, new GameProfile(getOwner(), getOwnerName()));
+        ServerPlayer actor = OwnerRights.actor(serverLevel, getOwner(), getOwnerName());
         if (actor.gameMode.getGameModeForPlayer() != GameType.SURVIVAL) {
             actor.setGameMode(GameType.SURVIVAL);
         }
@@ -1990,6 +1990,7 @@ public class BuilderEntity extends JourneymanEntity {
             case GONE -> dumpChests("My", positions) + (positions.size() == 1 ? " is gone." : " are gone.");
             case UNLOADED -> dumpChests("My", positions) + (positions.size() == 1 ? " isn't loaded." : " aren't loaded.");
             case UNREACHABLE -> dumpChests("My builders can't get to my", positions) + ".";
+            case LOCKED -> dumpChests("My", positions) + (positions.size() == 1 ? " is locked." : " are locked.");
         }));
         if (!full.isEmpty()) {
             sentences.add(dumpChests("My", full) + (full.size() == 1 ? " is full." : " are full."));
@@ -2002,6 +2003,7 @@ public class BuilderEntity extends JourneymanEntity {
                     case UNLOADED -> "Load " + (several ? "their" : "its") + " area or give me another one with " + command + ".";
                     case UNREACHABLE -> "Clear a way to " + (several ? "them" : "it") + " (they need to get within " + (int) ChestVisit.REACH
                             + " blocks) or give me another one with " + command + ".";
+                    case LOCKED -> "Unlock " + (several ? "them" : "it") + " or give me another one with " + command + ".";
                 };
         return String.join(" ", sentences) + consequence + " " + fix;
     }
@@ -2026,6 +2028,8 @@ public class BuilderEntity extends JourneymanEntity {
             }
             if (!level().isLoaded(chest.pos())) {
                 problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" isn't loaded.");
+            } else if (ItemStores.isLocked(level(), chest.pos())) {
+                problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" is locked.");
             } else if (ItemStores.at(level(), chest.pos()) == null) {
                 problems.append(" My supply chest at ").append(chest.pos().toShortString()).append(" is gone.");
             } else if (isUnreachable(chest.pos())) {

@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen.menu;
 
 import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.ItemStores;
+import io.github.apperk274.journeymen.build.OwnerRights;
 import io.github.apperk274.journeymen.entity.ForemanEntity;
 import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
@@ -41,7 +42,7 @@ public final class LinkModeService {
 
     public static boolean onUseBlock(ServerPlayer player, BlockPos pos) {
         Session session = SESSIONS.get(player.getUUID());
-        if (session == null) {
+        if (session == null || OwnerRights.isProbing()) {
             return false;
         }
         Entity entity = player.level().getEntity(session.foremanId());
@@ -49,7 +50,7 @@ public final class LinkModeService {
             stop(player, "Linking chests has ended.");
             return false;
         }
-        if (ItemStores.at(player.level(), pos) == null) {
+        if (ItemStores.at(player.level(), pos) == null && !ItemStores.isLocked(player.level(), pos)) {
             player.displayClientMessage(Component.literal("That isn't a chest or other container.").withStyle(ChatFormatting.RED), true);
             return true;
         }

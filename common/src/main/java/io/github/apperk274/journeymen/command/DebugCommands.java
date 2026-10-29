@@ -27,12 +27,16 @@ import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.GameModeArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.commands.arguments.coordinates.Vec3Argument;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -66,6 +70,16 @@ public class DebugCommands {
                 .then(Commands.literal("use")
                         .then(Commands.argument("pos", BlockPosArgument.blockPos())
                                 .executes(DebugCommands::use)))
+                .then(Commands.literal("useitem")
+                        .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                                .then(Commands.argument("face", StringArgumentType.word())
+                                        .executes(DebugCommands::useItem))))
+                .then(Commands.literal("protect")
+                        .then(Commands.literal("clear").executes(DebugCommands::protectClear))
+                        .then(Commands.argument("from", BlockPosArgument.blockPos())
+                                .then(Commands.argument("to", BlockPosArgument.blockPos())
+                                        .then(Commands.argument("allowed", StringArgumentType.word())
+                                                .executes(DebugCommands::protect)))))
                 .then(Commands.literal("interact")
                         .then(Commands.argument("entity", EntityArgument.entity())
                                 .executes(DebugCommands::interact)))
@@ -118,6 +132,37 @@ public class DebugCommands {
         boolean handled = LinkModeService.onUseBlock(player, BlockPosArgument.getBlockPos(context, "pos"));
         Constants.LOG.info("[debug use] handled={}", handled);
         return 1;
+    }
+
+    private static int useItem(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
+        Direction face = Direction.byName(StringArgumentType.getString(context, "face"));
+        if (face == null) {
+            throw JourneymenCommand.fail("Unknown face " + StringArgumentType.getString(context, "face") + ".");
+        }
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos).relative(face, 0.5), face, pos, false);
+        InteractionResult result = player.gameMode.useItemOn(player, player.serverLevel(), player.getMainHandItem(), InteractionHand.MAIN_HAND, hit);
+        Constants.LOG.info("[debug useitem] {} on {} {}: {}", player.getGameProfile().getName(), pos.toShortString(), face.getName(), result);
+        return 1;
+    }
+
+    private static int protect(CommandContext<CommandSourceStack> context) {
+        BoundingBox box = BoundingBox.fromCorners(BlockPosArgument.getBlockPos(context, "from"), BlockPosArgument.getBlockPos(context, "to"));
+        String allowed = StringArgumentType.getString(context, "allowed");
+        DebugProtection.add(box, allowed);
+        String result = "Protected " + box.minX() + " " + box.minY() + " " + box.minZ() + " to " + box.maxX() + " " + box.maxY() + " " + box.maxZ()
+                + (allowed.equals(DebugProtection.ANYONE) ? " for nobody (watched only)" : " for everyone but " + allowed);
+        Constants.LOG.info("[debug protect] {}", result);
+        context.getSource().sendSuccess(() -> Component.literal(result), false);
+        return 1;
+    }
+
+    private static int protectClear(CommandContext<CommandSourceStack> context) {
+        int count = DebugProtection.clear();
+        Constants.LOG.info("[debug protect] cleared {} areas", count);
+        context.getSource().sendSuccess(() -> Component.literal("Cleared " + count + " protected areas"), false);
+        return count;
     }
 
     private static int interact(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

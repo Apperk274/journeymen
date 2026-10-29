@@ -214,7 +214,7 @@ public final class PlacingTask {
             return Status.WORKING;
         }
         ServerPlayer actor = builder.actor();
-        if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayPlace(actor, pos, placeState)) {
+        if (!OwnerRights.mayPlace(actor, pos, placeState)) {
             work.skipped.add(pos);
             return finish(false);
         }
@@ -293,8 +293,8 @@ public final class PlacingTask {
         List<ItemStack> unused = new ArrayList<>();
         if (blockEntity instanceof SignBlockEntity sign) {
             if (template instanceof SignBlockEntity source) {
-                sign.setText(source.getFrontText(), true);
-                sign.setText(source.getBackText(), false);
+                sign.setText(SafeText.sign(source.getFrontText()), true);
+                sign.setText(SafeText.sign(source.getBackText()), false);
             }
         } else if (blockEntity instanceof DecoratedPotBlockEntity pot) {
             pot.setTheItem(extras.get(0));
@@ -372,7 +372,7 @@ public final class PlacingTask {
             return Status.NEEDS_ITEMS;
         }
         ServerPlayer actor = builder.actor();
-        if (!level.mayInteract(actor, pos) || !Services.PLATFORM.mayPlace(actor, pos, target)) {
+        if (!OwnerRights.mayPlace(actor, pos, target)) {
             work.skipped.add(pos);
             return finish(false);
         }

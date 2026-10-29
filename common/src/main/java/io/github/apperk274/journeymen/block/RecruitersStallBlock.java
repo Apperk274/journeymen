@@ -1,11 +1,15 @@
 package io.github.apperk274.journeymen.block;
 
 import com.mojang.serialization.MapCodec;
+import io.github.apperk274.journeymen.build.OwnerRights;
 import io.github.apperk274.journeymen.entity.ModEntities;
 import io.github.apperk274.journeymen.entity.RecruiterEntity;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -68,7 +72,22 @@ public class RecruitersStallBlock extends HorizontalDirectionalBlock {
         if (!hasRoom(context.getLevel(), context.getClickedPos(), facing)) {
             return null;
         }
+        if (context.getPlayer() instanceof ServerPlayer player && !mayBuildParts(player, context.getClickedPos(), facing)) {
+            player.displayClientMessage(Component.literal("Part of the stall would be where you aren't allowed to build.")
+                    .withStyle(ChatFormatting.RED), true);
+            return null;
+        }
         return defaultBlockState().setValue(FACING, facing).setValue(PART, StallPart.COUNTER_MIDDLE);
+    }
+
+    private boolean mayBuildParts(ServerPlayer player, BlockPos origin, Direction facing) {
+        for (StallPart part : StallPart.values()) {
+            if (part != StallPart.COUNTER_MIDDLE && !OwnerRights.mayPlace(player, part.positionFrom(origin, facing),
+                    defaultBlockState().setValue(FACING, facing).setValue(PART, part))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static boolean hasRoom(Level level, BlockPos origin, Direction facing) {
