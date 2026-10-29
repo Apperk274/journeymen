@@ -1024,8 +1024,13 @@ public final class PlacingTask {
         ItemCounter carried = builder.countInventory();
         ItemCounter fetchable = builder.fetchableStock();
         ItemCounter othersHold = builder.heldByOtherMembers();
+        ItemCounter returned = builder.returnedItems();
+        for (Map.Entry<ItemStack, Long> entry : returned.entries()) {
+            othersHold.add(entry.getKey(), fetchable.remove(entry.getKey(), Long.MAX_VALUE));
+        }
         List<Entry> suppliable = new ArrayList<>();
         List<Entry> preferred = new ArrayList<>();
+        ItemCounter wants = new ItemCounter();
         Entry missing = null;
         for (Entry entry : candidates) {
             List<ItemStack> items = itemsFor(entry);
@@ -1038,8 +1043,18 @@ public final class PlacingTask {
                 if (toolReady(entry)) {
                     suppliable.add(entry);
                 }
-            } else if (!covers(items, carried, fetchable, othersHold) && missing == null) {
-                missing = entry;
+            } else if (!covers(items, carried, fetchable, othersHold)) {
+                if (missing == null) {
+                    missing = entry;
+                }
+            } else {
+                ItemCounter need = new ItemCounter();
+                items.forEach(stack -> need.add(stack, stack.getCount()));
+                for (Map.Entry<ItemStack, Long> item : need.entries()) {
+                    if (returned.count(item.getKey()) == 0) {
+                        wants.add(item.getKey(), item.getValue() - carried.count(item.getKey()) - fetchable.count(item.getKey()));
+                    }
+                }
             }
         }
         if (suppliable.isEmpty()) {
@@ -1049,11 +1064,11 @@ public final class PlacingTask {
                 missingGroup = group;
                 idleStatus = Status.MISSING;
             } else {
-                crew.setStarving(me, true);
+                crew.starve(me, wants);
             }
             return null;
         }
-        crew.setStarving(me, false);
+        crew.stopStarving(me);
         Entry first = reach.choose(builder, preferred.isEmpty() ? suppliable : preferred, Entry::pos,
                 group == work.fluids ? fluidAvoid() : Reach.AVOID_NOTHING);
         if (first == null) {
@@ -1154,6 +1169,12 @@ public final class PlacingTask {
         }
         for (Entry entry : batch) {
             itemsFor(entry).forEach(stack -> needs.add(stack, stack.getCount()));
+            if (toolUseOf(entry) == BlockRequirements.ToolUse.HOE) {
+                Entry crop = findEntry(work.dependents, entry.pos().above());
+                if (crop != null) {
+                    itemsFor(crop).forEach(stack -> needs.add(stack, stack.getCount()));
+                }
+            }
         }
         return needs;
     }

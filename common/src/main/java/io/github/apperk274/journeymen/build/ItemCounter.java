@@ -42,6 +42,11 @@ public final class ItemCounter {
         return removed;
     }
 
+    public void clear() {
+        counts.clear();
+        examples.clear();
+    }
+
     public ItemCounter copy() {
         ItemCounter copy = new ItemCounter();
         copy.counts.putAll(counts);

@@ -1,0 +1,36 @@
+forceload add 8192 4864 8319 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 8192 99 4864 8319 99 4927 minecraft:smooth_stone
+fill 8192 100 4864 8319 107 4895 minecraft:air
+fill 8192 100 4896 8319 107 4927 minecraft:air
+kill @e[type=item,x=8192,y=80,z=4864,dx=127,dy=100,dz=63]
+# a crew of five builds 2000 blocks of 40 kinds (layers of eight kinds each, then stairs, then slabs) with the exact supply: a builder never takes back from a supply chest what it put back on the same trip or since its last fetch (`debug counts` refetches)
+setblock 8200 100 4870 minecraft:chest[facing=south,type=left]
+setblock 8201 100 4870 minecraft:chest[facing=south,type=right]
+setblock 8204 100 4870 minecraft:chest[facing=south,type=left]
+setblock 8205 100 4870 minecraft:chest[facing=south,type=right]
+setblock 8208 100 4870 minecraft:chest
+journeymen debug as Steve 2 8202 100 4874 journeymen foreman summon ChurnBoss
+journeymen debug as Steve 2 8201.5 100 4872.5 journeymen builder summon ChurnBoss Chua
+journeymen debug as Steve 2 8202.5 100 4872.5 journeymen builder summon ChurnBoss Chub
+journeymen debug as Steve 2 8203.5 100 4872.5 journeymen builder summon ChurnBoss Chuc
+journeymen debug as Steve 2 8204.5 100 4872.5 journeymen builder summon ChurnBoss Chud
+journeymen debug as Steve 2 8205.5 100 4872.5 journeymen builder summon ChurnBoss Chue
+journeymen debug as Steve 0 8202 100 4874 journeymen foreman chest ChurnBoss add 8200 100 4870 supply
+journeymen debug as Steve 0 8202 100 4874 journeymen foreman chest ChurnBoss add 8204 100 4870 supply
+journeymen debug as Steve 0 8202 100 4874 journeymen foreman chest ChurnBoss add 8208 100 4870 dump
+journeymen debug as Steve 2 8202 100 4874 journeymen foreman supply ChurnBoss test_churn.schem 8200 100 4880 none corner
+waitlog \] Supplied \d+ items
+journeymen debug counts
+waitlog \[debug counts\] Steve\.Chue \d+ hand-back checks
+mark
+journeymen debug as Steve 0 8202 100 4874 journeymen foreman build ChurnBoss test_churn.schem 8200 100 4880 none corner
+waitlog nosprint ChurnBoss's crew is on the way: Chua, Chub, Chuc, Chud and Chue\. !!
+waitlog 60 \[Steve\.ChurnBoss\] I finished building test_churn\.schem !! can't start this job|\] I'm missing |\] I need |inventory is full|no room|I couldn't build|Exception|which another builder claimed
+journeymen debug counts
+waitlog x5 \[debug counts\] Steve\.Chu[a-e] \d+ hand-back checks, 0 refetches
+mark
+journeymen debug as Steve 0 8202 100 4874 journeymen foreman check ChurnBoss test_churn.schem 8200 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust

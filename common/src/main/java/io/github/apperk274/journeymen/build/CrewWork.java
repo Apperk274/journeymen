@@ -5,7 +5,6 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -22,7 +21,7 @@ public final class CrewWork {
     private boolean clearedAny;
     private final Map<BlockPos, UUID> claims = new HashMap<>();
     private final Map<UUID, ItemCounter> reservations = new HashMap<>();
-    private final Set<UUID> starving = new HashSet<>();
+    private final Map<UUID, ItemCounter> starving = new HashMap<>();
     private final Map<BlockPos, Long> unreachable = new HashMap<>();
     private int stockVersion;
     private long noSourcesUntil;
@@ -123,28 +122,29 @@ public final class CrewWork {
     public void keepOnly(Set<UUID> active) {
         claims.values().removeIf(owner -> !active.contains(owner));
         reservations.keySet().removeIf(owner -> !active.contains(owner));
-        starving.removeIf(owner -> !active.contains(owner));
+        starving.keySet().removeIf(owner -> !active.contains(owner));
     }
 
-    public void setStarving(UUID member, boolean waiting) {
-        if (waiting) {
-            starving.add(member);
-        } else {
-            starving.remove(member);
-        }
+    public void starve(UUID member, ItemCounter wants) {
+        starving.put(member, wants);
+    }
+
+    public void stopStarving(UUID member) {
+        starving.remove(member);
     }
 
     public boolean anyStarving() {
         return !starving.isEmpty();
     }
 
-    public boolean othersStarving(UUID member) {
-        for (UUID other : starving) {
+    public ItemCounter wantedByOthers(UUID member) {
+        ItemCounter wanted = new ItemCounter();
+        starving.forEach((other, wants) -> {
             if (!other.equals(member)) {
-                return true;
+                wants.entries().forEach(entry -> wanted.add(entry.getKey(), entry.getValue()));
             }
-        }
-        return false;
+        });
+        return wanted;
     }
 
     public void markUnreachable(BlockPos chest, long now) {

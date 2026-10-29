@@ -321,6 +321,19 @@ def inv_paths():
     return blocks
 
 
+def churn(n=20):
+    stairs = ["oak_stairs", "spruce_stairs", "birch_stairs", "jungle_stairs", "acacia_stairs", "dark_oak_stairs", "mangrove_stairs", "cherry_stairs"]
+    slabs = ["oak_slab", "spruce_slab", "birch_slab", "jungle_slab", "acacia_slab", "dark_oak_slab", "mangrove_slab", "cherry_slab"]
+    blocks = {}
+    for x in range(n):
+        for z in range(n):
+            for y in range(3):
+                blocks[(x, y, z)] = state(BOX_KINDS[(y * 8 + (x * 3 + z) % 8) % len(BOX_KINDS)])
+            blocks[(x, 3, z)] = state(stairs[(x + z) % 8], facing="north", half="bottom", shape="straight", waterlogged=False)
+            blocks[(x, 4, z)] = state(slabs[(x * 5 + z) % 8], type="bottom", waterlogged=False)
+    return blocks
+
+
 def reclear(kind):
     return {(x, 0, 0): state(kind) for x in range(16)}
 
@@ -384,6 +397,7 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_big_dig.schem"), (200, 10, 200), {})
     write_sponge_v3(os.path.join(out, "test_inv_paths.schem"), (10, 4, 5), inv_paths())
     write_sponge_v3(os.path.join(out, "test_inv_pots.schem"), (4, 1, 1), {(x, 0, 0): state("potted_dandelion") for x in range(4)})
+    write_sponge_v3(os.path.join(out, "test_churn.schem"), (20, 5, 20), churn())
     for kind in ("oak_planks", "cobblestone", "stone"):
         write_sponge_v3(os.path.join(out, "test_reclear_" + kind + ".schem"), (16, 1, 2), reclear(kind))
     if "run-tfc" in out.replace("\\", "/"):

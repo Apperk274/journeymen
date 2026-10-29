@@ -400,7 +400,8 @@ public class DebugCommands {
                 if (entity instanceof ForemanEntity foreman) {
                     lines.add(foreman.qualifiedName() + " " + foreman.takePostSearches() + " post searches");
                 } else if (entity instanceof BuilderEntity builder) {
-                    lines.add(builder.qualifiedName() + " " + builder.takeHandBackChecks() + " hand-back checks");
+                    lines.add(builder.qualifiedName() + " " + builder.takeHandBackChecks() + " hand-back checks, " + builder.takeRefetches()
+                            + " refetches");
                 }
             }
         }
