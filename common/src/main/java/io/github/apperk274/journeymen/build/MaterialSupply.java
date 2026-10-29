@@ -11,7 +11,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Rotation;
@@ -66,7 +65,7 @@ public final class MaterialSupply {
             toolUses.merge(tool, (long) (component == null ? 1 : Math.max(1, component.damagePerBlock())), Long::sum);
         }
         requirements.toolUses().forEach((use, count) ->
-                toolUses.merge(use == BlockRequirements.ToolUse.HOE ? Items.WOODEN_HOE : Items.WOODEN_SHOVEL, (long) count, Long::sum));
+                toolUses.merge(use.cheapestTool(), (long) count, Long::sum));
         toolUses.forEach((tool, uses) -> items.add(new ItemStack(tool), toolsFor(new ItemStack(tool), uses)));
         return new Needs(stacks(items), requirements.unobtainable(), noKnownTool);
     }
@@ -92,7 +91,7 @@ public final class MaterialSupply {
                 addTools(items, tools, tool, (long) widest.missing() * perBlock);
             } else {
                 for (ToolCheck.UseShortfall shortfall : shortfalls.uses()) {
-                    addTools(items, tools, new ItemStack(shortfall.use() == BlockRequirements.ToolUse.HOE ? Items.WOODEN_HOE : Items.WOODEN_SHOVEL),
+                    addTools(items, tools, new ItemStack(shortfall.use().cheapestTool()),
                             shortfall.missing());
                 }
             }

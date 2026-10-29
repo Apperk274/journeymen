@@ -75,6 +75,9 @@ public class NeoForgeCompatHelper implements ICompatHelper {
     @Nullable
     @Override
     public BlockState toolModifiedState(ServerLevel level, BlockState state, BlockRequirements.ToolUse use) {
+        if (use == BlockRequirements.ToolUse.IGNITE) {
+            return null;
+        }
         BlockPos pos = new BlockPos(0, level.getMaxBuildHeight() - 1, 0);
         ItemStack tool = new ItemStack(use == BlockRequirements.ToolUse.HOE ? Items.IRON_HOE : Items.IRON_SHOVEL);
         UseOnContext context = new UseOnContext(level, null, InteractionHand.MAIN_HAND, tool,
@@ -89,11 +92,15 @@ public class NeoForgeCompatHelper implements ICompatHelper {
 
     @Override
     public boolean canDo(ItemStack stack, BlockRequirements.ToolUse use) {
-        return stack.canPerformAction(ability(use));
+        return stack.canPerformAction(ability(use)) && (use != BlockRequirements.ToolUse.IGNITE || stack.isDamageableItem());
     }
 
     private static ItemAbility ability(BlockRequirements.ToolUse use) {
-        return use == BlockRequirements.ToolUse.HOE ? ItemAbilities.HOE_TILL : ItemAbilities.SHOVEL_FLATTEN;
+        return switch (use) {
+            case HOE -> ItemAbilities.HOE_TILL;
+            case SHOVEL -> ItemAbilities.SHOVEL_FLATTEN;
+            case IGNITE -> ItemAbilities.FIRESTARTER_LIGHT;
+        };
     }
 
     private record HandlerStore(IItemHandler handler) implements ItemStore {

@@ -46,6 +46,8 @@ public final class BuildPlan {
     private final List<BlockPos> fluidsInTheWay = new ArrayList<>();
     private final List<BlockPos> flowingInTheWay = new ArrayList<>();
     private final Set<BlockPos> inWaterSource = new HashSet<>();
+    private final Set<BlockPos> onBase = new HashSet<>();
+    private final List<BlockPos> growthRoots = new ArrayList<>();
     @Nullable
     private Function<BlockPos, BlockState> schematicStates;
     private final Map<Block, Integer> unplaceable = new LinkedHashMap<>();
@@ -92,7 +94,22 @@ public final class BuildPlan {
                 }
             }
         }
+        plan.keepGrowth(level, neighbours);
         return plan;
+    }
+
+    private void keepGrowth(ServerLevel level, Function<BlockPos, BlockState> targets) {
+        if (growthRoots.isEmpty()) {
+            return;
+        }
+        Set<BlockPos> grown = Growth.grownInto(level, growthRoots,
+                at -> area.isInside(at) && Growth.roomToGrow(targets.apply(at), level.getBlockState(at)), targets);
+        if (grown.isEmpty()) {
+            return;
+        }
+        toClear.removeAll(grown);
+        toPlace.removeIf(placement -> grown.contains(placement.pos()));
+        doneCount += grown.size();
     }
 
     public static Function<BlockPos, BlockState> neighbours(@Nullable ServerLevel level, Schematic schematic, PlacementTransform transform) {
@@ -143,6 +160,14 @@ public final class BuildPlan {
         if (StateRules.matchesIncludingWater(target, actual)
                 || target.is(actual.getBlock()) && StateRules.matchesIncludingWater(SandboxLevel.shapedHere(level, pos, target), actual)) {
             doneCount++;
+            if (Growth.grows(target)) {
+                growthRoots.add(pos);
+            }
+            return;
+        }
+        if (Growth.grewFrom(target, actual)) {
+            doneCount++;
+            growthRoots.add(pos);
             return;
         }
         if (unmadeFrom != null) {
@@ -168,6 +193,11 @@ public final class BuildPlan {
             toFix.add(new Placement(pos, target, blockEntity));
             return;
         }
+        if (BlockRequirements.finishesOn(target, actual)) {
+            onBase.add(pos);
+            toPlace.add(new Placement(pos, target, blockEntity));
+            return;
+        }
         if (skipUnplaceable && !BlockRequirements.of(target, null, null).obtainable()) {
             unplaceable.merge(target.getBlock(), 1, Integer::sum);
             totalCount--;
@@ -187,6 +217,9 @@ public final class BuildPlan {
         Map<Block, Integer> unobtainable = new LinkedHashMap<>();
         for (Placement placement : toPlace) {
             BlockRequirements.Requirement requirement = BlockRequirements.of(placement.target(), placement.blockEntity(), registries);
+            if (onBase.contains(placement.pos())) {
+                requirement = requirement.onBaseAlready();
+            }
             if (!requirement.obtainable()) {
                 unobtainable.merge(placement.target().getBlock(), 1, Integer::sum);
                 continue;

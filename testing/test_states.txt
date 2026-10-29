@@ -1,0 +1,141 @@
+forceload add 5184 4864 5311 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+kill @e[type=armor_stand]
+kill @e[type=minecart]
+ticks 40
+fill 5184 99 4864 5311 99 4927 minecraft:stone
+fill 5184 100 4864 5215 112 4927 minecraft:air
+fill 5216 100 4864 5247 112 4927 minecraft:air
+fill 5248 100 4864 5279 112 4927 minecraft:air
+fill 5280 100 4864 5311 112 4927 minecraft:air
+kill @e[type=item]
+# filled cauldrons cost the cauldron and what fills it: a water bucket, glass bottles to take a partial level out, a lava bucket and a powder snow bucket; a partial powder snow cauldron can't be made by hand
+mark
+journeymen debug as Steve 2 5192 100 4875 journeymen schematic materials test_st_cauldron.schem
+waitlog \s4 Cauldron$
+waitlog \s2 Water bucket \(any kind\)$
+waitlog \s2 Glass Bottle$
+waitlog \s1 Lava bucket \(any kind\)$
+waitlog \s1 Powder Snow Bucket$
+setblock 5190 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5192 100 4875 journeymen foreman summon StCaul
+journeymen debug as Steve 2 5191 100 4875 journeymen builder summon StCaul Caul
+journeymen debug as Steve 0 5192 100 4875 journeymen foreman chest StCaul add 5190 100 4876 supply
+mark
+journeymen debug as Steve 0 5192 100 4875 journeymen foreman check StCaul test_st_snow_part.schem 5200 100 4870 none corner
+waitlog Can't be placed by hand: 1 Powder Snow Cauldron
+journeymen debug as Steve 2 5192 100 4875 journeymen foreman supply StCaul test_st_cauldron.schem 5190 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5192 100 4875 journeymen foreman build StCaul test_st_cauldron.schem 5190 100 4870 none corner
+waitlog nosprint StCaul's crew is on the way !!
+waitlog 20 \[Steve\.StCaul\] I finished building test_st_cauldron\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception
+waitfor 5 nosprint execute if block 5190 100 4870 minecraft:water_cauldron[level=3] =~ passed
+waitfor 5 nosprint execute if block 5192 100 4870 minecraft:water_cauldron[level=1] =~ passed
+waitfor 5 nosprint execute if block 5194 100 4870 minecraft:lava_cauldron =~ passed
+waitfor 5 nosprint execute if block 5196 100 4870 minecraft:powder_snow_cauldron[level=3] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Caul,nbt={Inventory:{Items:[{id:'minecraft:bucket',count:4}]}}] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Caul,nbt={Inventory:{Items:[{id:'minecraft:potion'}]}}] =~ passed
+mark
+journeymen debug as Steve 0 5192 100 4875 journeymen foreman check StCaul test_st_cauldron.schem 5190 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a charged respawn anchor costs glowstone, an end portal frame with an eye an eye of ender, lit candles a flint and steel use, multiface blocks one item per face; powder snow gives its bucket back
+mark
+journeymen debug as Steve 2 5212 100 4875 journeymen schematic materials test_st_items.schem
+waitlog \s6 Glowstone$
+waitlog \s1 Eye of Ender$
+waitlog \s2 Glow Lichen$
+waitlog \s2 Vines$
+waitlog \s3 Candle$
+waitlog \s1 uses of a flint and steel$
+setblock 5210 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5212 100 4875 journeymen foreman summon StItems
+journeymen debug as Steve 2 5211 100 4875 journeymen builder summon StItems Itemy
+journeymen debug as Steve 0 5212 100 4875 journeymen foreman chest StItems add 5210 100 4876 supply
+mark
+journeymen debug as Steve 0 5212 100 4875 journeymen foreman check StItems test_st_items.schem 5210 100 4869 none corner
+waitlog Needs a flint and steel with 1 more use\(s\) left
+journeymen debug as Steve 2 5212 100 4875 journeymen foreman supply StItems test_st_items.schem 5210 100 4869 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5212 100 4875 journeymen foreman build StItems test_st_items.schem 5210 100 4869 none corner
+waitlog nosprint StItems's crew is on the way !!
+waitlog 20 \[Steve\.StItems\] I finished building test_st_items\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception
+waitfor 5 nosprint execute if block 5210 100 4870 minecraft:respawn_anchor[charges=4] =~ passed
+waitfor 5 nosprint execute if block 5212 100 4870 minecraft:respawn_anchor[charges=2] =~ passed
+waitfor 5 nosprint execute if block 5214 100 4870 minecraft:end_portal_frame[eye=true] =~ passed
+waitfor 5 nosprint execute if block 5216 100 4870 minecraft:candle[candles=3,lit=true] =~ passed
+waitfor 5 nosprint execute if block 5218 100 4869 minecraft:glow_lichen[south=true,down=true] =~ passed
+waitfor 5 nosprint execute if block 5220 100 4869 minecraft:vine[south=true,east=true] =~ passed
+waitfor 5 nosprint execute if block 5222 100 4870 minecraft:powder_snow =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Itemy,nbt={Inventory:{Items:[{id:'minecraft:bucket'}]}}] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Itemy,nbt={Inventory:{Items:[{id:'minecraft:flint_and_steel',components:{'minecraft:damage':1}}]}}] =~ passed
+mark
+journeymen debug as Steve 0 5212 100 4875 journeymen foreman check StItems test_st_items.schem 5210 100 4869 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# parallel rails and a junction keep the schematic's shapes although vanilla reshapes rails when they are placed next to each other
+setblock 5230 100 4880 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5232 100 4879 journeymen foreman summon StRails
+journeymen debug as Steve 2 5231 100 4879 journeymen builder summon StRails Raily
+journeymen debug as Steve 0 5232 100 4879 journeymen foreman chest StRails add 5230 100 4880 supply
+journeymen debug as Steve 2 5232 100 4879 journeymen foreman supply StRails test_st_rails.schem 5230 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5232 100 4879 journeymen foreman build StRails test_st_rails.schem 5230 100 4870 none corner
+waitlog nosprint StRails's crew is on the way !!
+waitlog 20 \[Steve\.StRails\] I finished building test_st_rails\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception
+waitfor 5 nosprint execute if block 5230 100 4870 minecraft:rail[shape=north_south] =~ passed
+waitfor 5 nosprint execute if block 5231 100 4870 minecraft:rail[shape=north_south] =~ passed
+waitfor 5 nosprint execute if block 5230 100 4874 minecraft:rail[shape=north_south] =~ passed
+waitfor 5 nosprint execute if block 5231 100 4874 minecraft:rail[shape=north_south] =~ passed
+waitfor 5 nosprint execute if block 5233 100 4872 minecraft:rail[shape=north_south] =~ passed
+waitfor 5 nosprint execute if block 5234 100 4872 minecraft:rail[shape=east_west] =~ passed
+mark
+journeymen debug as Steve 0 5232 100 4879 journeymen foreman check StRails test_st_rails.schem 5230 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# drops that come later or farther away (bamboo above the cleared sand falls one block per tick) are captured; an item that was already lying next to the column is left alone
+setblock 5250 100 4870 minecraft:sand
+fill 5250 101 4870 5250 110 4870 minecraft:bamboo
+summon minecraft:item 5251.5 100 4870.5 {Item:{id:"minecraft:stick",count:1},PickupDelay:32767}
+setblock 5250 100 4882 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5252 100 4881 journeymen foreman summon StCasc
+journeymen debug as Steve 2 5251 100 4881 journeymen builder summon StCasc Casca
+journeymen debug as Steve 0 5252 100 4881 journeymen foreman chest StCasc add 5250 100 4882 supply
+mark
+journeymen debug as Steve 0 5252 100 4881 journeymen foreman build StCasc test_st_air.schem 5250 100 4870 none corner
+waitlog nosprint StCasc's crew is on the way !!
+waitlog 20 \[Steve\.StCasc\] I finished building test_st_air\.schem !! can't start this job|I couldn't clear|Exception
+ticks 100
+waitfor 5 nosprint execute if block 5250 105 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if entity @e[type=item,x=5250,y=100,z=4870,distance=..20,nbt={Item:{id:"minecraft:bamboo"}}] =~ failed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Casca,nbt={Inventory:{Items:[{id:'minecraft:bamboo',count:10}]}}] =~ passed
+waitfor 5 nosprint execute if entity @e[type=item,x=5250,y=100,z=4870,distance=..20,nbt={Item:{id:"minecraft:stick"}}] =~ passed
+kill @e[type=item]
+# an armor stand or a minecart on a spot where a block goes is named, and the foreman says it doesn't move by itself
+journeymen debug config wait_report_seconds 1
+summon minecraft:armor_stand 5270.5 100 4870.5 {NoGravity:1b}
+summon minecraft:minecart 5274.5 100 4870.5
+setblock 5270 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5272 100 4875 journeymen foreman summon StBlock
+journeymen debug as Steve 2 5271 100 4875 journeymen builder summon StBlock Blocky
+journeymen debug as Steve 0 5272 100 4875 journeymen foreman chest StBlock add 5270 100 4876 supply
+journeymen debug as Steve 2 5272 100 4875 journeymen foreman supply StBlock test_st_one.schem 5270 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5272 100 4875 journeymen foreman build StBlock test_st_one.schem 5270 100 4870 none corner
+waitlog nosprint StBlock's crew is on the way !!
+waitlog 20 An armor stand is in the way at 5270, 100, 4870, where Blocky needs to place a block\. It doesn't move by itself !! I finished building|Exception
+kill @e[type=armor_stand]
+waitlog 20 \[Steve\.StBlock\] I finished building test_st_one\.schem !! I couldn't build|Exception
+waitfor 5 nosprint execute if block 5270 100 4870 minecraft:stone =~ passed
+journeymen debug as Steve 2 5272 100 4875 journeymen foreman supply StBlock test_st_one.schem 5274 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5272 100 4875 journeymen foreman build StBlock test_st_one.schem 5274 100 4870 none corner
+waitlog nosprint StBlock's crew is on the way !!
+waitlog 20 A minecart is in the way at 5274, 100, 4870, where Blocky needs to place a block\. It doesn't move by itself !! I finished building|Exception
+kill @e[type=minecart]
+waitlog 20 \[Steve\.StBlock\] I finished building test_st_one\.schem !! I couldn't build|Exception
+waitfor 5 nosprint execute if block 5274 100 4870 minecraft:stone =~ passed
+journeymen config reload

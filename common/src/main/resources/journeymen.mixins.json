@@ -6,6 +6,9 @@
   "compatibilityLevel": "JAVA_18",
   "mixins": [
     "BaseContainerBlockEntityAccessor",
+    "FarmBlockAccessor",
+    "FarmBlockMixin",
+    "ItemEntityAccessor",
     "NameTagItemMixin"
   ],
   "client": [

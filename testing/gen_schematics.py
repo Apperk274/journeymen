@@ -249,6 +249,72 @@ def ph_tnt():
     return {(x, 0, 0): kind for x, kind in enumerate(kinds)}
 
 
+def st_cauldron():
+    return {(0, 0, 0): state("water_cauldron", level=3), (2, 0, 0): state("water_cauldron", level=1),
+            (4, 0, 0): state("lava_cauldron"), (6, 0, 0): state("powder_snow_cauldron", level=3)}
+
+
+def st_items():
+    blocks = {(x, 0, z): state("air") for x in range(13) for z in range(2)}
+    blocks[(0, 0, 1)] = state("respawn_anchor", charges=4)
+    blocks[(2, 0, 1)] = state("respawn_anchor", charges=2)
+    blocks[(4, 0, 1)] = state("end_portal_frame", facing="north", eye=True)
+    blocks[(6, 0, 1)] = state("candle", candles=3, lit=True, waterlogged=False)
+    blocks[(8, 0, 1)] = state("stone")
+    blocks[(8, 0, 0)] = state("glow_lichen", south=True, down=True, north=False, east=False, west=False, up=False, waterlogged=False)
+    blocks[(10, 0, 1)] = state("stone")
+    blocks[(11, 0, 0)] = state("stone")
+    blocks[(10, 0, 0)] = state("vine", south=True, east=True, north=False, west=False, up=False)
+    blocks[(12, 0, 1)] = state("powder_snow")
+    return blocks
+
+
+def st_rails():
+    blocks = {(x, 0, z): state("air") for x in range(6) for z in range(5)}
+    for z in range(5):
+        blocks[(0, 0, z)] = state("rail", shape="north_south", waterlogged=False)
+        blocks[(1, 0, z)] = state("rail", shape="north_south", waterlogged=False)
+        blocks[(3, 0, z)] = state("rail", shape="north_south", waterlogged=False)
+    blocks[(4, 0, 2)] = state("rail", shape="east_west", waterlogged=False)
+    blocks[(5, 0, 2)] = state("rail", shape="east_west", waterlogged=False)
+    return blocks
+
+
+def gr_grow():
+    blocks = {(x, y, z): state("air") for x in range(12) for y in range(7) for z in range(3)}
+    blocks[(3, 0, 1)] = state("dirt")
+    blocks[(3, 1, 1)] = state("oak_sapling", stage=0)
+    blocks[(7, 0, 1)] = state("sand")
+    blocks[(7, 1, 1)] = state("sugar_cane", age=0)
+    blocks[(8, 0, 1)] = state("water", level=0)
+    for x, z in ((8, 0), (8, 2), (9, 1)):
+        blocks[(x, 0, z)] = state("stone")
+    blocks[(11, 0, 1)] = state("dirt")
+    return blocks
+
+
+def gr_tree():
+    blocks = {(x, y, z): state("air") for x in range(26) for y in range(7) for z in range(3)}
+    blocks[(3, 0, 1)] = state("dirt")
+    blocks[(3, 1, 1)] = state("oak_sapling", stage=0)
+    for x in range(10, 26):
+        blocks[(x, 2, 2)] = state("stone")
+        blocks[(x, 2, 1)] = state("wall_torch", facing="north")
+    return blocks
+
+
+def gr_farm():
+    blocks = {(x, y, z): state("air") for x in range(30) for y in range(3) for z in range(3)}
+    blocks[(0, 0, 1)] = state("farmland", moisture=0)
+    blocks[(3, 0, 1)] = state("stone")
+    blocks[(3, 1, 1)] = state("water", level=0)
+    for x, z in ((2, 1), (4, 1), (3, 0), (3, 2)):
+        blocks[(x, 1, z)] = state("stone")
+    for x in range(6, 30):
+        blocks[(x, 2, 0)] = state("stone")
+    return blocks
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -291,6 +357,15 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_ph_fall.schem"), (4, 2, 1), ph_fall())
     write_sponge_v3(os.path.join(out, "test_ph_above.schem"), (2, 1, 1), {})
     write_sponge_v3(os.path.join(out, "test_ph_tnt.schem"), (5, 1, 1), ph_tnt())
+    write_sponge_v3(os.path.join(out, "test_st_cauldron.schem"), (7, 1, 1), st_cauldron())
+    write_sponge_v3(os.path.join(out, "test_st_snow_part.schem"), (1, 1, 1), {(0, 0, 0): state("powder_snow_cauldron", level=2)})
+    write_sponge_v3(os.path.join(out, "test_st_items.schem"), (13, 1, 2), st_items())
+    write_sponge_v3(os.path.join(out, "test_st_rails.schem"), (6, 1, 5), st_rails())
+    write_sponge_v3(os.path.join(out, "test_st_one.schem"), (1, 1, 1), {(0, 0, 0): state("stone")})
+    write_sponge_v3(os.path.join(out, "test_st_air.schem"), (1, 1, 1), {})
+    write_sponge_v3(os.path.join(out, "test_gr_grow.schem"), (12, 7, 3), gr_grow())
+    write_sponge_v3(os.path.join(out, "test_gr_tree.schem"), (26, 7, 3), gr_tree())
+    write_sponge_v3(os.path.join(out, "test_gr_farm.schem"), (30, 3, 3), gr_farm())
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
         write_sponge_v3(os.path.join(out, "test_tfc_made.schem"), (7, 2, 3),

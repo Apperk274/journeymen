@@ -60,24 +60,44 @@ public final class BlockRequirements {
     }
 
     public enum ToolUse {
-        HOE("a hoe"),
-        SHOVEL("a shovel");
+        HOE("a hoe", "farmland"),
+        SHOVEL("a shovel", "dirt paths"),
+        IGNITE("a flint and steel", "lighting candles");
 
         private final String description;
+        private final String purpose;
 
-        ToolUse(String description) {
+        ToolUse(String description, String purpose) {
             this.description = description;
+            this.purpose = purpose;
         }
 
         public String description() {
             return description;
         }
+
+        public String purpose() {
+            return purpose;
+        }
+
+        public Item cheapestTool() {
+            return switch (this) {
+                case HOE -> Items.WOODEN_HOE;
+                case SHOVEL -> Items.WOODEN_SHOVEL;
+                case IGNITE -> Items.FLINT_AND_STEEL;
+            };
+        }
     }
 
-    public record Requirement(List<ItemStack> items, @Nullable ToolUse toolUse, @Nullable BlockState madeFrom, boolean obtainable) {
+    public record Requirement(List<ItemStack> items, @Nullable ToolUse toolUse, @Nullable BlockState madeFrom, boolean obtainable,
+                              List<ItemStack> uses, boolean onBase) {
 
-        static final Requirement NOTHING = new Requirement(List.of(), null, null, true);
-        static final Requirement UNOBTAINABLE = new Requirement(List.of(), null, null, false);
+        static final Requirement NOTHING = new Requirement(List.of(), null, null, true, List.of(), false);
+        static final Requirement UNOBTAINABLE = new Requirement(List.of(), null, null, false, List.of(), false);
+
+        public Requirement onBaseAlready() {
+            return new Requirement(uses, toolUse, madeFrom, obtainable, uses, true);
+        }
     }
 
     public static Requirement of(BlockState schematicTarget, @Nullable CompoundTag blockEntityTag, @Nullable HolderLookup.Provider registries) {
@@ -96,39 +116,65 @@ public final class BlockRequirements {
                 return Requirement.NOTHING;
             }
             ItemStack bucket = new ItemStack(target.getFluidState().getType().getBucket());
-            return bucket.isEmpty() ? Requirement.UNOBTAINABLE : new Requirement(List.of(bucket), null, null, true);
+            return bucket.isEmpty() ? Requirement.UNOBTAINABLE : new Requirement(List.of(bucket), null, null, true, List.of(), false);
         }
 
         List<ItemStack> items = new ArrayList<>();
         BlockDrops.Made made = BlockDrops.made(block);
+        BlockUses.Finish finish = made == null ? BlockUses.of(target) : null;
+        if (finish != null && !finish.obtainable()) {
+            return Requirement.UNOBTAINABLE;
+        }
+        BlockState base = finish != null ? finish.base() : target;
         if (made != null) {
             items.add(new ItemStack(made.from().getBlock().asItem()));
         } else if (block instanceof FlowerPotBlock pot && pot.getPotted() != Blocks.AIR) {
             items.add(new ItemStack(Items.FLOWER_POT));
             items.add(new ItemStack(pot.getPotted()));
         } else {
-            Item item = ITEM_OVERRIDES.getOrDefault(block, block.asItem());
+            Item item = itemOf(base.getBlock());
             if (item == Items.AIR) {
                 return Requirement.UNOBTAINABLE;
             }
-            int count = target.getOptionalValue(BlockStateProperties.SLAB_TYPE).orElse(null) == SlabType.DOUBLE ? 2 : 1;
+            int count = base.getOptionalValue(BlockStateProperties.SLAB_TYPE).orElse(null) == SlabType.DOUBLE ? 2 : 1;
             for (IntegerProperty property : ITEM_COUNT_PROPERTIES) {
-                if (target.hasProperty(property)) {
-                    count = target.getValue(property);
+                if (base.hasProperty(property)) {
+                    count = base.getValue(property);
                 }
+            }
+            if (BlockUses.hasFaces(block)) {
+                count = Math.max(1, BlockUses.faces(target));
             }
             items.add(new ItemStack(item, count));
         }
         if (blockEntityTag != null && registries != null) {
             addBlockEntityItems(target, blockEntityTag, registries, items);
         }
+        List<ItemStack> uses = finish != null ? finish.uses() : List.of();
+        items.addAll(uses);
         if (WaterRules.holdsFluid(target)) {
             ItemStack bucket = WaterRules.bucketFor(target);
             if (!bucket.isEmpty()) {
                 items.add(bucket);
             }
         }
-        return new Requirement(List.copyOf(items), made == null ? null : made.toolUse(), made == null ? null : made.from(), true);
+        ToolUse toolUse = made != null ? made.toolUse() : finish != null ? finish.toolUse() : null;
+        BlockState madeFrom = made != null ? made.from() : finish != null ? finish.base() : null;
+        return new Requirement(List.copyOf(items), toolUse, madeFrom, true, uses, false);
+    }
+
+    public static Item itemOf(Block block) {
+        return ITEM_OVERRIDES.getOrDefault(block, block.asItem());
+    }
+
+    public static boolean finishesOn(BlockState schematicTarget, BlockState actual) {
+        BlockState target = BlockDrops.placedFor(schematicTarget);
+        BlockUses.Finish finish = BlockDrops.made(target.getBlock()) == null ? BlockUses.of(target) : null;
+        return finish != null && finish.obtainable() && StateRules.matches(finish.base(), actual);
+    }
+
+    public static Requirement here(Requirement requirement, BlockState target, BlockState actual) {
+        return requirement.obtainable() && finishesOn(target, actual) ? requirement.onBaseAlready() : requirement;
     }
 
     private static void addBlockEntityItems(BlockState target, CompoundTag tag, HolderLookup.Provider registries, List<ItemStack> items) {

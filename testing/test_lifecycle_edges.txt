@@ -155,7 +155,7 @@ journeymen debug as Steve 0 3788 100 3880 journeymen foreman build Adj test_row.
 waitlog Adj's crew is on the way: Ada\. !!
 ticks 100
 waitfor 5 nosprint execute if entity @e[type=journeymen:foreman,name=Adj,x=3800,y=99,z=3820,dx=51,dy=6,dz=51] =~ failed
-waitlog 30 \[Steve\.Adj\] I finished building test_row\.schem !! Someone is standing|can't start this job|\] I'm missing |\] I need |Exception
+waitlog 30 \[Steve\.Adj\] I finished building test_row\.schem !! is standing at|is in the way at|can't start this job|\] I'm missing |\] I need |Exception
 journeymen debug as Steve 2 3785 100 3866 journeymen foreman summon Stuckee
 mark
 journeymen debug as Steve 0 3825 100 3869 journeymen foreman unstick Stuckee

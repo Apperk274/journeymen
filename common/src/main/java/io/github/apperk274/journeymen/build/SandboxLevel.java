@@ -65,6 +65,10 @@ public final class SandboxLevel implements LevelAccessor {
         return at -> at.equals(pos) ? state : Blocks.AIR.defaultBlockState();
     }
 
+    public static LevelAccessor among(ServerLevel level, Function<BlockPos, BlockState> states) {
+        return new SandboxLevel(level, states);
+    }
+
     public static boolean survivesAlone(ServerLevel level, BlockPos pos, BlockState state) {
         try {
             return state.canSurvive(new SandboxLevel(level, alone(pos, state)), pos);

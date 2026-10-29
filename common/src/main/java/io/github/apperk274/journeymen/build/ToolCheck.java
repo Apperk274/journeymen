@@ -13,8 +13,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
-import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +68,7 @@ public final class ToolCheck {
             }
             for (UseShortfall shortfall : uses) {
                 problems.add(Component.literal("Needs " + shortfall.use().description() + " with " + shortfall.missing()
-                        + " more use(s) left, for farmland or dirt paths."));
+                        + " more use(s) left, for " + shortfall.use().purpose() + "."));
             }
             return problems;
         }
@@ -91,8 +91,7 @@ public final class ToolCheck {
                                         List<ItemStack> tools, boolean allowBreakingEnchanted) {
         List<Slot> slots = new ArrayList<>();
         for (ItemStack stack : tools) {
-            if (stack.get(DataComponents.TOOL) != null || Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.HOE)
-                    || Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.SHOVEL)) {
+            if (stack.get(DataComponents.TOOL) != null || Arrays.stream(BlockRequirements.ToolUse.values()).anyMatch(use -> Services.COMPAT.canDo(stack, use))) {
                 slots.add(new Slot(stack, usableDurability(stack, allowBreakingEnchanted)));
             }
         }
@@ -122,12 +121,10 @@ public final class ToolCheck {
             }
         }
 
-        Map<BlockRequirements.ToolUse, Predicate<ItemStack>> useKinds = new EnumMap<>(BlockRequirements.ToolUse.class);
-        useKinds.put(BlockRequirements.ToolUse.HOE, stack -> Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.HOE));
-        useKinds.put(BlockRequirements.ToolUse.SHOVEL, stack -> Services.COMPAT.canDo(stack, BlockRequirements.ToolUse.SHOVEL));
         List<UseShortfall> uses = new ArrayList<>();
         for (Map.Entry<BlockRequirements.ToolUse, Integer> entry : toolUses.entrySet()) {
-            List<Slot> candidates = candidates(slots, useKinds.get(entry.getKey()));
+            BlockRequirements.ToolUse use = entry.getKey();
+            List<Slot> candidates = candidates(slots, stack -> Services.COMPAT.canDo(stack, use));
             int missing = allocate(candidates, entry.getValue(), slot -> slot.stack.isDamageableItem() ? 1 : 0);
             if (missing > 0) {
                 uses.add(new UseShortfall(entry.getKey(), missing));

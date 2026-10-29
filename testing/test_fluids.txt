@@ -128,7 +128,7 @@ waitlog \] Supplied \d+ items?
 mark
 journeymen debug as Steve 0 4936 100 4876 journeymen foreman build FlCell test_fl_cell.schem 4931 101 4871 none corner
 waitlog nosprint FlCell's crew is on the way !!
-waitlog 20 Someone is standing at 4931, 101, 4871 !! I finished building|Exception
+waitlog 20 A pig is standing at 4931, 101, 4871 !! I finished building|Exception
 waitfor 5 nosprint execute if block 4931 101 4871 minecraft:air =~ passed
 kill @e[type=pig]
 waitlog 20 \[Steve\.FlCell\] I finished building test_fl_cell\.schem !! I couldn't build|Exception
@@ -139,7 +139,7 @@ waitlog \] Supplied \d+ items?
 mark
 journeymen debug as Steve 0 4936 100 4876 journeymen foreman build FlCell test_fl_cell.schem 4941 101 4871 none corner
 waitlog nosprint FlCell's crew is on the way !!
-waitlog 20 Someone is standing at 4941, 101, 4871 !! I finished building|Exception
+waitlog 20 A pig is standing at 4941, 101, 4871 !! I finished building|Exception
 waitfor 5 nosprint execute if block 4941 101 4871 minecraft:air =~ passed
 kill @e[type=pig]
 waitlog 20 \[Steve\.FlCell\] I finished building test_fl_cell\.schem !! I couldn't build|Exception

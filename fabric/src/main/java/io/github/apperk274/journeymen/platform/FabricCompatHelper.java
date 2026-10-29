@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleVariantStorage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.Transaction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.FlintAndSteelItem;
 import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MobBucketItem;
@@ -119,6 +120,9 @@ public class FabricCompatHelper implements ICompatHelper {
     @Nullable
     @Override
     public BlockState toolModifiedState(ServerLevel level, BlockState state, BlockRequirements.ToolUse use) {
+        if (use == BlockRequirements.ToolUse.IGNITE) {
+            return null;
+        }
         if (use == BlockRequirements.ToolUse.HOE) {
             Block tilled = TILLED.get(state.getBlock());
             return tilled == null ? null : tilled.defaultBlockState();
@@ -128,7 +132,11 @@ public class FabricCompatHelper implements ICompatHelper {
 
     @Override
     public boolean canDo(ItemStack stack, BlockRequirements.ToolUse use) {
-        return use == BlockRequirements.ToolUse.HOE ? stack.getItem() instanceof HoeItem : stack.getItem() instanceof ShovelItem;
+        return switch (use) {
+            case HOE -> stack.getItem() instanceof HoeItem;
+            case SHOVEL -> stack.getItem() instanceof ShovelItem;
+            case IGNITE -> stack.getItem() instanceof FlintAndSteelItem;
+        };
     }
 
     private record SlottedStore(SlottedStorage<ItemVariant> storage) implements ItemStore {

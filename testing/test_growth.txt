@@ -1,0 +1,80 @@
+forceload add 5312 4864 5439 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+gamerule randomTickSpeed 3
+gamerule mobGriefing true
+time set day
+ticks 40
+fill 5312 99 4864 5439 99 4927 minecraft:stone
+fill 5312 100 4864 5343 110 4927 minecraft:air
+fill 5344 100 4864 5375 110 4927 minecraft:air
+fill 5376 100 4864 5407 110 4927 minecraft:air
+fill 5408 100 4864 5439 110 4927 minecraft:air
+kill @e[type=item]
+# what grew from the job's own blocks counts as done: an oak tree from the sapling (its trunk where the sapling was, its logs and leaves in air above), sugar cane grown taller, grass spread onto a dirt target
+setblock 5320 100 4878 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5322 100 4877 journeymen foreman summon GrGrow
+journeymen debug as Steve 2 5321 100 4877 journeymen builder summon GrGrow Growy
+journeymen debug as Steve 0 5322 100 4877 journeymen foreman chest GrGrow add 5320 100 4878 supply
+journeymen debug as Steve 2 5322 100 4877 journeymen foreman supply GrGrow test_gr_grow.schem 5320 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5322 100 4877 journeymen foreman build GrGrow test_gr_grow.schem 5320 100 4870 none corner
+waitlog nosprint GrGrow's crew is on the way !!
+waitlog 20 \[Steve\.GrGrow\] I finished building test_gr_grow\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't|Exception
+waitfor 5 nosprint execute if block 5323 101 4871 minecraft:oak_sapling =~ passed
+waitfor 5 nosprint execute if block 5327 101 4871 minecraft:sugar_cane =~ passed
+setblock 5323 101 4871 minecraft:air
+place feature minecraft:oak 5323 101 4871
+waitfor 5 nosprint execute if block 5323 101 4871 minecraft:oak_log =~ passed
+waitfor 5 nosprint execute if block 5323 104 4871 minecraft:oak_log =~ passed
+setblock 5327 102 4871 minecraft:sugar_cane
+setblock 5327 103 4871 minecraft:sugar_cane
+setblock 5331 100 4871 minecraft:grass_block
+mark
+journeymen debug as Steve 0 5322 100 4877 journeymen foreman check GrGrow test_gr_grow.schem 5320 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a sapling that grows into a tree while the job is still placing other blocks: the job finishes without clearing the tree or asking for another sapling
+setblock 5350 100 4878 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5352 100 4877 journeymen foreman summon GrTree
+journeymen debug as Steve 2 5351 100 4877 journeymen builder summon GrTree Treey
+journeymen debug as Steve 0 5352 100 4877 journeymen foreman chest GrTree add 5350 100 4878 supply
+journeymen debug as Steve 2 5352 100 4877 journeymen foreman supply GrTree test_gr_tree.schem 5350 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5352 100 4877 journeymen foreman build GrTree test_gr_tree.schem 5350 100 4870 none corner
+waitlog nosprint GrTree's crew is on the way !!
+waitfor 60 nosprint execute if block 5353 101 4871 minecraft:oak_sapling =~ passed
+setblock 5353 101 4871 minecraft:air
+place feature minecraft:oak 5353 101 4871
+waitfor 5 nosprint execute if block 5353 101 4871 minecraft:oak_log =~ passed
+waitlog 20 \[Steve\.GrTree\] I finished building test_gr_tree\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't|Exception
+waitfor 5 nosprint execute if block 5353 101 4871 minecraft:oak_log =~ passed
+waitfor 5 nosprint execute if block 5375 102 4871 minecraft:wall_torch =~ passed
+mark
+journeymen debug as Steve 0 5352 100 4877 journeymen foreman check GrTree test_gr_tree.schem 5350 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# bare farmland goes in after the water it needs, right after it, not before the rest of the job's solid blocks, so it can't dry out first and is tilled once
+setblock 5390 100 4878 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5392 100 4877 journeymen foreman summon GrFarm
+journeymen debug as Steve 2 5391 100 4877 journeymen builder summon GrFarm Farmy
+journeymen debug as Steve 0 5392 100 4877 journeymen foreman chest GrFarm add 5390 100 4878 supply
+journeymen debug as Steve 2 5392 100 4877 journeymen foreman supply GrFarm test_gr_farm.schem 5390 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5392 100 4877 journeymen foreman build GrFarm test_gr_farm.schem 5390 100 4870 none corner
+waitlog nosprint GrFarm's crew is on the way !!
+waitfor 60 nosprint execute if block 5390 100 4871 minecraft:farmland =~ passed
+waitfor 1 nosprint execute if block 5393 101 4871 minecraft:water =~ passed
+waitlog 20 \[Steve\.GrFarm\] I finished building test_gr_farm\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't|Exception
+waitfor 5 nosprint execute if block 5390 100 4871 minecraft:farmland =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Farmy,nbt={Inventory:{Items:[{id:'minecraft:wooden_hoe',components:{'minecraft:damage':1}}]}}] =~ passed
+mark
+journeymen debug as Steve 0 5392 100 4877 journeymen foreman check GrFarm test_gr_farm.schem 5390 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a journeyman falling onto farmland doesn't trample it
+setblock 5425 100 4871 minecraft:farmland[moisture=7]
+tp @e[type=journeymen:builder,name=Farmy] 5425.5 103.2 4871.5
+ticks 40
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Farmy,x=5425,y=100,z=4871,distance=..2] =~ passed
+waitfor 5 nosprint execute if block 5425 100 4871 minecraft:farmland =~ passed

@@ -5,6 +5,7 @@ import io.github.apperk274.journeymen.build.PlacingWork.Entry;
 import io.github.apperk274.journeymen.build.PlacingWork.Kind;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.mixin.FarmBlockAccessor;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -16,15 +17,24 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.SolidBucketItem;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.AbstractCauldronBlock;
+import net.minecraft.world.level.block.BaseRailBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.BucketPickup;
 import net.minecraft.world.level.block.FallingBlock;
+import net.minecraft.world.level.block.LayeredCauldronBlock;
 import net.minecraft.world.level.block.LecternBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.TntBlock;
@@ -36,6 +46,7 @@ import net.minecraft.world.level.block.entity.LecternBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.RailShape;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
@@ -52,6 +63,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -85,7 +97,7 @@ public final class PlacingTask {
     private final Reach reach;
     private final List<Entry> batch = new ArrayList<>();
     private final Map<Entry, Integer> deferred = new HashMap<>();
-    private final Map<Entry, List<ItemStack>> required = new IdentityHashMap<>();
+    private final Map<Entry, BlockRequirements.Requirement> required = new IdentityHashMap<>();
     private boolean newBatch;
     @Nullable
     private TreeMap<Integer, List<Entry>> batchGroup;
@@ -108,6 +120,9 @@ public final class PlacingTask {
     private String neededToolDescription;
     @Nullable
     private BlockPos waitingAt;
+    @Nullable
+    private String waitingFor;
+    private boolean waitingForStill;
 
     public PlacingTask(BuilderEntity builder, BuildJob job, PlacingWork work) {
         this.builder = builder;
@@ -172,11 +187,15 @@ public final class PlacingTask {
         if (StateRules.matches(target, actual)) {
             return finish(false);
         }
-        if (!actual.isAir() && !actual.canBeReplaced()) {
+        BlockState placeState = placeStateFor(entry);
+        boolean onBase = BlockRequirements.finishesOn(placeState, actual);
+        if (!onBase && !actual.isAir() && !actual.canBeReplaced()) {
             return finish(false);
         }
-        BlockState placeState = placeStateFor(entry);
-        BlockRequirements.Requirement requirement = BlockRequirements.of(placeState, entry.placement().blockEntity(), registries);
+        BlockRequirements.Requirement requirement = requirementFor(entry);
+        if (onBase) {
+            requirement = requirement.onBaseAlready();
+        }
         if (!requirement.obtainable()) {
             work.skipped.add(pos);
             return finish(false);
@@ -204,7 +223,7 @@ public final class PlacingTask {
             work.skipped.add(pos);
             return finish(false);
         }
-        if (!placeState.getCollisionShape(level, pos).isEmpty() && !level.isUnobstructed(placeState, pos, CollisionContext.empty())) {
+        if (!onBase && !placeState.getCollisionShape(level, pos).isEmpty() && !level.isUnobstructed(placeState, pos, CollisionContext.empty())) {
             AABB box = placeState.getCollisionShape(level, pos).bounds().move(pos);
             if (box.intersects(builder.getBoundingBox())) {
                 builder.stepAwayFrom(pos);
@@ -214,7 +233,7 @@ public final class PlacingTask {
                 deferred.put(entry, builder.tickCount + DEFER_TICKS);
                 return putBack();
             }
-            waitingAt = pos;
+            waitFor(pos, level.getEntities((Entity) null, box, entity -> !entity.isSpectator() && entity.blocksBuilding && !entity.isRemoved()));
             return Status.WAITING;
         }
         waitingAt = null;
@@ -240,28 +259,66 @@ public final class PlacingTask {
         boolean pours = entry.withWater() && !inWater && WaterRules.holdsFluid(target);
         boolean scoops = inWater && placeState.hasProperty(BlockStateProperties.WATERLOGGED) && !WaterRules.isWaterlogged(target);
         ItemStack container = (pours || scoops) && !taken.isEmpty() ? taken.remove(taken.size() - 1) : ItemStack.EMPTY;
+        List<ItemStack> uses = new ArrayList<>();
+        for (int i = 0; i < requirement.uses().size() && !taken.isEmpty(); i++) {
+            uses.add(0, taken.remove(taken.size() - 1));
+        }
         if (job.getCrewWork().claimedByOther(pos, builder.getUUID())) {
             Constants.LOG.warn("[crew] {}.{} places at {}, which another builder claimed", builder.getOwnerName(), builder.getJourneymanName(),
                     pos.toShortString());
         }
+        builder.getLookControl().setLookAt(Vec3.atCenterOf(pos));
+        actor.setYRot(builder.getYRot());
+        if (!requirement.onBase() && !placeBase(placement, placeState, taken, container, uses, actor, requirement, inWater, pours, scoops)) {
+            return;
+        }
         BlockRequirements.ToolUse toolUse = requirement.toolUse();
+        if (toolUse != null) {
+            ItemStack tool = builder.getInventory().getItem(toolSlot);
+            builder.showInHand(tool);
+            tool.hurtAndBreak(1, builder, EquipmentSlot.MAINHAND);
+            builder.getInventory().setChanged();
+            level.setBlock(pos, placeState, toolUse == BlockRequirements.ToolUse.IGNITE ? Block.UPDATE_ALL_IMMEDIATE : Block.UPDATE_ALL);
+            level.playSound(null, pos, switch (toolUse) {
+                case HOE -> SoundEvents.HOE_TILL;
+                case SHOVEL -> SoundEvents.SHOVEL_FLATTEN;
+                case IGNITE -> SoundEvents.FLINTANDSTEEL_USE;
+            }, SoundSource.BLOCKS, 1.0F, 1.0F);
+            level.gameEvent(builder, GameEvent.BLOCK_CHANGE, pos);
+            if (toolUse == BlockRequirements.ToolUse.HOE) {
+                plantNext = findEntry(work.dependents, pos.above());
+            }
+        }
+        if (!uses.isEmpty() && !applyUses(pos, placeState, uses, actor)) {
+            work.skipped.add(pos);
+        }
+        builder.swing(InteractionHand.MAIN_HAND);
+        placed += entry.weight();
+        work.placed += entry.weight();
+    }
+
+    private boolean placeBase(BuildPlan.Placement placement, BlockState placeState, List<ItemStack> taken, ItemStack container,
+                              List<ItemStack> uses, ServerPlayer actor, BlockRequirements.Requirement requirement, boolean inWater,
+                              boolean pours, boolean scoops) {
+        BlockPos pos = placement.pos();
+        BlockState target = placement.target();
         BlockState state = requirement.madeFrom() != null ? requirement.madeFrom() : placeState;
         if (!PlacingWork.hasTwoParts(state)) {
             state = Block.updateFromNeighbourShapes(state, level, pos);
         }
         if (state.isAir()) {
             taken.forEach(builder::giveItem);
+            uses.forEach(builder::giveItem);
             builder.giveItem(container);
             work.skipped.add(pos);
-            return;
+            return false;
         }
         if (inWater && state.hasProperty(BlockStateProperties.WATERLOGGED)) {
             state = state.setValue(BlockStateProperties.WATERLOGGED, WaterRules.isWaterlogged(target));
         }
         ItemStack base = taken.isEmpty() ? ItemStack.EMPTY : taken.get(0);
         builder.showInHand(base);
-        builder.getLookControl().setLookAt(Vec3.atCenterOf(pos));
-        actor.setYRot(builder.getYRot());
+        Map<BlockPos, BlockState> rails = railsAround(pos);
         if (scoops) {
             ItemStack filled = Services.COMPAT.fillBucket(container, Fluids.WATER);
             builder.giveItem(filled != null ? filled : container);
@@ -275,6 +332,9 @@ public final class PlacingTask {
             level.scheduleTick(pos, fluid, fluid.getTickDelay(level));
             level.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
             level.gameEvent(builder, GameEvent.FLUID_PLACE, pos);
+        }
+        if (base.getItem() instanceof SolidBucketItem) {
+            builder.giveItem(new ItemStack(Items.BUCKET));
         }
         if (base.getItem() instanceof BlockItem) {
             BlockItem.updateCustomBlockEntityTag(level, actor, pos, base);
@@ -291,21 +351,93 @@ public final class PlacingTask {
         SoundType sound = state.getSoundType();
         level.playSound(null, pos, sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
         level.gameEvent(GameEvent.BLOCK_PLACE, pos, GameEvent.Context.of(builder, state));
-        if (toolUse != null) {
-            ItemStack tool = builder.getInventory().getItem(toolSlot);
-            builder.showInHand(tool);
-            tool.hurtAndBreak(1, builder, EquipmentSlot.MAINHAND);
-            builder.getInventory().setChanged();
-            level.setBlock(pos, placeState, Block.UPDATE_ALL);
-            level.playSound(null, pos, toolUse == BlockRequirements.ToolUse.HOE ? SoundEvents.HOE_TILL : SoundEvents.SHOVEL_FLATTEN,
-                    SoundSource.BLOCKS, 1.0F, 1.0F);
-            if (toolUse == BlockRequirements.ToolUse.HOE) {
-                plantNext = findEntry(work.dependents, pos.above());
+        keepRailShapes(pos, placeState, rails);
+        return true;
+    }
+
+    private Map<BlockPos, BlockState> railsAround(BlockPos pos) {
+        Map<BlockPos, BlockState> rails = new HashMap<>();
+        for (BlockPos at : BlockPos.betweenClosed(pos.offset(-1, -1, -1), pos.offset(1, 1, 1))) {
+            BlockState state = level.getBlockState(at);
+            if (state.getBlock() instanceof BaseRailBlock) {
+                rails.put(at.immutable(), state);
             }
         }
-        builder.swing(InteractionHand.MAIN_HAND);
-        placed += entry.weight();
-        work.placed += entry.weight();
+        return rails;
+    }
+
+    private void keepRailShapes(BlockPos pos, BlockState placeState, Map<BlockPos, BlockState> before) {
+        BlockState now = level.getBlockState(pos);
+        if (now.getBlock() instanceof BaseRailBlock rail && placeState.is(now.getBlock())) {
+            reshape(pos, now, rail, placeState);
+        }
+        for (Map.Entry<BlockPos, BlockState> entry : before.entrySet()) {
+            BlockState current = level.getBlockState(entry.getKey());
+            if (!entry.getKey().equals(pos) && current != entry.getValue() && current.getBlock() instanceof BaseRailBlock rail
+                    && entry.getValue().is(current.getBlock())) {
+                reshape(entry.getKey(), current, rail, entry.getValue());
+            }
+        }
+    }
+
+    private void reshape(BlockPos pos, BlockState current, BaseRailBlock rail, BlockState shapeFrom) {
+        RailShape shape = shapeFrom.getValue(rail.getShapeProperty());
+        if (current.getValue(rail.getShapeProperty()) != shape) {
+            level.setBlock(pos, current.setValue(rail.getShapeProperty(), shape), Block.UPDATE_ALL);
+        }
+    }
+
+    private boolean applyUses(BlockPos pos, BlockState placeState, List<ItemStack> uses, ServerPlayer actor) {
+        List<ItemStack> left = new ArrayList<>();
+        for (ItemStack stack : uses) {
+            for (int i = 0; i < stack.getCount(); i++) {
+                left.add(stack.copyWithCount(1));
+            }
+        }
+        while (!left.isEmpty()) {
+            ItemStack one = left.remove(0);
+            BlockState before = level.getBlockState(pos);
+            builder.showInHand(one);
+            ItemStack result = useOn(actor, pos, one);
+            if (level.getBlockState(pos) == before) {
+                result = fillCauldron(pos, before, placeState, result);
+            }
+            builder.giveItem(result);
+            if (level.getBlockState(pos) == before) {
+                left.forEach(builder::giveItem);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private ItemStack useOn(ServerPlayer actor, BlockPos pos, ItemStack stack) {
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
+        actor.setItemInHand(InteractionHand.MAIN_HAND, stack);
+        try {
+            ItemInteractionResult result = level.getBlockState(pos).useItemOn(stack, level, actor, InteractionHand.MAIN_HAND, hit);
+            if (result == ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION && !(stack.getItem() instanceof BlockItem)) {
+                stack.useOn(new UseOnContext(actor, InteractionHand.MAIN_HAND, hit));
+            }
+            return actor.getItemInHand(InteractionHand.MAIN_HAND);
+        } finally {
+            actor.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        }
+    }
+
+    private ItemStack fillCauldron(BlockPos pos, BlockState before, BlockState placeState, ItemStack container) {
+        Fluid fluid = ItemMatch.bucketFluid(container);
+        if (fluid == null || !(before.getBlock() instanceof AbstractCauldronBlock) || placeState.is(before.getBlock())
+                || !ItemMatch.same(container, BlockUses.fillFor(placeState))) {
+            return container;
+        }
+        BlockState full = placeState.hasProperty(LayeredCauldronBlock.LEVEL)
+                ? placeState.setValue(LayeredCauldronBlock.LEVEL, LayeredCauldronBlock.MAX_FILL_LEVEL) : placeState;
+        level.setBlockAndUpdate(pos, full);
+        level.playSound(null, pos, fluid.isSame(Fluids.LAVA) ? SoundEvents.BUCKET_EMPTY_LAVA : SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS,
+                1.0F, 1.0F);
+        level.gameEvent(builder, GameEvent.FLUID_PLACE, pos);
+        return emptied(container, fluid);
     }
 
     private void applyContents(BlockPos pos, CompoundTag tag, List<ItemStack> extras) {
@@ -525,10 +657,45 @@ public final class PlacingTask {
                 deferred.put(entry, builder.tickCount + DEFER_TICKS);
                 return putBack();
             }
-            waitingAt = pos;
+            waitFor(pos, inside);
             return Status.WAITING;
         }
         return null;
+    }
+
+    private void waitFor(BlockPos pos, List<? extends Entity> blocking) {
+        waitingAt = pos;
+        List<String> names = new ArrayList<>();
+        boolean still = !blocking.isEmpty();
+        for (Entity entity : blocking) {
+            String name = describe(entity);
+            if (!names.contains(name)) {
+                names.add(name);
+            }
+            still &= !movesByItself(entity);
+        }
+        waitingFor = names.isEmpty() ? null : String.join(" and ", names);
+        waitingForStill = still;
+    }
+
+    private static String describe(Entity entity) {
+        if (entity instanceof Player || entity.hasCustomName()) {
+            return entity.getName().getString();
+        }
+        String type = entity.getType().getDescription().getString().toLowerCase(Locale.ROOT);
+        return (type.isEmpty() || "aeiou".indexOf(type.charAt(0)) < 0 ? "a " : "an ") + type;
+    }
+
+    private static boolean movesByItself(Entity entity) {
+        if (entity instanceof Mob || entity instanceof Player) {
+            return true;
+        }
+        for (Entity passenger : entity.getPassengers()) {
+            if (passenger instanceof Mob || passenger instanceof Player) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasOtherFluidWork(Entry blocked) {
@@ -902,11 +1069,11 @@ public final class PlacingTask {
         if (entry.kind() != Kind.PLACE) {
             return true;
         }
-        BlockDrops.Made made = BlockDrops.made(entry.placement().target().getBlock());
-        if (made == null || StateRules.matches(entry.placement().target(), level.getBlockState(entry.pos()))) {
+        BlockRequirements.ToolUse use = toolUseOf(entry);
+        if (use == null || StateRules.matches(entry.placement().target(), level.getBlockState(entry.pos()))) {
             return true;
         }
-        Predicate<ItemStack> usable = toolFor(made.toolUse(), job.getOptions().allowBreakingEnchanted());
+        Predicate<ItemStack> usable = toolFor(use, job.getOptions().allowBreakingEnchanted());
         return builder.findSlot(usable) >= 0 || builder.supplyHas(usable) || !builder.crewHolds(usable);
     }
 
@@ -959,9 +1126,9 @@ public final class PlacingTask {
     public Set<BlockRequirements.ToolUse> batchToolUses() {
         Set<BlockRequirements.ToolUse> uses = EnumSet.noneOf(BlockRequirements.ToolUse.class);
         for (Entry entry : batch) {
-            BlockDrops.Made made = entry.kind() == Kind.PLACE ? BlockDrops.made(entry.placement().target().getBlock()) : null;
-            if (made != null) {
-                uses.add(made.toolUse());
+            BlockRequirements.ToolUse use = toolUseOf(entry);
+            if (use != null) {
+                uses.add(use);
             }
         }
         return uses;
@@ -998,6 +1165,9 @@ public final class PlacingTask {
         }
         if (!WaterRules.holdsFluid(entry.placement().target()) && WaterRules.diesWithoutWater(placeState.getBlock())
                 && !WaterRules.touchesWater(level, pos)) {
+            return false;
+        }
+        if (work.waitsForWater.contains(pos) && !FarmBlockAccessor.journeymen$isNearWater(level, pos)) {
             return false;
         }
         return !(placeState.getBlock() instanceof FallingBlock) || !FallingBlock.isFree(level.getBlockState(pos.below()));
@@ -1042,14 +1212,23 @@ public final class PlacingTask {
         for (TreeMap<Integer, List<Entry>> layers : List.of(work.supports, work.ramp, work.dependents)) {
             for (List<Entry> layer : layers.values()) {
                 for (Entry entry : layer) {
-                    BlockDrops.Made made = entry.kind() == Kind.PLACE ? BlockDrops.made(entry.placement().target().getBlock()) : null;
-                    if (made != null) {
-                        uses.add(made.toolUse());
+                    BlockRequirements.ToolUse use = toolUseOf(entry);
+                    if (use != null) {
+                        uses.add(use);
                     }
                 }
             }
         }
         return uses;
+    }
+
+    private BlockRequirements.Requirement requirementFor(Entry entry) {
+        return required.computeIfAbsent(entry, key -> BlockRequirements.of(placeStateFor(key), key.placement().blockEntity(), registries));
+    }
+
+    @Nullable
+    private BlockRequirements.ToolUse toolUseOf(Entry entry) {
+        return entry.kind() == Kind.PLACE ? requirementFor(entry).toolUse() : null;
     }
 
     public ItemCounter remainingNeeds() {
@@ -1072,9 +1251,8 @@ public final class PlacingTask {
                 if (StateRules.matches(target, actual)) {
                     yield List.of();
                 }
-                List<ItemStack> items = required.computeIfAbsent(entry,
-                        key -> BlockRequirements.of(placeStateFor(key), key.placement().blockEntity(), registries).items());
-                yield BuildPlan.itemsInWater(items, target, WaterRules.isWaterSource(actual));
+                BlockRequirements.Requirement requirement = BlockRequirements.here(requirementFor(entry), placeStateFor(entry), actual);
+                yield BuildPlan.itemsInWater(requirement.items(), target, WaterRules.isWaterSource(actual));
             }
             case FLUID -> List.of(new ItemStack(target.getFluidState().getType().getBucket()));
             case WATERLOG -> WaterRules.isWaterlogged(level.getBlockState(entry.pos())) ? List.of() : List.of(new ItemStack(Items.WATER_BUCKET));
@@ -1133,6 +1311,15 @@ public final class PlacingTask {
     @Nullable
     public BlockPos getWaitingAt() {
         return waitingAt;
+    }
+
+    @Nullable
+    public String getWaitingFor() {
+        return waitingFor;
+    }
+
+    public boolean isWaitingForSomethingStill() {
+        return waitingForStill;
     }
 
     private static final class Window {

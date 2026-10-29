@@ -26,6 +26,7 @@ import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.menu.BuilderMenu;
 import io.github.apperk274.journeymen.menu.BuilderScreenService;
 import io.github.apperk274.journeymen.menu.LinkModeService;
+import io.github.apperk274.journeymen.mixin.ItemEntityAccessor;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
@@ -93,6 +94,9 @@ public class BuilderEntity extends JourneymanEntity {
     private static final int ASK_ASIDE_TICKS = 20;
     private static final int FLOW_SETTLE_TICKS = 60;
     private static final double FALL_CHECK_HEIGHT = 16.0;
+    private static final int CAPTURE_TICKS = 60;
+    private static final double CAPTURE_HEIGHT = 24.0;
+    private static final int MAX_CAPTURES = 16;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -133,6 +137,7 @@ public class BuilderEntity extends JourneymanEntity {
     private boolean toolsFetched;
     private int storeBlockedUntil;
     private final List<ItemStack> overflow = new ArrayList<>();
+    private final Deque<Capture> captures = new ArrayDeque<>();
     @Nullable
     private BuildPlan needsPlan;
     private ItemCounter needs = new ItemCounter();
@@ -1056,15 +1061,41 @@ public class BuilderEntity extends JourneymanEntity {
 
     public void captureDrops(BlockPos pos) {
         for (ItemEntity item : level().getEntitiesOfClass(ItemEntity.class, new AABB(pos).inflate(1.5))) {
-            if (item.isRemoved() || item.getAge() != 0) {
-                continue;
+            if (!item.isRemoved() && item.getAge() == 0) {
+                capture(item);
             }
-            ItemStack remainder = inventory.addItem(item.getItem().copy());
-            if (!remainder.isEmpty()) {
-                overflow.add(remainder);
-            }
-            item.discard();
         }
+        captures.addLast(new Capture(pos.immutable(), level().getGameTime()));
+        while (captures.size() > MAX_CAPTURES) {
+            captures.removeFirst();
+        }
+    }
+
+    private void sweepCaptures() {
+        if (captures.isEmpty()) {
+            return;
+        }
+        long now = level().getGameTime();
+        captures.removeIf(window -> now - window.since() > CAPTURE_TICKS);
+        for (Capture window : captures) {
+            long elapsed = now - window.since();
+            AABB column = new AABB(window.pos()).inflate(1.5, CAPTURE_HEIGHT, 1.5);
+            for (ItemEntity item : level().getEntitiesOfClass(ItemEntity.class, column, item -> !item.isRemoved() && item.getAge() >= 0
+                    && item.getAge() <= elapsed && ((ItemEntityAccessor) item).journeymen$getThrower() == null)) {
+                capture(item);
+            }
+        }
+    }
+
+    private void capture(ItemEntity item) {
+        ItemStack remainder = inventory.addItem(item.getItem().copy());
+        if (!remainder.isEmpty()) {
+            overflow.add(remainder);
+        }
+        item.discard();
+    }
+
+    private record Capture(BlockPos pos, long since) {
     }
 
     public void dumpInto(ItemStore store, BlockPos chest) {
@@ -1514,12 +1545,27 @@ public class BuilderEntity extends JourneymanEntity {
                 waitTicks++;
                 if (waitTicks == reportTicks || waitTicks > reportTicks && (waitTicks - reportTicks) % reminderTicks == 0) {
                     BlockPos pos = placing.getWaitingAt();
-                    report("Someone is standing at " + (pos == null ? getJourneymanName() + "'s next spot" : pos.toShortString())
-                            + ", where " + getJourneymanName() + " needs to place a block. It's waiting until they move.");
+                    String spot = pos == null ? getJourneymanName() + "'s next spot" : pos.toShortString();
+                    String who = placing.getWaitingFor();
+                    if (who == null) {
+                        report("Someone is standing at " + spot + ", where " + getJourneymanName() + " needs to place a block. It's waiting until they move.");
+                    } else if (placing.isWaitingForSomethingStill()) {
+                        boolean several = who.contains(" and ");
+                        report(capitalized(who) + (several ? " are" : " is") + " in the way at " + spot + ", where " + getJourneymanName()
+                                + " needs to place a block. " + (several ? "They don't move by themselves, so please move them."
+                                : "It doesn't move by itself, so please move it."));
+                    } else {
+                        report(capitalized(who) + (who.contains(" and ") ? " are" : " is") + " standing at " + spot + ", where " + getJourneymanName()
+                                + " needs to place a block. It's waiting until they move.");
+                    }
                 }
             }
             case DONE -> finishPlacing();
         }
+    }
+
+    private static String capitalized(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     private boolean preparePlacing() {
@@ -2172,6 +2218,7 @@ public class BuilderEntity extends JourneymanEntity {
             inventory.setChanged();
         }
         pickUpNearbyItems();
+        sweepCaptures();
         if (finishing != null) {
             finishing.tick();
             if (!finishing.isBreaking()) {

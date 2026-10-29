@@ -1,9 +1,12 @@
 package io.github.apperk274.journeymen.build;
 
+import io.github.apperk274.journeymen.mixin.FarmBlockAccessor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.FallingBlock;
+import net.minecraft.world.level.block.FarmBlock;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.TntBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -59,6 +62,7 @@ public final class PlacingWork {
     final TreeMap<Integer, List<Entry>> dependents = new TreeMap<>();
     final TreeMap<Integer, List<Entry>> fluids = new TreeMap<>();
     final List<BlockPos> skipped = new ArrayList<>();
+    final Set<BlockPos> waitsForWater = new HashSet<>();
     private final ServerLevel level;
     private final int total;
     int placed;
@@ -92,13 +96,17 @@ public final class PlacingWork {
                     && (!target.hasProperty(BlockStateProperties.WATERLOGGED) || WaterRules.diesWithoutWater(target.getBlock()) || needsWater);
             boolean waterAround = !ownWater && (needsWater
                     || WaterRules.diesWithoutWater(target.getBlock()) && WaterRules.touchesWater(states, pos));
+            boolean dries = driesBeforeItsWater(pos, placeState, states);
+            if (dries) {
+                waitsForWater.add(pos);
+            }
             int[] rampStep = rampColumns.get(ChunkPos.asLong(pos.getX(), pos.getZ()));
             Entry entry = null;
             if (ownWater) {
                 entry = new Entry(placement, Kind.PLACE, pos.getY(), !plan.isInWaterSource(pos));
             } else if (placeState.getBlock() instanceof TntBlock) {
                 entry = new Entry(placement, Kind.PLACE, LAST_KEY + pos.getY());
-            } else if (waterAround || hangsOnSomething(pos, placeState, alone, hanging, states)) {
+            } else if (waterAround || dries || hangsOnSomething(pos, placeState, alone, hanging, states)) {
                 entry = new Entry(placement, Kind.PLACE);
             } else if (rampStep != null && pos.getY() >= rampStep[1]) {
                 add(ramp, new Entry(placement, Kind.PLACE, -rampStep[0] * AccessRamp.ORDER_STRIDE + pos.getY()));
@@ -136,6 +144,12 @@ public final class PlacingWork {
             }
         }
         this.total = count;
+    }
+
+    private boolean driesBeforeItsWater(BlockPos pos, BlockState placeState, Function<BlockPos, BlockState> states) {
+        return placeState.getBlock() instanceof FarmBlock && !states.apply(pos.above()).is(BlockTags.MAINTAINS_FARMLAND)
+                && !FarmBlockAccessor.journeymen$isNearWater(level, pos)
+                && FarmBlockAccessor.journeymen$isNearWater(SandboxLevel.among(level, states), pos);
     }
 
     static boolean placedWithOtherPart(BlockState target) {

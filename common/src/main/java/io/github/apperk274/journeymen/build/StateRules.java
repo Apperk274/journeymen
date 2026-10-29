@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.build;
 
+import net.minecraft.world.level.block.AbstractCandleBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChorusPlantBlock;
@@ -140,6 +141,9 @@ public final class StateRules {
         ignored.addAll(RESET_WHEN_PLACED);
         if (block instanceof LeverBlock) {
             ignored.remove(BlockStateProperties.POWERED);
+        }
+        if (block instanceof AbstractCandleBlock) {
+            ignored.remove(BlockStateProperties.LIT);
         }
         if (block instanceof CrossCollisionBlock || block instanceof TripWireBlock || block instanceof ChorusPlantBlock) {
             ignored.addAll(List.of(BlockStateProperties.NORTH, BlockStateProperties.EAST, BlockStateProperties.SOUTH, BlockStateProperties.WEST));
