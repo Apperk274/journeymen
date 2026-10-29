@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Predicate;
 
 public final class ReachSearch {
 
@@ -36,7 +37,11 @@ public final class ReachSearch {
     private ReachSearch() {
     }
 
-    public static Result find(BuilderEntity builder, List<BlockPos> targets, BoundingBox area) {
+    public static boolean avoided(Predicate<BlockPos> avoid, BlockPos feet) {
+        return avoid != Reach.AVOID_NOTHING && (avoid.test(feet) || avoid.test(feet.above()));
+    }
+
+    public static Result find(BuilderEntity builder, List<BlockPos> targets, BoundingBox area, Predicate<BlockPos> avoid) {
         if (targets.isEmpty()) {
             return NONE;
         }
@@ -74,13 +79,16 @@ public final class ReachSearch {
                 }
                 Node node = open.pop();
                 node.closed = true;
+                boolean free = !avoided(avoid, node.asBlockPos());
                 if (goal < 0) {
-                    goal = goalAt(goals, box, node.x, node.z);
-                    goalCost = node.g;
+                    if (free) {
+                        goal = goalAt(goals, box, node.x, node.z);
+                        goalCost = node.g;
+                    }
                 } else if (node.g > goalCost + CLOSER_STEPS) {
                     break;
                 }
-                if (goal >= 0) {
+                if (goal >= 0 && free) {
                     BlockPos target = targets.get(goal);
                     double distance = Mth.square(target.getX() - node.x) + Mth.square(target.getZ() - node.z);
                     if (distance < standDistance) {

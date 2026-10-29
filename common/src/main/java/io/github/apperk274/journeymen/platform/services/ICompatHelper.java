@@ -21,6 +21,9 @@ public interface ICompatHelper {
     ItemStack drainBucket(ItemStack container, Fluid fluid);
 
     @Nullable
+    ItemStack fillBucket(ItemStack container, Fluid fluid);
+
+    @Nullable
     BlockState toolModifiedState(ServerLevel level, BlockState state, BlockRequirements.ToolUse use);
 
     boolean canDo(ItemStack stack, BlockRequirements.ToolUse use);

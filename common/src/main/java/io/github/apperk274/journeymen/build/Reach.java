@@ -12,10 +12,12 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public final class Reach {
 
     public static final double HORIZONTAL = 4.5;
+    public static final Predicate<BlockPos> AVOID_NOTHING = pos -> false;
     private static final int GIVE_UP_TICKS = 60;
     private static final int REPATH_INTERVAL = 10;
     private static final int STRANDED_RECHECK_TICKS = 100;
@@ -41,6 +43,11 @@ public final class Reach {
 
     @Nullable
     public <T> T choose(BuilderEntity builder, List<T> candidates, Function<T, BlockPos> position) {
+        return choose(builder, candidates, position, AVOID_NOTHING);
+    }
+
+    @Nullable
+    public <T> T choose(BuilderEntity builder, List<T> candidates, Function<T, BlockPos> position, Predicate<BlockPos> avoid) {
         T nearest = null;
         double nearestDistance = Double.MAX_VALUE;
         for (T candidate : candidates) {
@@ -50,7 +57,7 @@ public final class Reach {
                 nearestDistance = distance;
             }
         }
-        if (nearest == null || nearestDistance <= HORIZONTAL * HORIZONTAL) {
+        if (nearest == null || nearestDistance <= HORIZONTAL * HORIZONTAL && !ReachSearch.avoided(avoid, builder.blockPosition())) {
             return nearest;
         }
         if (strandedAt != null && builder.blockPosition().closerThan(strandedAt, 2.0)
@@ -60,7 +67,7 @@ public final class Reach {
         }
         List<BlockPos> positions = new ArrayList<>(candidates.size());
         candidates.forEach(candidate -> positions.add(position.apply(candidate)));
-        ReachSearch.Result result = ReachSearch.find(builder, positions, area);
+        ReachSearch.Result result = ReachSearch.find(builder, positions, area, avoid);
         switch (result.outcome()) {
             case FOUND -> {
                 stand = result.stand();

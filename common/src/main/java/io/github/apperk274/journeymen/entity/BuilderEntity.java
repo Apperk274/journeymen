@@ -48,6 +48,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
+import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -90,6 +91,8 @@ public class BuilderEntity extends JourneymanEntity {
     private static final int CHEST_TICKS = 20;
     private static final int FROZEN_TICKS = 5;
     private static final int ASK_ASIDE_TICKS = 20;
+    private static final int FLOW_SETTLE_TICKS = 60;
+    private static final double FALL_CHECK_HEIGHT = 16.0;
 
     private final SimpleContainer inventory = new SimpleContainer(INVENTORY_SIZE) {
         @Override
@@ -572,10 +575,10 @@ public class BuilderEntity extends JourneymanEntity {
         if (!plan.getToClear().isEmpty()) {
             CrewWork shared = job.getCrewWork();
             if (shared.getClearing() == null && shared.getPlacing() == null && !shared.isClearingDone()) {
-                shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition()));
+                shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), fluidsInTheWay(plan), plan.targetsByPosition()));
             }
             queueToolRestock(null);
-        } else if (plan.getFluidsInTheWay().isEmpty()) {
+        } else if (fluidsInTheWay(plan).isEmpty()) {
             CrewWork shared = job.getCrewWork();
             if (shared.getPlacing() == null) {
                 shared.setPlacing(new PlacingWork((ServerLevel) level(), plan, this::withinRedoLimit, PlacingTask.rampStart(this)));
@@ -1365,7 +1368,7 @@ public class BuilderEntity extends JourneymanEntity {
                 plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());
                 job.setPlan(plan);
             }
-            shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), plan.getFluidsInTheWay(), plan.targetsByPosition()));
+            shared.setClearing(new ClearingWork((ServerLevel) level(), plan.getToClear(), fluidsInTheWay(plan), plan.targetsByPosition()));
         }
         if (clearing != null) {
             clearedSomething |= clearing.getOwnCleared() > 0;
@@ -1384,20 +1387,27 @@ public class BuilderEntity extends JourneymanEntity {
         clearing = null;
         CrewWork shared = job.getCrewWork();
         if (shared.getClearing() == done) {
+            if (somethingFalls()) {
+                return;
+            }
             List<BlockPos> skipped = done.getSkipped();
             shared.noteCleared(done.getCleared() > 0);
             BuildPlan plan = BuildPlan.create(jobLevel(), job.getSchematic(), job.transform(), job.getOptions());
             job.setPlan(plan);
             List<BlockPos> leftover = new ArrayList<>();
+            List<BlockPos> fluids = new ArrayList<>();
             for (BlockPos pos : plan.getToClear()) {
-                if (job.getRedoCounts().merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
+                if (countRedo(pos)) {
                     leftover.add(pos);
-                } else if (!job.getUnclearable().contains(pos)) {
-                    job.getUnclearable().add(pos);
                 }
             }
-            if (!leftover.isEmpty() || !plan.getFluidsInTheWay().isEmpty()) {
-                shared.setClearing(new ClearingWork((ServerLevel) level(), leftover, plan.getFluidsInTheWay(), plan.targetsByPosition()));
+            for (BlockPos pos : plan.getFluidsInTheWay()) {
+                if (withinRedoLimit(pos) && countRedo(pos)) {
+                    fluids.add(pos);
+                }
+            }
+            if (!leftover.isEmpty() || !fluids.isEmpty()) {
+                shared.setClearing(new ClearingWork((ServerLevel) level(), leftover, fluids, plan.targetsByPosition()));
                 clearing = new ClearingTask(this, job, shared.getClearing());
                 return;
             }
@@ -1497,7 +1507,6 @@ public class BuilderEntity extends JourneymanEntity {
             case NEEDS_TOOL -> startFetch(placing.getNeededTool(), placing.getNeededToolDescription());
             case NEEDS_ROOM -> makeRoom(new ItemCounter());
             case MISSING -> pauseForMaterials();
-            case BLOCKED -> pauseJob(placing.getBlockedReason());
             case IDLE -> waitForCrew(true);
             case WAITING -> {
                 int reportTicks = JourneymenConfig.WAIT_REPORT_SECONDS.get() * 20;
@@ -1632,6 +1641,25 @@ public class BuilderEntity extends JourneymanEntity {
 
     private boolean withinRedoLimit(BlockPos pos) {
         return job.getRedoCounts().getOrDefault(pos, 0) <= JourneymenConfig.REDO_LIMIT.get() && !job.getSkippedPositions().contains(pos);
+    }
+
+    private boolean somethingFalls() {
+        AABB box = AABB.of(job.getArea()).inflate(1.0).expandTowards(0.0, FALL_CHECK_HEIGHT, 0.0);
+        return !jobLevel().getEntitiesOfClass(FallingBlockEntity.class, box).isEmpty();
+    }
+
+    private boolean countRedo(BlockPos pos) {
+        if (job.getRedoCounts().merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
+            return true;
+        }
+        if (!job.getUnclearable().contains(pos)) {
+            job.getUnclearable().add(pos);
+        }
+        return false;
+    }
+
+    private List<BlockPos> fluidsInTheWay(BuildPlan plan) {
+        return plan.getFluidsInTheWay().stream().filter(this::withinRedoLimit).toList();
     }
 
     private void fetchMaterials(@Nullable List<ItemStack> immediate) {
@@ -1836,7 +1864,7 @@ public class BuilderEntity extends JourneymanEntity {
         placing.stop();
         placing = null;
         CrewWork shared = job.getCrewWork();
-        if (shared.getPlacing() != done) {
+        if (shared.getPlacing() != done || level().getGameTime() < done.getSettleUntil() || somethingFalls()) {
             return;
         }
         job.getSkippedPositions().addAll(done.getSkipped());
@@ -1846,23 +1874,33 @@ public class BuilderEntity extends JourneymanEntity {
         plan.getToPlace().forEach(placement -> leftover.add(placement.pos()));
         plan.getToFix().forEach(placement -> leftover.add(placement.pos()));
         plan.getToWaterlog().forEach(placement -> leftover.add(placement.pos()));
-        leftover.addAll(plan.getFluidsInTheWay());
+        plan.getToDrain().forEach(placement -> leftover.add(placement.pos()));
+        plan.getFluidsInTheWay().stream().filter(this::withinRedoLimit).forEach(leftover::add);
         leftover.removeAll(job.getSkippedPositions());
         boolean redo = false;
         for (BlockPos pos : leftover) {
-            if (job.getRedoCounts().merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
-                redo = true;
-            } else if (!job.getUnclearable().contains(pos)) {
-                job.getUnclearable().add(pos);
-            }
+            redo |= countRedo(pos);
         }
         if (!redo) {
+            List<BlockPos> flowing = plan.getFlowingInTheWay();
+            if (!flowing.isEmpty() && done.getSettleUntil() == 0) {
+                PlacingWork settle = new PlacingWork((ServerLevel) level(), plan, pos -> false, null);
+                settle.settleFor(level().getGameTime() + FLOW_SETTLE_TICKS);
+                shared.setPlacing(settle);
+                return;
+            }
+            for (BlockPos pos : flowing) {
+                if (!job.getUnclearable().contains(pos)) {
+                    job.getUnclearable().add(pos);
+                }
+            }
             finishJob();
             return;
         }
         List<BlockPos> toClear = plan.getToClear().stream().filter(this::withinRedoLimit).toList();
-        if (!toClear.isEmpty() || !plan.getFluidsInTheWay().isEmpty()) {
-            shared.setClearing(new ClearingWork((ServerLevel) level(), toClear, plan.getFluidsInTheWay(), plan.targetsByPosition()));
+        List<BlockPos> fluids = fluidsInTheWay(plan);
+        if (!toClear.isEmpty() || !fluids.isEmpty()) {
+            shared.setClearing(new ClearingWork((ServerLevel) level(), toClear, fluids, plan.targetsByPosition()));
             clearing = new ClearingTask(this, job, shared.getClearing());
             work.setPhase(BuildJob.Phase.CLEARING);
             return;
@@ -2223,7 +2261,7 @@ public class BuilderEntity extends JourneymanEntity {
         if (distance <= Reach.HORIZONTAL || stuckNearby) {
             getNavigation().stop();
             BuildPlan plan = job.getPlan();
-            boolean nothingToClear = plan != null && plan.getToClear().isEmpty() && plan.getFluidsInTheWay().isEmpty()
+            boolean nothingToClear = plan != null && plan.getToClear().isEmpty() && fluidsInTheWay(plan).isEmpty()
                     || job.getCrewWork().isClearingDone();
             work.setPhase(nothingToClear ? BuildJob.Phase.PLACING : BuildJob.Phase.CLEARING);
             return;

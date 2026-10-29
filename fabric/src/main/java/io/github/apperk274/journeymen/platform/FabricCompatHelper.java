@@ -74,6 +74,20 @@ public class FabricCompatHelper implements ICompatHelper {
     @Nullable
     @Override
     public ItemStack drainBucket(ItemStack container, Fluid fluid) {
+        return moveBucket(container, fluid, false);
+    }
+
+    @Nullable
+    @Override
+    public ItemStack fillBucket(ItemStack container, Fluid fluid) {
+        if (container.isEmpty() || bucketFluid(container) != null) {
+            return null;
+        }
+        return moveBucket(container, fluid, true);
+    }
+
+    @Nullable
+    private static ItemStack moveBucket(ItemStack container, Fluid fluid, boolean fill) {
         SingleVariantStorage<ItemVariant> slot = new SingleVariantStorage<>() {
             @Override
             protected ItemVariant getBlankVariant() {
@@ -92,7 +106,9 @@ public class FabricCompatHelper implements ICompatHelper {
             return null;
         }
         try (Transaction transaction = Transaction.openOuter()) {
-            if (storage.extract(FluidVariant.of(fluid), FluidConstants.BUCKET, transaction) != FluidConstants.BUCKET) {
+            long moved = fill ? storage.insert(FluidVariant.of(fluid), FluidConstants.BUCKET, transaction)
+                    : storage.extract(FluidVariant.of(fluid), FluidConstants.BUCKET, transaction);
+            if (moved != FluidConstants.BUCKET) {
                 return null;
             }
             transaction.commit();

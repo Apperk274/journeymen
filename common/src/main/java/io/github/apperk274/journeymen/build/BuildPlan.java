@@ -14,15 +14,18 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 public final class BuildPlan {
@@ -38,7 +41,13 @@ public final class BuildPlan {
     private final List<Placement> toPlace = new ArrayList<>();
     private final List<Placement> toFix = new ArrayList<>();
     private final List<Placement> toWaterlog = new ArrayList<>();
+    private final List<Placement> toDrain = new ArrayList<>();
+    private final List<Placement> flowingTargets = new ArrayList<>();
     private final List<BlockPos> fluidsInTheWay = new ArrayList<>();
+    private final List<BlockPos> flowingInTheWay = new ArrayList<>();
+    private final Set<BlockPos> inWaterSource = new HashSet<>();
+    @Nullable
+    private Function<BlockPos, BlockState> schematicStates;
     private final Map<Block, Integer> unplaceable = new LinkedHashMap<>();
     private final boolean skipUnplaceable;
     private int doneCount;
@@ -66,6 +75,7 @@ public final class BuildPlan {
         int height = schematic.getSize().getY();
         int length = schematic.getSize().getZ();
         Function<BlockPos, BlockState> neighbours = neighbours(level, schematic, transform);
+        plan.schematicStates = neighbours;
         for (int y = 0; y < height; y++) {
             for (int z = 0; z < length; z++) {
                 for (int x = 0; x < width; x++) {
@@ -112,14 +122,19 @@ public final class BuildPlan {
     private void classify(ServerLevel level, BlockPos pos, BlockState target, BlockState actual, @Nullable CompoundTag blockEntity,
                           @Nullable BlockState unmadeFrom) {
         if (target.getBlock() instanceof LiquidBlock && !target.getFluidState().isSource()) {
-            doneCount++;
+            if (actual.isAir() || actual.getBlock() instanceof LiquidBlock) {
+                doneCount++;
+            } else {
+                toClear.add(pos);
+                flowingTargets.add(new Placement(pos, target, null));
+            }
             return;
         }
         if (target.isAir()) {
             if (actual.isAir()) {
                 doneCount++;
             } else if (actual.getBlock() instanceof LiquidBlock) {
-                fluidsInTheWay.add(pos);
+                (actual.getFluidState().isSource() ? fluidsInTheWay : flowingInTheWay).add(pos);
             } else {
                 toClear.add(pos);
             }
@@ -146,7 +161,7 @@ public final class BuildPlan {
             target = grownFrom;
         }
         if (StateRules.matches(target, actual)) {
-            toWaterlog.add(new Placement(pos, target, blockEntity));
+            (WaterRules.isWaterlogged(target) ? toWaterlog : toDrain).add(new Placement(pos, target, blockEntity));
             return;
         }
         if (StateRules.fixableByHand(target, actual)) {
@@ -158,8 +173,8 @@ public final class BuildPlan {
             totalCount--;
             return;
         }
-        if (actual.getBlock() instanceof LiquidBlock) {
-            fluidsInTheWay.add(pos);
+        if (WaterRules.isWaterSource(actual)) {
+            inWaterSource.add(pos);
         } else if (!actual.isAir() && !actual.canBeReplaced()) {
             toClear.add(pos);
         }
@@ -176,7 +191,8 @@ public final class BuildPlan {
                 unobtainable.merge(placement.target().getBlock(), 1, Integer::sum);
                 continue;
             }
-            requirement.items().forEach(stack -> items.add(stack, stack.getCount()));
+            itemsInWater(requirement.items(), placement.target(), inWaterSource.contains(placement.pos()))
+                    .forEach(stack -> items.add(stack, stack.getCount()));
             if (requirement.toolUse() != null) {
                 toolUses.merge(requirement.toolUse(), 1, Integer::sum);
             }
@@ -184,7 +200,32 @@ public final class BuildPlan {
         for (Placement ignored : toWaterlog) {
             items.add(new ItemStack(Items.WATER_BUCKET), 1);
         }
+        for (Placement ignored : toDrain) {
+            items.add(WaterRules.emptyBucket(), 1);
+        }
         return new Requirements(items, toolUses, unobtainable);
+    }
+
+    public static List<ItemStack> itemsInWater(List<ItemStack> items, BlockState target, boolean inWaterSource) {
+        if (!inWaterSource || target.getBlock() instanceof LiquidBlock) {
+            return items;
+        }
+        if (WaterRules.holdsFluid(target) && target.getFluidState().getType().isSame(Fluids.WATER)) {
+            List<ItemStack> result = new ArrayList<>(items);
+            for (int i = result.size() - 1; i >= 0; i--) {
+                if (ItemMatch.bucketFluid(result.get(i)) != null) {
+                    result.remove(i);
+                    break;
+                }
+            }
+            return result;
+        }
+        if (target.hasProperty(BlockStateProperties.WATERLOGGED)) {
+            List<ItemStack> result = new ArrayList<>(items);
+            result.add(WaterRules.emptyBucket());
+            return result;
+        }
+        return items;
     }
 
     public Map<BlockPos, BlockState> targetsByPosition() {
@@ -192,7 +233,14 @@ public final class BuildPlan {
         for (Placement placement : toPlace) {
             targets.put(placement.pos(), placement.target());
         }
+        for (Placement placement : flowingTargets) {
+            targets.put(placement.pos(), placement.target());
+        }
         return targets;
+    }
+
+    public Function<BlockPos, BlockState> getSchematicStates(ServerLevel level) {
+        return schematicStates != null ? schematicStates : level::getBlockState;
     }
 
     public Map<Block, Integer> getUnplaceable() {
@@ -222,11 +270,11 @@ public final class BuildPlan {
     }
 
     public int getAdjustCount() {
-        int count = toFix.size() + toWaterlog.size();
+        int count = toFix.size() + toWaterlog.size() + toDrain.size();
         for (Placement placement : toPlace) {
             BlockState target = placement.target();
             if (!(target.getBlock() instanceof LiquidBlock) && !PlacingWork.placedWithOtherPart(target)
-                    && target.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false)) {
+                    && WaterRules.isWaterlogged(target) && !inWaterSource.contains(placement.pos())) {
                 count++;
             }
         }
@@ -241,8 +289,20 @@ public final class BuildPlan {
         return toWaterlog;
     }
 
+    public boolean isInWaterSource(BlockPos pos) {
+        return inWaterSource.contains(pos);
+    }
+
+    public List<Placement> getToDrain() {
+        return toDrain;
+    }
+
     public List<BlockPos> getFluidsInTheWay() {
         return fluidsInTheWay;
+    }
+
+    public List<BlockPos> getFlowingInTheWay() {
+        return flowingInTheWay;
     }
 
     public int getDoneCount() {

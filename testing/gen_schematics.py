@@ -201,6 +201,54 @@ def edge_live(width, kind="oak_planks"):
     return {(x, 0, z): state(kind) for x in range(width) for z in range(8)}
 
 
+def fl_into():
+    blocks = {(x, 0, z): state("glass") for x in range(5) for z in range(3)}
+    blocks[(0, 0, 0)] = state("stone")
+    blocks[(2, 0, 0)] = state("stone")
+    blocks[(4, 0, 0)] = state("oak_slab", type="bottom", waterlogged=False)
+    blocks[(0, 0, 2)] = state("oak_stairs", facing="north", half="bottom", shape="straight", waterlogged=True)
+    return blocks
+
+
+def fl_air():
+    blocks = {(x, 0, 0): state("air") for x in range(5)}
+    blocks[(0, 0, 0)] = state("stone")
+    blocks[(3, 0, 0)] = state("glass")
+    return blocks
+
+
+def fl_wet():
+    blocks = {(x, y, z): state("stone") if y == 0 else state("air") for x in range(13) for y in range(3) for z in range(3)}
+    blocks[(1, 0, 1)] = state("water", level=0)
+    blocks[(1, 1, 1)] = state("lily_pad")
+    blocks[(2, 0, 1)] = state("sand")
+    blocks[(2, 1, 1)] = state("sugar_cane", age=0)
+    blocks[(5, 0, 1)] = state("dirt")
+    blocks[(5, 1, 1)] = state("small_dripleaf", facing="north", half="lower", waterlogged=True)
+    blocks[(5, 2, 1)] = state("small_dripleaf", facing="north", half="upper", waterlogged=False)
+    blocks[(8, 1, 1)] = state("tube_coral_fan", waterlogged=True)
+    for x, z in ((4, 1), (6, 1), (5, 0), (5, 2), (7, 1), (9, 1), (8, 0), (8, 2)):
+        blocks[(x, 1, z)] = state("stone")
+    blocks[(10, 0, 1)] = state("tube_coral_block")
+    blocks[(11, 0, 1)] = state("water", level=0)
+    return blocks
+
+
+def fl_drain():
+    return {(0, 0, 0): state("oak_slab", type="bottom", waterlogged=False),
+            (1, 0, 0): state("oak_stairs", facing="north", half="bottom", shape="straight", waterlogged=True)}
+
+
+def ph_fall():
+    return {(0, 0, 0): state("stone"), (0, 1, 0): state("sand"), (1, 0, 0): state("air"), (1, 1, 0): state("sand"),
+            (2, 0, 0): state("structure_void"), (2, 1, 0): state("gravel"), (3, 0, 0): state("gravel"), (3, 1, 0): state("air")}
+
+
+def ph_tnt():
+    kinds = [state("redstone_block"), state("tnt", unstable=False), state("stone"), state("tnt", unstable=False), state("stone")]
+    return {(x, 0, 0): kind for x, kind in enumerate(kinds)}
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -232,6 +280,17 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_edge_live_a.schem"), (8, 1, 8), edge_live(8))
     write_sponge_v3(os.path.join(out, "test_edge_live_b.schem"), (9, 1, 8), edge_live(9))
     write_sponge_v3(os.path.join(out, "test_edge_same_b.schem"), (8, 1, 8), edge_live(8, "spruce_planks"))
+    write_sponge_v3(os.path.join(out, "test_fl_into.schem"), (5, 1, 3), fl_into())
+    write_sponge_v3(os.path.join(out, "test_fl_ice.schem"), (3, 2, 1), {(x, y, 0): state("stone") if y == 0 else state("air")
+                                                                          for x in range(3) for y in range(2)})
+    write_sponge_v3(os.path.join(out, "test_fl_air.schem"), (5, 1, 1), fl_air())
+    write_sponge_v3(os.path.join(out, "test_fl_flowing.schem"), (1, 1, 1), {(0, 0, 0): state("water", level=1)})
+    write_sponge_v3(os.path.join(out, "test_fl_wet.schem"), (13, 3, 3), fl_wet())
+    write_sponge_v3(os.path.join(out, "test_fl_cell.schem"), (1, 1, 1), {(0, 0, 0): state("water", level=0)})
+    write_sponge_v3(os.path.join(out, "test_fl_drain.schem"), (2, 1, 1), fl_drain())
+    write_sponge_v3(os.path.join(out, "test_ph_fall.schem"), (4, 2, 1), ph_fall())
+    write_sponge_v3(os.path.join(out, "test_ph_above.schem"), (2, 1, 1), {})
+    write_sponge_v3(os.path.join(out, "test_ph_tnt.schem"), (5, 1, 1), ph_tnt())
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
         write_sponge_v3(os.path.join(out, "test_tfc_made.schem"), (7, 2, 3),

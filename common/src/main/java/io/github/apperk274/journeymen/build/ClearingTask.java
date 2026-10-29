@@ -103,6 +103,10 @@ public final class ClearingTask {
             return Status.WORKING;
         }
         if (state.getBlock() instanceof LiquidBlock) {
+            if (wanted != null || !state.getFluidState().isSource() || givesUpOnFluid(target)) {
+                finishTarget();
+                return Status.WORKING;
+            }
             blockedReason = "Water or lava is in the way at " + target.toShortString() + ". Please remove it.";
             resetProgress();
             return Status.BLOCKED;
@@ -119,6 +123,16 @@ public final class ClearingTask {
         builder.getNavigation().stop();
 
         Container inventory = builder.getInventory();
+        if (progress == 0.0F && needsIceTool(state)) {
+            needIceToolFor(state, target);
+            if (builder.inCrewMode()) {
+                job.getCrewWork().unclaim(target, builder.getUUID());
+                batch.remove(target);
+                target = null;
+                reach.reset();
+            }
+            return Status.NEEDS_TOOL;
+        }
         int slot = ToolChoice.choose(inventory, state, level, target, job.getOptions().allowBreakingEnchanted(), work.requiredRemaining);
         if (slot == ToolChoice.NONE) {
             needToolFor(state, target);
@@ -162,6 +176,36 @@ public final class ClearingTask {
             breakTarget(state, slot);
         }
         return Status.WORKING;
+    }
+
+    private boolean givesUpOnFluid(BlockPos pos) {
+        long now = level.getGameTime();
+        Long since = work.fluidSince.putIfAbsent(pos, now);
+        if (since == null || now - since < JourneymenConfig.REMINDER_INTERVAL_SECONDS.get() * 20L) {
+            return false;
+        }
+        work.fluidSince.put(pos, now);
+        if (job.getRedoCounts().merge(pos, 1, Integer::sum) <= JourneymenConfig.REDO_LIMIT.get()) {
+            return false;
+        }
+        if (!job.getUnclearable().contains(pos)) {
+            job.getUnclearable().add(pos);
+        }
+        return true;
+    }
+
+    private boolean needsIceTool(BlockState state) {
+        if (!WaterRules.meltsWhenBroken(state)) {
+            return false;
+        }
+        Predicate<ItemStack> iceTool = WaterRules.iceTool(job.getOptions().allowBreakingEnchanted());
+        return builder.findSlot(iceTool) < 0 && (builder.supplyHas(iceTool) || builder.inCrewMode() && builder.crewHolds(iceTool));
+    }
+
+    private void needIceToolFor(BlockState state, BlockPos pos) {
+        neededTool = WaterRules.iceTool(job.getOptions().allowBreakingEnchanted());
+        neededToolDescription = "a Silk Touch tool to clear " + state.getBlock().getName().getString() + " at " + pos.toShortString()
+                + " without leaving water";
     }
 
     private void needToolFor(BlockState state, BlockPos pos) {
@@ -242,7 +286,12 @@ public final class ClearingTask {
                 if (canBreak(pos, breakable)) {
                     candidates.add(pos);
                 } else if (neededTool == null) {
-                    needToolFor(level.getBlockState(pos), pos);
+                    BlockState state = level.getBlockState(pos);
+                    if (needsIceTool(state)) {
+                        needIceToolFor(state, pos);
+                    } else {
+                        needToolFor(state, pos);
+                    }
                 }
             }
             if (!candidates.isEmpty()) {
@@ -276,6 +325,9 @@ public final class ClearingTask {
         BlockState state = level.getBlockState(pos);
         if (state.isAir() || state.getBlock() instanceof LiquidBlock || state.getDestroySpeed(level, pos) < 0.0F) {
             return true;
+        }
+        if (needsIceTool(state)) {
+            return false;
         }
         return cache.computeIfAbsent(state, key -> ToolChoice.choose(builder.getInventory(), key, level, pos,
                 job.getOptions().allowBreakingEnchanted(), work.requiredRemaining) != ToolChoice.NONE);

@@ -15,16 +15,20 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.FallingBlock;
+import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 public final class PreCheck {
 
@@ -127,9 +131,11 @@ public final class PreCheck {
                     .append(Component.literal(" at " + positions(unbreakable))));
         }
         if (!plan.getFluidsInTheWay().isEmpty()) {
-            check.warning("Water or lava is in the way at " + plan.getFluidsInTheWay().size() + " position(s), e.g. "
-                    + positions(plan.getFluidsInTheWay()) + ". The crew will stop there and " + foreman.getJourneymanName() + " will ask you to remove it.");
+            check.warning("Water or lava is in the way at " + plan.getFluidsInTheWay().size() + " position(s) where the schematic wants air, e.g. "
+                    + positions(plan.getFluidsInTheWay()) + ". The crew will stop there and " + foreman.getJourneymanName()
+                    + " will ask you to remove it; if it stays, they leave it and he tells you at the end.");
         }
+        check.checkFallingAbove(level, plan);
 
         Set<BlockPos> positions = new LinkedHashSet<>(plan.getToClear());
         plan.getToPlace().forEach(placement -> positions.add(placement.pos()));
@@ -189,10 +195,76 @@ public final class PreCheck {
         if (check.missingCount > 0 && !options.skipMissing()) {
             check.hints.add(Component.literal("Add the " + BuildOptions.SKIP_MISSING + " option to build without the blocks whose materials are missing."));
         }
+        check.checkWaterLeft(level, plan, stock, options.allowBreakingEnchanted(), foreman.getJourneymanName());
         ToolCheck.Shortfalls tools = ToolCheck.shortfalls(level, plan.getToClear(), toolUses, stock, options.allowBreakingEnchanted());
         check.problems.addAll(tools.problems());
         check.missingTools = tools.suppliable();
         return check;
+    }
+
+    private void checkWaterLeft(ServerLevel level, BuildPlan plan, List<ItemStack> stock, boolean allowBreakingEnchanted, String foreman) {
+        Map<BlockPos, BlockState> targets = plan.targetsByPosition();
+        boolean iceTool = stock.stream().anyMatch(WaterRules.iceTool(allowBreakingEnchanted));
+        List<BlockPos> ice = new ArrayList<>();
+        List<BlockPos> holding = new ArrayList<>();
+        for (BlockPos pos : plan.getToClear()) {
+            if (targets.containsKey(pos)) {
+                continue;
+            }
+            BlockState state = level.getBlockState(pos);
+            if (WaterRules.meltsWhenBroken(state)) {
+                BlockState below = level.getBlockState(pos.below());
+                if (!iceTool && !level.dimensionType().ultraWarm() && (below.blocksMotion() || below.liquid())) {
+                    ice.add(pos);
+                }
+            } else if (!(state.getBlock() instanceof LiquidBlock) && state.getFluidState().isSource()) {
+                holding.add(pos);
+            }
+        }
+        if (!ice.isEmpty()) {
+            warning("Clearing " + ice.size() + " ice block(s) will leave water where the schematic wants air, e.g. at " + positions(ice)
+                    + ", because there is no Silk Touch tool in stock. The crew will stop there and " + foreman + " will ask you to remove it.");
+        }
+        if (!holding.isEmpty()) {
+            warning("Clearing " + holding.size() + " block(s) that hold water or lava (waterlogged blocks, kelp, seagrass) will leave it where the "
+                    + "schematic wants air, e.g. at " + positions(holding) + ". The crew will stop there and " + foreman + " will ask you to remove it.");
+        }
+    }
+
+    private void checkFallingAbove(ServerLevel level, BuildPlan plan) {
+        int top = area.maxY();
+        if (top + 1 >= level.getMaxBuildHeight()) {
+            return;
+        }
+        Set<BlockPos> cleared = new HashSet<>(plan.getToClear());
+        Function<BlockPos, BlockState> states = plan.getSchematicStates(level);
+        List<BlockPos> columns = new ArrayList<>();
+        int count = 0;
+        for (int x = area.minX(); x <= area.maxX(); x++) {
+            for (int z = area.minZ(); z <= area.maxZ(); z++) {
+                BlockPos edge = new BlockPos(x, top, z);
+                if (!cleared.contains(edge) && !FallingBlock.isFree(states.apply(edge))) {
+                    continue;
+                }
+                BlockPos above = edge.above();
+                int stack = 0;
+                while (above.getY() < level.getMaxBuildHeight() && level.getBlockState(above).getBlock() instanceof FallingBlock) {
+                    stack++;
+                    above = above.above();
+                }
+                if (stack > 0) {
+                    columns.add(edge.above());
+                    count += stack;
+                }
+            }
+        }
+        if (count > 0) {
+            BlockState example = level.getBlockState(columns.get(0));
+            warnings.add(Component.literal(count + " block(s) that fall, like ").append(example.getBlock().getName())
+                    .append(Component.literal(", sit right above the site and will fall into it once the crew clears under them, e.g. at "
+                            + positions(columns) + ". The crew clears what falls in again, each spot at most " + JourneymenConfig.REDO_LIMIT.get()
+                            + " more time(s).")));
+        }
     }
 
     private void checkPath(ForemanEntity foreman, BoundingBox area) {

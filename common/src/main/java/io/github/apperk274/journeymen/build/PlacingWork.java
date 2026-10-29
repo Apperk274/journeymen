@@ -5,6 +5,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.TntBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public final class PlacingWork {
@@ -27,19 +29,30 @@ public final class PlacingWork {
         PLACE,
         FIX,
         FLUID,
-        WATERLOG
+        WATERLOG,
+        DRAIN
     }
 
-    record Entry(BuildPlan.Placement placement, Kind kind, int key) {
+    record Entry(BuildPlan.Placement placement, Kind kind, int key, boolean withWater) {
 
         Entry(BuildPlan.Placement placement, Kind kind) {
-            this(placement, kind, placement.pos().getY());
+            this(placement, kind, placement.pos().getY(), false);
+        }
+
+        Entry(BuildPlan.Placement placement, Kind kind, int key) {
+            this(placement, kind, key, false);
         }
 
         BlockPos pos() {
             return placement.pos();
         }
+
+        int weight() {
+            return withWater && WaterRules.isWaterlogged(placement.target()) ? 2 : 1;
+        }
     }
+
+    private static final int LAST_KEY = 1 << 24;
 
     final TreeMap<Integer, List<Entry>> supports = new TreeMap<>();
     final TreeMap<Integer, List<Entry>> ramp = new TreeMap<>();
@@ -49,10 +62,13 @@ public final class PlacingWork {
     private final ServerLevel level;
     private final int total;
     int placed;
+    private long settleUntil;
 
     public PlacingWork(ServerLevel level, BuildPlan plan, Predicate<BlockPos> include, @Nullable BlockPos rampStart) {
         this.level = level;
         Map<Long, int[]> rampColumns = AccessRamp.columns(level, plan, rampStart);
+        Function<BlockPos, BlockState> states = plan.getSchematicStates(level);
+        Function<BlockPos, BlockState> drained = at -> WaterRules.drained(states.apply(at));
         Set<BlockPos> hanging = new HashSet<>();
         int count = 0;
         for (BuildPlan.Placement placement : plan.getToPlace()) {
@@ -60,6 +76,7 @@ public final class PlacingWork {
                 continue;
             }
             BlockState target = placement.target();
+            BlockPos pos = placement.pos();
             if (target.getBlock() instanceof LiquidBlock) {
                 if (target.getFluidState().isSource()) {
                     add(fluids, new Entry(placement, Kind.FLUID));
@@ -67,17 +84,35 @@ public final class PlacingWork {
                 }
                 continue;
             }
-            int[] rampStep = rampColumns.get(ChunkPos.asLong(placement.pos().getX(), placement.pos().getZ()));
-            if (hangsOnSomething(placement.pos(), target, hanging)) {
-                hanging.add(placement.pos());
-                add(dependents, new Entry(placement, Kind.PLACE));
-            } else if (rampStep != null && placement.pos().getY() >= rampStep[1]) {
-                add(ramp, new Entry(placement, Kind.PLACE, -rampStep[0] * AccessRamp.ORDER_STRIDE + placement.pos().getY()));
+            BlockState placeState = StateRules.forPlacement(target);
+            boolean alone = survivesAlone(pos, placeState);
+            boolean needsWater = !alone && SandboxLevel.survivesAmong(level, pos, placeState, states)
+                    && !SandboxLevel.survivesAmong(level, pos, placeState, drained);
+            boolean ownWater = WaterRules.holdsFluid(target)
+                    && (!target.hasProperty(BlockStateProperties.WATERLOGGED) || WaterRules.diesWithoutWater(target.getBlock()) || needsWater);
+            boolean waterAround = !ownWater && (needsWater
+                    || WaterRules.diesWithoutWater(target.getBlock()) && WaterRules.touchesWater(states, pos));
+            int[] rampStep = rampColumns.get(ChunkPos.asLong(pos.getX(), pos.getZ()));
+            Entry entry = null;
+            if (ownWater) {
+                entry = new Entry(placement, Kind.PLACE, pos.getY(), !plan.isInWaterSource(pos));
+            } else if (placeState.getBlock() instanceof TntBlock) {
+                entry = new Entry(placement, Kind.PLACE, LAST_KEY + pos.getY());
+            } else if (waterAround || hangsOnSomething(pos, placeState, alone, hanging, states)) {
+                entry = new Entry(placement, Kind.PLACE);
+            } else if (rampStep != null && pos.getY() >= rampStep[1]) {
+                add(ramp, new Entry(placement, Kind.PLACE, -rampStep[0] * AccessRamp.ORDER_STRIDE + pos.getY()));
+                count++;
             } else {
                 add(supports, new Entry(placement, Kind.PLACE));
+                count++;
             }
-            count++;
-            if (target.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false)) {
+            if (entry != null) {
+                hanging.add(pos);
+                add(dependents, entry);
+                count += entry.weight();
+            }
+            if (WaterRules.isWaterlogged(target) && (entry == null || !entry.withWater()) && !plan.isInWaterSource(pos)) {
                 add(fluids, new Entry(placement, Kind.WATERLOG));
                 count++;
             }
@@ -94,6 +129,12 @@ public final class PlacingWork {
                 count++;
             }
         }
+        for (BuildPlan.Placement placement : plan.getToDrain()) {
+            if (include.test(placement.pos())) {
+                add(fluids, new Entry(placement, Kind.DRAIN));
+                count++;
+            }
+        }
         this.total = count;
     }
 
@@ -104,13 +145,18 @@ public final class PlacingWork {
                 || target.getBlock() instanceof MovingPistonBlock;
     }
 
-    private boolean hangsOnSomething(BlockPos pos, BlockState target, Set<BlockPos> hanging) {
-        BlockState placeState = StateRules.forPlacement(target);
-        if (placeState.getBlock() instanceof FallingBlock && hanging.contains(pos.below())) {
+    private boolean survivesAlone(BlockPos pos, BlockState placeState) {
+        return SandboxLevel.survivesAlone(level, pos, placeState)
+                && (hasTwoParts(placeState) || !SandboxLevel.shapedAlone(level, pos, placeState).isAir());
+    }
+
+    private static boolean hangsOnSomething(BlockPos pos, BlockState placeState, boolean alone, Set<BlockPos> hanging,
+                                            Function<BlockPos, BlockState> states) {
+        if (placeState.getBlock() instanceof FallingBlock
+                && (hanging.contains(pos.below()) || FallingBlock.isFree(states.apply(pos.below())))) {
             return true;
         }
-        return !SandboxLevel.survivesAlone(level, pos, placeState)
-                || !hasTwoParts(placeState) && SandboxLevel.shapedAlone(level, pos, placeState).isAir();
+        return !alone;
     }
 
     static boolean hasTwoParts(BlockState state) {
@@ -154,6 +200,14 @@ public final class PlacingWork {
         return total;
     }
 
+    public long getSettleUntil() {
+        return settleUntil;
+    }
+
+    public void settleFor(long until) {
+        settleUntil = until;
+    }
+
     public int getPlaced() {
         return placed;
     }
@@ -162,7 +216,9 @@ public final class PlacingWork {
         int count = 0;
         for (TreeMap<Integer, List<Entry>> layers : groups()) {
             for (List<Entry> layer : layers.values()) {
-                count += layer.size();
+                for (Entry entry : layer) {
+                    count += entry.weight();
+                }
             }
         }
         return count;

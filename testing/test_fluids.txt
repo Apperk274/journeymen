@@ -1,0 +1,181 @@
+forceload add 4864 4864 4991 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+kill @e[type=pig]
+ticks 40
+fill 4864 99 4864 4991 99 4927 minecraft:stone
+fill 4864 100 4864 4927 104 4927 minecraft:air
+fill 4928 100 4864 4991 104 4927 minecraft:air
+kill @e[type=item]
+fill 4869 100 4869 4875 100 4873 minecraft:glass
+setblock 4870 100 4870 minecraft:water
+setblock 4872 100 4870 minecraft:lava
+setblock 4874 100 4870 minecraft:water
+setblock 4870 100 4872 minecraft:water
+setblock 4870 100 4878 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 4872 100 4876 journeymen foreman summon FlInto
+journeymen debug as Steve 2 4871 100 4876 journeymen builder summon FlInto Intra
+journeymen debug as Steve 0 4872 100 4876 journeymen foreman chest FlInto add 4870 100 4878 supply
+mark
+journeymen debug as Steve 0 4872 100 4876 journeymen foreman check FlInto test_fl_into.schem 4870 100 4870 none corner
+waitlog Missing 1 Empty bucket \(any kind\) !! Missing \d+ Water bucket|Exception
+journeymen debug as Steve 2 4872 100 4876 journeymen foreman supply FlInto test_fl_into.schem 4870 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 4872 100 4876 journeymen foreman build FlInto test_fl_into.schem 4870 100 4870 none corner
+waitlog nosprint FlInto's crew is on the way !!
+waitlog 20 \[Steve\.FlInto\] I finished building test_fl_into\.schem !! can't start this job|\] I'm missing |\] I need |Water or lava is in the way|I couldn't build|Exception
+waitfor 5 nosprint execute if block 4870 100 4870 minecraft:stone =~ passed
+waitfor 5 nosprint execute if block 4872 100 4870 minecraft:stone =~ passed
+waitfor 5 nosprint execute if block 4874 100 4870 minecraft:oak_slab[waterlogged=false] =~ passed
+waitfor 5 nosprint execute if block 4870 100 4872 minecraft:oak_stairs[waterlogged=true] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Intra,nbt={Inventory:{Items:[{id:'minecraft:water_bucket'}]}}] =~ passed
+mark
+journeymen debug as Steve 0 4872 100 4876 journeymen foreman check FlInto test_fl_into.schem 4870 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+fill 4880 100 4870 4882 100 4870 minecraft:stone
+fill 4880 101 4870 4882 101 4870 minecraft:ice
+setblock 4880 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 4882 100 4875 journeymen foreman summon FlIce
+journeymen debug as Steve 2 4881 100 4875 journeymen builder summon FlIce Icy
+journeymen debug as Steve 0 4882 100 4875 journeymen foreman chest FlIce add 4880 100 4876 supply
+mark
+journeymen debug as Steve 0 4882 100 4875 journeymen foreman check FlIce test_fl_ice.schem 4880 100 4870 none corner
+waitlog Clearing 3 ice block\(s\) will leave water where the schematic wants air
+item replace block 4880 100 4876 container.0 with minecraft:diamond_pickaxe
+item replace block 4880 100 4876 container.1 with minecraft:iron_pickaxe[minecraft:enchantments={levels:{'minecraft:silk_touch':1}}]
+mark
+journeymen debug as Steve 0 4882 100 4875 journeymen foreman check FlIce test_fl_ice.schem 4880 100 4870 none corner
+waitlog 10 3 to clear, 0 to place
+waitlog 10 Everything is ready !! will leave water
+mark
+journeymen debug as Steve 0 4882 100 4875 journeymen foreman build FlIce test_fl_ice.schem 4880 100 4870 none corner
+waitlog nosprint FlIce's crew is on the way !!
+waitlog 20 \[Steve\.FlIce\] I finished building test_fl_ice\.schem !! can't start this job|\] I'm missing |\] I need |Water or lava is in the way|I couldn't build|Exception
+waitfor 5 nosprint execute if block 4880 101 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if block 4881 101 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if block 4882 101 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Icy,nbt={Inventory:{Items:[{id:'minecraft:ice'}]}}] =~ passed
+fill 4889 100 4869 4896 100 4871 minecraft:glass
+setblock 4890 100 4870 minecraft:air
+setblock 4891 100 4870 minecraft:water
+setblock 4892 100 4870 minecraft:seagrass
+setblock 4894 100 4870 minecraft:air
+setblock 4895 100 4870 minecraft:water
+setblock 4890 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 4892 100 4875 journeymen foreman summon FlAir
+journeymen debug as Steve 2 4891 100 4875 journeymen builder summon FlAir Airy
+journeymen debug as Steve 0 4892 100 4875 journeymen foreman chest FlAir add 4890 100 4876 supply
+journeymen debug as Steve 2 4892 100 4875 journeymen foreman supply FlAir test_fl_air.schem 4890 100 4870 none corner
+waitlog \] Supplied \d+ items?
+journeymen debug config reminder_interval_seconds 1
+waitlog \[debug config\] reminder_interval_seconds = 1
+mark
+journeymen debug as Steve 0 4892 100 4875 journeymen foreman build FlAir test_fl_air.schem 4890 100 4870 none corner
+waitlog nosprint FlAir's crew is on the way !!
+waitlog 30 \[Steve\.FlAir\] I couldn't build 3 block\(s\) of test_fl_air\.schem !! can't start this job|\] I'm missing |\] I need |Exception
+waitlog 10 \[Steve\.FlAir\] I finished building test_fl_air\.schem
+waitfor 5 nosprint execute if block 4890 100 4870 minecraft:stone =~ passed
+journeymen config reload
+setblock 4900 100 4870 minecraft:dirt
+setblock 4900 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 4902 100 4875 journeymen foreman summon FlFlow
+journeymen debug as Steve 2 4901 100 4875 journeymen builder summon FlFlow Flowy
+journeymen debug as Steve 0 4902 100 4875 journeymen foreman chest FlFlow add 4900 100 4876 supply
+mark
+journeymen debug as Steve 0 4902 100 4875 journeymen foreman check FlFlow test_fl_flowing.schem 4900 100 4870 none corner
+waitlog 10 \b1 to clear, 0 to place
+mark
+journeymen debug as Steve 0 4902 100 4875 journeymen foreman build FlFlow test_fl_flowing.schem 4900 100 4870 none corner
+waitlog nosprint FlFlow's crew is on the way !!
+waitlog 20 \[Steve\.FlFlow\] I finished building test_fl_flowing\.schem !! can't start this job|\] I'm missing |\] I need |Water or lava is in the way|I couldn't build|Exception
+waitfor 5 nosprint execute if block 4900 100 4870 minecraft:air =~ passed
+setblock 4910 100 4877 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 4914 100 4876 journeymen foreman summon FlWet
+journeymen debug as Steve 2 4913 100 4876 journeymen builder summon FlWet Wetty
+journeymen debug as Steve 0 4914 100 4876 journeymen foreman chest FlWet add 4910 100 4877 supply
+journeymen debug as Steve 2 4914 100 4876 journeymen foreman supply FlWet test_fl_wet.schem 4910 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 4914 100 4876 journeymen foreman build FlWet test_fl_wet.schem 4910 100 4870 none corner
+waitlog nosprint FlWet's crew is on the way !!
+waitlog 30 \[Steve\.FlWet\] I finished building test_fl_wet\.schem !! can't start this job|\] I'm missing |\] I need |isn't allowed to build|I couldn't build|Exception
+waitfor 5 nosprint execute if block 4911 101 4871 minecraft:lily_pad =~ passed
+waitfor 5 nosprint execute if block 4912 101 4871 minecraft:sugar_cane =~ passed
+waitfor 5 nosprint execute if block 4915 101 4871 minecraft:small_dripleaf[half=lower,waterlogged=true] =~ passed
+waitfor 5 nosprint execute if block 4915 102 4871 minecraft:small_dripleaf[half=upper] =~ passed
+waitfor 5 nosprint execute if block 4918 101 4871 minecraft:tube_coral_fan[waterlogged=true] =~ passed
+ticks 200
+waitfor 5 nosprint execute if block 4918 101 4871 minecraft:tube_coral_fan =~ passed
+waitfor 5 nosprint execute if block 4920 100 4871 minecraft:tube_coral_block =~ passed
+mark
+journeymen debug as Steve 0 4914 100 4876 journeymen foreman check FlWet test_fl_wet.schem 4910 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+journeymen debug config wait_report_seconds 1
+waitlog \[debug config\] wait_report_seconds = 1
+fill 4930 100 4870 4932 101 4872 minecraft:stone
+setblock 4931 101 4871 minecraft:air
+fill 4940 100 4870 4943 101 4872 minecraft:stone
+setblock 4941 101 4871 minecraft:air
+setblock 4942 101 4871 minecraft:air
+setblock 4930 100 4878 minecraft:chest[facing=north]{Items:[]}
+summon minecraft:pig 4931.5 101 4871.5 {NoAI:1b,Silent:1b,PersistenceRequired:1b}
+journeymen debug as Steve 2 4936 100 4876 journeymen foreman summon FlCell
+journeymen debug as Steve 2 4935 100 4876 journeymen builder summon FlCell Celly
+journeymen debug as Steve 0 4936 100 4876 journeymen foreman chest FlCell add 4930 100 4878 supply
+journeymen debug as Steve 2 4936 100 4876 journeymen foreman supply FlCell test_fl_cell.schem 4931 101 4871 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 4936 100 4876 journeymen foreman build FlCell test_fl_cell.schem 4931 101 4871 none corner
+waitlog nosprint FlCell's crew is on the way !!
+waitlog 20 Someone is standing at 4931, 101, 4871 !! I finished building|Exception
+waitfor 5 nosprint execute if block 4931 101 4871 minecraft:air =~ passed
+kill @e[type=pig]
+waitlog 20 \[Steve\.FlCell\] I finished building test_fl_cell\.schem !! I couldn't build|Exception
+waitfor 5 nosprint execute if block 4931 101 4871 minecraft:water =~ passed
+summon minecraft:pig 4942.5 101 4871.5 {NoAI:1b,Silent:1b,PersistenceRequired:1b}
+journeymen debug as Steve 2 4936 100 4876 journeymen foreman supply FlCell test_fl_cell.schem 4941 101 4871 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 4936 100 4876 journeymen foreman build FlCell test_fl_cell.schem 4941 101 4871 none corner
+waitlog nosprint FlCell's crew is on the way !!
+waitlog 20 Someone is standing at 4941, 101, 4871 !! I finished building|Exception
+waitfor 5 nosprint execute if block 4941 101 4871 minecraft:air =~ passed
+kill @e[type=pig]
+waitlog 20 \[Steve\.FlCell\] I finished building test_fl_cell\.schem !! I couldn't build|Exception
+waitfor 5 nosprint execute if block 4941 101 4871 minecraft:water =~ passed
+fill 4930 100 4884 4932 101 4886 minecraft:stone
+setblock 4931 101 4885 minecraft:air
+tp @e[type=journeymen:builder,name=Celly] 4931.5 101 4885.5
+data modify entity @e[type=journeymen:builder,name=Celly,limit=1] Inventory.Items append value {Slot:20b,id:'minecraft:water_bucket',count:1}
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Celly,x=4931,y=101,z=4885,dx=0,dy=0,dz=0] =~ passed
+mark
+journeymen debug as Steve 0 4936 100 4876 journeymen foreman build FlCell test_fl_cell.schem 4931 101 4885 none corner
+waitlog nosprint FlCell's crew is on the way !!
+waitlog 20 \[Steve\.FlCell\] I finished building test_fl_cell\.schem !! I couldn't build|Exception
+waitfor 5 nosprint execute if block 4931 101 4885 minecraft:water =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Celly,x=4931,y=101,z=4885,dx=0,dy=0,dz=0] =~ failed
+journeymen config reload
+fill 4949 100 4869 4952 100 4871 minecraft:glass
+setblock 4950 100 4870 minecraft:oak_slab[type=bottom,waterlogged=true]
+setblock 4951 100 4870 minecraft:oak_stairs[facing=north,waterlogged=false]
+setblock 4950 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 4952 100 4875 journeymen foreman summon FlDrain
+journeymen debug as Steve 2 4951 100 4875 journeymen builder summon FlDrain Drainer
+journeymen debug as Steve 0 4952 100 4875 journeymen foreman chest FlDrain add 4950 100 4876 supply
+mark
+journeymen debug as Steve 0 4952 100 4875 journeymen foreman check FlDrain test_fl_drain.schem 4950 100 4870 none corner
+waitlog Missing 1 Empty bucket \(any kind\)
+waitlog Missing 1 Water bucket \(any kind\)
+journeymen debug as Steve 2 4952 100 4875 journeymen foreman supply FlDrain test_fl_drain.schem 4950 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 4952 100 4875 journeymen foreman build FlDrain test_fl_drain.schem 4950 100 4870 none corner
+waitlog nosprint FlDrain's crew is on the way !!
+waitlog 20 \[Steve\.FlDrain\] I finished building test_fl_drain\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception
+waitfor 5 nosprint execute if block 4950 100 4870 minecraft:oak_slab[waterlogged=false] =~ passed
+waitfor 5 nosprint execute if block 4951 100 4870 minecraft:oak_stairs[waterlogged=true] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Drainer,nbt={Inventory:{Items:[{id:'minecraft:water_bucket'}]}}] =~ passed
+mark
+journeymen debug as Steve 0 4952 100 4875 journeymen foreman check FlDrain test_fl_drain.schem 4950 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust

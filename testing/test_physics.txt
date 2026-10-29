@@ -1,0 +1,67 @@
+forceload add 5056 4864 5119 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 5056 99 4864 5119 99 4927 minecraft:stone
+fill 5056 100 4864 5119 106 4927 minecraft:air
+kill @e[type=item]
+kill @e[type=falling_block]
+kill @e[type=tnt]
+setblock 5060 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5062 100 4875 journeymen foreman summon PhFall
+journeymen debug as Steve 2 5061 100 4875 journeymen builder summon PhFall Fally
+journeymen debug as Steve 0 5062 100 4875 journeymen foreman chest PhFall add 5060 100 4876 supply
+journeymen debug as Steve 2 5062 100 4875 journeymen foreman supply PhFall test_ph_fall.schem 5060 101 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5062 100 4875 journeymen foreman build PhFall test_ph_fall.schem 5060 101 4870 none corner
+waitlog nosprint PhFall's crew is on the way !!
+waitlog 20 \[Steve\.PhFall\] I couldn't build 3 block\(s\) of test_ph_fall\.schem !! can't start this job|\] I'm missing |\] I need |Exception
+waitlog 10 \[Steve\.PhFall\] I finished building test_ph_fall\.schem
+waitfor 5 nosprint execute if block 5060 101 4870 minecraft:stone =~ passed
+waitfor 5 nosprint execute if block 5060 102 4870 minecraft:sand =~ passed
+waitfor 5 nosprint execute if block 5061 100 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if block 5062 100 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if block 5063 100 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if block 5061 102 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if entity @e[type=falling_block] =~ failed
+setblock 5070 100 4870 minecraft:stone
+setblock 5071 100 4870 minecraft:stone
+setblock 5070 101 4870 minecraft:sand
+setblock 5071 101 4870 minecraft:gravel
+setblock 5071 102 4870 minecraft:gravel
+setblock 5070 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5072 100 4875 journeymen foreman summon PhAbove
+journeymen debug as Steve 2 5071 100 4875 journeymen builder summon PhAbove Abby
+journeymen debug as Steve 0 5072 100 4875 journeymen foreman chest PhAbove add 5070 100 4876 supply
+mark
+journeymen debug as Steve 0 5072 100 4875 journeymen foreman check PhAbove test_ph_above.schem 5070 100 4870 none corner
+waitlog 10 3 block\(s\) that fall, like Sand, sit right above the site
+journeymen debug as Steve 2 5072 100 4875 journeymen foreman supply PhAbove test_ph_above.schem 5070 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5072 100 4875 journeymen foreman build PhAbove test_ph_above.schem 5070 100 4870 none corner
+waitlog nosprint PhAbove's crew is on the way !!
+waitlog 30 \[Steve\.PhAbove\] I finished building test_ph_above\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception
+waitfor 5 nosprint execute if block 5070 100 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if block 5071 100 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if block 5071 101 4870 minecraft:air =~ passed
+mark
+journeymen debug as Steve 0 5072 100 4875 journeymen foreman check PhAbove test_ph_above.schem 5070 100 4870 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+setblock 5080 100 4876 minecraft:chest[facing=north]{Items:[]}
+journeymen debug as Steve 2 5082 100 4875 journeymen foreman summon PhTnt
+journeymen debug as Steve 2 5081 100 4875 journeymen builder summon PhTnt Tinny
+journeymen debug as Steve 0 5082 100 4875 journeymen foreman chest PhTnt add 5080 100 4876 supply
+journeymen debug as Steve 2 5082 100 4875 journeymen foreman supply PhTnt test_ph_tnt.schem 5080 100 4870 none corner
+waitlog \] Supplied \d+ items?
+mark
+journeymen debug as Steve 0 5082 100 4875 journeymen foreman build PhTnt test_ph_tnt.schem 5080 100 4870 none corner
+waitlog nosprint PhTnt's crew is on the way !!
+waitlog 20 \[Steve\.PhTnt\] I couldn't build 1 block\(s\) of test_ph_tnt\.schem, e\.g\. at 5081, 100, 4870 !! can't start this job|\] I'm missing |\] I need |Exception
+waitlog 10 \[Steve\.PhTnt\] I finished building test_ph_tnt\.schem
+waitfor 5 nosprint execute if entity @e[type=tnt] =~ failed
+waitfor 5 nosprint execute if block 5081 100 4870 minecraft:air =~ passed
+waitfor 5 nosprint execute if block 5083 100 4870 minecraft:tnt =~ passed
+waitfor 5 nosprint execute if block 5081 99 4870 minecraft:stone =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Tinny] =~ passed

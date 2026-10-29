@@ -122,8 +122,11 @@ public final class BlockRequirements {
         if (blockEntityTag != null && registries != null) {
             addBlockEntityItems(target, blockEntityTag, registries, items);
         }
-        if (target.getOptionalValue(BlockStateProperties.WATERLOGGED).orElse(false)) {
-            items.add(new ItemStack(Items.WATER_BUCKET));
+        if (WaterRules.holdsFluid(target)) {
+            ItemStack bucket = WaterRules.bucketFor(target);
+            if (!bucket.isEmpty()) {
+                items.add(bucket);
+            }
         }
         return new Requirement(List.copyOf(items), made == null ? null : made.toolUse(), made == null ? null : made.from(), true);
     }

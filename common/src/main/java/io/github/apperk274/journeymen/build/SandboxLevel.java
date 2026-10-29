@@ -83,6 +83,15 @@ public final class SandboxLevel implements LevelAccessor {
         }
     }
 
+    public static boolean survivesWith(ServerLevel level, BlockPos pos, BlockState state) {
+        try {
+            return state.canSurvive(new SandboxLevel(level, at -> at.equals(pos) ? state : level.getBlockState(at)), pos);
+        } catch (RuntimeException e) {
+            Constants.LOG.debug("Could not test {} in place at {}", state, pos, e);
+            return state.canSurvive(level, pos);
+        }
+    }
+
     public static BlockState shapedAlone(ServerLevel level, BlockPos pos, BlockState state) {
         return shaped(new SandboxLevel(level, alone(pos, state)), pos, state);
     }

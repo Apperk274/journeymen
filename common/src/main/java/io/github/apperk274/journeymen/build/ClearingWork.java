@@ -20,6 +20,7 @@ public final class ClearingWork {
     private final Map<BlockState, Integer> remainingByState = new LinkedHashMap<>();
     private final Map<BlockState, BlockPos> examples = new HashMap<>();
     final List<BlockPos> skipped = new ArrayList<>();
+    final Map<BlockPos, Long> fluidSince = new HashMap<>();
     private final int total;
     int cleared;
 

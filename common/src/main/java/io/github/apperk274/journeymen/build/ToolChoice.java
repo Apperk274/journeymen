@@ -25,6 +25,12 @@ public final class ToolChoice {
     public static int choose(Container inventory, BlockState state, ServerLevel level, BlockPos pos, boolean allowBreakingEnchanted,
                              Map<BlockState, Integer> requiredRemaining) {
         boolean required = needsTool(state, level, pos);
+        if (WaterRules.meltsWhenBroken(state)) {
+            int iceTool = iceTool(inventory, state, level, pos, allowBreakingEnchanted, required);
+            if (iceTool != NONE) {
+                return iceTool;
+            }
+        }
         int best = HAND;
         float bestSpeed = 1.0F;
         int bestVersatility = Integer.MAX_VALUE;
@@ -55,6 +61,26 @@ public final class ToolChoice {
             }
         }
         return required && best == HAND ? NONE : best;
+    }
+
+    private static int iceTool(Container inventory, BlockState state, ServerLevel level, BlockPos pos, boolean allowBreakingEnchanted,
+                               boolean required) {
+        int best = NONE;
+        float bestSpeed = 0.0F;
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (!WaterRules.keepsIceFromMelting(stack) || required && !stack.isCorrectToolForDrops(state)
+                    || ToolCheck.damagePerBlock(stack, state, level, pos) > ToolCheck.usableDurability(stack, allowBreakingEnchanted)
+                    || ToolCheck.usableDurability(stack, allowBreakingEnchanted) < 1) {
+                continue;
+            }
+            float speed = stack.getDestroySpeed(state);
+            if (best == NONE || speed > bestSpeed) {
+                best = slot;
+                bestSpeed = speed;
+            }
+        }
+        return best;
     }
 
     private static int versatility(ItemStack stack, BlockState current, Map<BlockState, Integer> requiredRemaining) {

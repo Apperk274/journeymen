@@ -60,6 +60,20 @@ public class NeoForgeCompatHelper implements ICompatHelper {
 
     @Nullable
     @Override
+    public ItemStack fillBucket(ItemStack container, Fluid fluid) {
+        if (container.isEmpty() || container.getCapability(Capabilities.FluidHandler.ITEM) == null) {
+            return null;
+        }
+        IFluidHandlerItem handler = FluidUtil.getFluidHandler(container.copyWithCount(1)).orElse(null);
+        if (handler == null || !FluidUtil.getFluidContained(container).map(FluidStack::isEmpty).orElse(true)) {
+            return null;
+        }
+        int filled = handler.fill(new FluidStack(fluid, FluidType.BUCKET_VOLUME), IFluidHandler.FluidAction.EXECUTE);
+        return filled >= FluidType.BUCKET_VOLUME ? handler.getContainer() : null;
+    }
+
+    @Nullable
+    @Override
     public BlockState toolModifiedState(ServerLevel level, BlockState state, BlockRequirements.ToolUse use) {
         BlockPos pos = new BlockPos(0, level.getMaxBuildHeight() - 1, 0);
         ItemStack tool = new ItemStack(use == BlockRequirements.ToolUse.HOE ? Items.IRON_HOE : Items.IRON_SHOVEL);

@@ -9,6 +9,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
@@ -20,7 +21,7 @@ public final class ItemMatch {
     private ItemMatch() {
     }
 
-    public sealed interface Key permits ItemKey, FluidKey {
+    public sealed interface Key permits ItemKey, FluidKey, EmptyKey {
     }
 
     public record ItemKey(Item item, Map<DataComponentType<?>, Optional<?>> components) implements Key {
@@ -29,12 +30,22 @@ public final class ItemMatch {
     public record FluidKey(Fluid fluid) implements Key {
     }
 
+    public record EmptyKey(Fluid fluid) implements Key {
+    }
+
     public static Key key(ItemStack stack) {
         Fluid fluid = bucketFluid(stack);
         if (fluid != null) {
             return new FluidKey(fluid);
         }
+        if (canTakeBucket(stack, Fluids.WATER)) {
+            return new EmptyKey(Fluids.WATER);
+        }
         return new ItemKey(stack.getItem(), vanillaComponents(stack));
+    }
+
+    public static boolean canTakeBucket(ItemStack stack, Fluid fluid) {
+        return !stack.isEmpty() && Services.COMPAT.fillBucket(stack, fluid) != null;
     }
 
     public static boolean same(ItemStack a, ItemStack b) {
@@ -46,6 +57,9 @@ public final class ItemMatch {
         if (fluid != null) {
             return Component.empty().append(fluid.defaultFluidState().createLegacyBlock().getBlock().getName())
                     .append(Component.literal(" bucket (any kind)"));
+        }
+        if (canTakeBucket(stack, Fluids.WATER)) {
+            return Component.literal("Empty bucket (any kind)");
         }
         return stack.getHoverName();
     }

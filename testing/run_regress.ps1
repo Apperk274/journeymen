@@ -5,7 +5,7 @@ param(
         "test_dump_gone.txt", "test_crew.txt", "test_crew_build.txt", "test_foreman.txt", "test_foreman_gone.txt", "test_foreman_screen.txt",
         "test_site_path.txt", "test_keep_chunks.txt", "test_far_chests.txt", "test_tools.txt", "test_soil.txt", "test_putback.txt", "test_redo_store.txt",
         "test_made.txt", "test_dump_source.txt", "test_lifecycle_edges.txt", "test_lifecycle_chests.txt", "test_security.txt", "test_security_build.txt",
-        "test_schematic_edges.txt", "test_crew_restart_a.txt"),
+        "test_fluids.txt", "test_physics.txt", "test_schematic_edges.txt", "test_crew_restart_a.txt"),
     [string[]]$AfterRestart = @("test_crew_restart_b.txt", "test_schematic_edges_restart.txt"),
     [string[]]$TfcSuites = @("test_tfc_farm.txt", "test_tfc_shelf.txt", "test_tfc_collapse.txt", "test_tfc_made.txt")
 )
