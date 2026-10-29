@@ -1,16 +1,19 @@
 package io.github.apperk274.journeymen.entity;
 
+import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.AssignedChest;
 import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.Crew;
 import io.github.apperk274.journeymen.build.CrewWork;
 import io.github.apperk274.journeymen.build.ItemStores;
 import io.github.apperk274.journeymen.build.OwnerRights;
+import io.github.apperk274.journeymen.build.PostSearch;
 import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.menu.ForemanMenu;
 import io.github.apperk274.journeymen.menu.ForemanScreenService;
 import io.github.apperk274.journeymen.menu.LinkModeService;
+import io.github.apperk274.journeymen.platform.Services;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
@@ -23,7 +26,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -37,7 +39,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,7 +51,9 @@ public class ForemanEntity extends JourneymanEntity {
 
     public static final double POST_DISTANCE = 8.0;
     private static final double POST_RETURN_DISTANCE = 5.0;
-    private static final int POST_OUTSIDE = 2;
+    private static final int POST_SEARCH_TICKS = 200;
+    private static final int RETURN_GIVE_UP_TICKS = 1200;
+    private static final int RETURN_RETRY_TICKS = 1200;
     private static final int RECRUIT_INTERVAL = 20;
     private static final double PROGRESS_BAR_RANGE = 64.0;
 
@@ -62,6 +65,12 @@ public class ForemanEntity extends JourneymanEntity {
     private final Map<String, Long> relayed = new HashMap<>();
     private boolean returning;
     private boolean away;
+    @Nullable
+    private BlockPos post;
+    private int postSearchedAt = Integer.MIN_VALUE / 2;
+    private double returnBest = Double.MAX_VALUE;
+    private int returnStalledTicks;
+    private int returnRetryAt;
     private long chestsRefreshedAt = Long.MIN_VALUE;
 
     public ForemanEntity(EntityType<? extends ForemanEntity> type, Level level) {
@@ -225,6 +234,8 @@ public class ForemanEntity extends JourneymanEntity {
         stopIdleOrders();
         returning = false;
         away = false;
+        post = null;
+        returnRetryAt = 0;
         getNavigation().stop();
         recruit(newJob);
     }
@@ -371,16 +382,20 @@ public class ForemanEntity extends JourneymanEntity {
 
     private void keepPost(BuildJob current) {
         BoundingBox area = current.getArea();
-        BlockPos post = isInJobArea(blockPosition()) ? postOutside(area) : null;
-        if (post != null) {
-            if (tickCount % 20 == 0 || getNavigation().isDone()) {
-                walkTowards(Vec3.atBottomCenterOf(post));
+        if (isInJobArea(blockPosition())) {
+            returning = false;
+            BlockPos target = postFor(current);
+            if (target != null && (tickCount % 20 == 0 || getNavigation().isDone())) {
+                walkToStand(target);
             }
             return;
         }
+        post = null;
         double distance = PreCheck.horizontalDistance(blockPosition(), area);
-        if (distance > POST_DISTANCE) {
+        if (distance > POST_DISTANCE && !returning) {
             returning = true;
+            returnBest = Double.MAX_VALUE;
+            returnStalledTicks = 0;
         }
         if (!returning) {
             return;
@@ -390,6 +405,21 @@ public class ForemanEntity extends JourneymanEntity {
             getNavigation().stop();
             return;
         }
+        if (tickCount < returnRetryAt) {
+            return;
+        }
+        if (distance < returnBest - 0.5) {
+            returnBest = distance;
+            returnStalledTicks = 0;
+        } else if (++returnStalledTicks > StuckRecovery.giveUpTicks(RETURN_GIVE_UP_TICKS)) {
+            returnBest = Double.MAX_VALUE;
+            returnStalledTicks = 0;
+            returnRetryAt = tickCount + RETURN_RETRY_TICKS;
+            getNavigation().stop();
+            relay("I can't find a way back to the site of " + current.getFile() + ", so I'm staying here and will try again in a while. "
+                    + "Clear me a way, or bring me closer with /journeymen foreman unstick " + getJourneymanName() + ".");
+            return;
+        }
         if (tickCount % 20 == 0 || getNavigation().isDone()) {
             double x = Math.max(area.minX(), Math.min(area.maxX(), getX()));
             double z = Math.max(area.minZ(), Math.min(area.maxZ(), getZ()));
@@ -397,22 +427,26 @@ public class ForemanEntity extends JourneymanEntity {
         }
     }
 
-    private BlockPos postOutside(BoundingBox area) {
-        BlockPos pos = blockPosition();
-        int x = Mth.clamp(pos.getX(), area.minX(), area.maxX());
-        int z = Mth.clamp(pos.getZ(), area.minZ(), area.maxZ());
-        List<BlockPos> posts = new ArrayList<>(List.of(
-                new BlockPos(area.minX() - POST_OUTSIDE, pos.getY(), z),
-                new BlockPos(area.maxX() + POST_OUTSIDE, pos.getY(), z),
-                new BlockPos(x, pos.getY(), area.minZ() - POST_OUTSIDE),
-                new BlockPos(x, pos.getY(), area.maxZ() + POST_OUTSIDE)));
-        posts.sort(Comparator.comparingDouble(post -> post.distSqr(pos)));
-        for (BlockPos post : posts) {
-            if (!isInJobArea(post)) {
-                return post;
-            }
+    @Nullable
+    private BlockPos postFor(BuildJob current) {
+        if (post != null && !isInJobArea(post) && tickCount - postSearchedAt < POST_SEARCH_TICKS) {
+            return post;
         }
-        return posts.get(0);
+        postSearchedAt = tickCount;
+        BlockPos found = PostSearch.find(this, current.getArea(), POST_DISTANCE);
+        if (found == null) {
+            StuckRecovery.Goal goal = siteGoal(current, true);
+            found = goal == null ? null : getStuckRecovery().findSafeSpot(goal);
+        }
+        if (Services.PLATFORM.isDevelopmentEnvironment() && found != null && !found.equals(post)) {
+            Constants.LOG.info("[post] {} stands at {} outside the site of {}", qualifiedName(), found.toShortString(), current.getFile());
+        }
+        if (found == null && post == null) {
+            relay("I can't find a spot outside the site of " + current.getFile() + " to stand on, so I'm standing in it and may be in my crew's way. "
+                    + "Make me room next to the site, or move me out of it.");
+        }
+        post = found;
+        return post;
     }
 
     @Nullable
@@ -422,9 +456,9 @@ public class ForemanEntity extends JourneymanEntity {
         if (current == null || !current.getDimension().equals(level().dimension())) {
             return null;
         }
-        BlockPos post = isInJobArea(blockPosition()) ? postOutside(current.getArea()) : null;
-        if (post != null) {
-            return new StuckRecovery.Goal(StuckRecovery.Kind.SPOT, post, post, Math.sqrt(distanceToSqr(Vec3.atBottomCenterOf(post))),
+        BlockPos target = isInJobArea(blockPosition()) ? post : null;
+        if (target != null) {
+            return new StuckRecovery.Goal(StuckRecovery.Kind.SPOT, target, target, Math.sqrt(distanceToSqr(Vec3.atBottomCenterOf(target))),
                     "a post outside the site of " + current.getFile());
         }
         return returning ? siteGoal(current, false) : null;
@@ -445,6 +479,7 @@ public class ForemanEntity extends JourneymanEntity {
     @Override
     protected void afterEscape() {
         returning = false;
+        post = null;
     }
 
     public record JobStatus(BuildJob.Phase phase, String text, @Nullable String pauseReason, int done, int total) {

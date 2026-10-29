@@ -3,6 +3,7 @@ package io.github.apperk274.journeymen.entity;
 import com.mojang.authlib.GameProfile;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.BuildJob;
+import io.github.apperk274.journeymen.build.OwnerRights;
 import io.github.apperk274.journeymen.build.PreCheck;
 import io.github.apperk274.journeymen.entity.ai.BuilderNodeEvaluator;
 import io.github.apperk274.journeymen.entity.ai.JourneymanMoveGoal;
@@ -12,6 +13,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionResult;
@@ -32,13 +34,19 @@ import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.PathNavigationRegion;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.pathfinder.Node;
 import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.level.pathfinder.PathFinder;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public abstract class JourneymanEntity extends PathfinderMob {
@@ -48,6 +56,15 @@ public abstract class JourneymanEntity extends PathfinderMob {
     private static final double LONG_WALK_DISTANCE = 40.0;
     private static final double LONG_WALK_STEP = 8.0;
     private static final double COME_ARRIVE_DISTANCE = 1.5;
+    private static final int MIN_REPATH_WAIT = 10;
+    private static final int MAX_REPATH_WAIT = 100;
+    private static final double STALLED_DISTANCE_SQR = 1.0;
+    private static final int ASIDE_PATH_TICKS = 20;
+    private static final int ASIDE_ESCAPE_TICKS = 60;
+    private static final int ASIDE_GAP_TICKS = 100;
+    private static final int PASSAGE_CLOSE_TICKS = 400;
+    private static final int PASSAGE_ALLOWED_TICKS = 1200;
+    private static final int PASSAGE_REFUSED_TICKS = 6000;
 
     @Nullable
     private UUID owner;
@@ -58,6 +75,22 @@ public abstract class JourneymanEntity extends PathfinderMob {
     private BlockPos comeTarget;
     private final StuckRecovery stuck = new StuckRecovery(this);
     private boolean gone;
+    private int pathSearches;
+    @Nullable
+    private Vec3 stalledTarget;
+    private int repathAt;
+    private int repathWait;
+    @Nullable
+    private BlockPos asideCell;
+    private int asideSince;
+    private int asideLast;
+    private int asidePathTick;
+    private OpenPassageGoal passageGoal;
+    private final Map<BlockPos, Integer> openedPassages = new HashMap<>();
+    private final Map<BlockPos, PassageRight> passageRights = new HashMap<>();
+
+    private record PassageRight(boolean allowed, long until) {
+    }
 
     protected JourneymanEntity(EntityType<? extends JourneymanEntity> type, Level level) {
         super(type, level);
@@ -77,7 +110,15 @@ public abstract class JourneymanEntity extends PathfinderMob {
             protected PathFinder createPathFinder(int maxVisitedNodes) {
                 nodeEvaluator = new BuilderNodeEvaluator();
                 nodeEvaluator.setCanPassDoors(true);
-                return new PathFinder(nodeEvaluator, maxVisitedNodes);
+                return new PathFinder(nodeEvaluator, maxVisitedNodes) {
+                    @Nullable
+                    @Override
+                    public Path findPath(PathNavigationRegion region, Mob mob, Set<BlockPos> targets, float maxRange, int accuracy,
+                                         float searchDepthMultiplier) {
+                        pathSearches++;
+                        return super.findPath(region, mob, targets, maxRange, accuracy, searchDepthMultiplier);
+                    }
+                };
             }
         };
         navigation.setCanOpenDoors(true);
@@ -89,7 +130,8 @@ public abstract class JourneymanEntity extends PathfinderMob {
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new FloatGoal(this));
-        goalSelector.addGoal(1, new OpenPassageGoal(this));
+        passageGoal = new OpenPassageGoal(this);
+        goalSelector.addGoal(1, passageGoal);
         goalSelector.addGoal(2, new JourneymanMoveGoal(this));
         goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 8.0F) {
             @Override
@@ -203,6 +245,23 @@ public abstract class JourneymanEntity extends PathfinderMob {
     }
 
     public void walkTowards(Vec3 target) {
+        if (waitsToRepath(target)) {
+            return;
+        }
+        walkPath(target);
+        noteRepath(target);
+    }
+
+    public void walkToStand(BlockPos stand) {
+        Vec3 target = Vec3.atBottomCenterOf(stand);
+        if (waitsToRepath(target)) {
+            return;
+        }
+        getNavigation().moveTo(getNavigation().createPath(stand, 0), 1.0);
+        noteRepath(target);
+    }
+
+    private void walkPath(Vec3 target) {
         if (distanceToSqr(target) > LONG_WALK_DISTANCE * LONG_WALK_DISTANCE) {
             double distance = Math.sqrt(distanceToSqr(target));
             if (leadsCloser(getNavigation().getPath(), target, distance)) {
@@ -220,6 +279,29 @@ public abstract class JourneymanEntity extends PathfinderMob {
             }
         }
         getNavigation().moveTo(target.x, target.y, target.z, 1.0);
+    }
+
+    private boolean waitsToRepath(Vec3 target) {
+        return stalledTarget != null && tickCount < repathAt && getNavigation().isDone() && stalledTarget.distanceToSqr(target) < STALLED_DISTANCE_SQR;
+    }
+
+    private void noteRepath(Vec3 target) {
+        if (!onGround() && !isInLiquid()) {
+            stalledTarget = null;
+            return;
+        }
+        Path path = getNavigation().getPath();
+        Node end = path == null ? null : path.getEndNode();
+        boolean stalled = end == null || path.isDone() || Vec3.atBottomCenterOf(end.asBlockPos()).distanceToSqr(position()) <= STALLED_DISTANCE_SQR;
+        if (!stalled) {
+            stalledTarget = null;
+            repathWait = 0;
+            return;
+        }
+        boolean again = stalledTarget != null && stalledTarget.distanceToSqr(target) < STALLED_DISTANCE_SQR;
+        repathWait = again ? Math.min(Math.max(repathWait * 2, MIN_REPATH_WAIT), MAX_REPATH_WAIT) : MIN_REPATH_WAIT;
+        stalledTarget = target;
+        repathAt = tickCount + repathWait;
     }
 
     private static boolean leadsCloser(@Nullable Path path, Vec3 target, double distance) {
@@ -349,6 +431,12 @@ public abstract class JourneymanEntity extends PathfinderMob {
         return stuck;
     }
 
+    public int takePathSearches() {
+        int searches = pathSearches;
+        pathSearches = 0;
+        return searches;
+    }
+
     public void assignOwner(UUID ownerId, String ownerName, String name) {
         this.owner = ownerId;
         this.ownerName = ownerName;
@@ -421,6 +509,12 @@ public abstract class JourneymanEntity extends PathfinderMob {
             syncRegistry();
         }
         tickWork();
+        if (isPassenger() && (isWorking() || movementGoal() != null)) {
+            stopRiding();
+        }
+        if (!openedPassages.isEmpty()) {
+            closePassages(false);
+        }
         if (isAlive() && !isRemoved()) {
             stuck.tick(movementGoal(), workDone(), isWorking());
         }
@@ -460,6 +554,7 @@ public abstract class JourneymanEntity extends PathfinderMob {
 
     @Override
     public void remove(Entity.RemovalReason reason) {
+        leavePassages();
         MinecraftServer server = level().getServer();
         if (server != null && reason.shouldDestroy() && !gone && !isDeadOrDying()) {
             gone = true;
@@ -474,6 +569,7 @@ public abstract class JourneymanEntity extends PathfinderMob {
         boolean wasDead = dead;
         super.die(source);
         if (!wasDead && dead && !level().isClientSide) {
+            leavePassages();
             Component message = getCombatTracker().getDeathMessage();
             Constants.LOG.info("[{}.{}] {}", getOwnerName(), getJourneymanName(), message.getString());
             deliverToOwner(message);
@@ -493,11 +589,97 @@ public abstract class JourneymanEntity extends PathfinderMob {
         return !isWorking() && super.canUsePortal(allowPassengers);
     }
 
-    public void stepAside(Vec3 from) {
-        Vec3 away = DefaultRandomPos.getPosAway(this, 4, 2, from);
-        if (away != null) {
-            getNavigation().moveTo(away.x, away.y, away.z, 1.0);
+    @Override
+    protected boolean canRide(Entity vehicle) {
+        return false;
+    }
+
+    @Override
+    public void push(Entity entity) {
+        if (!(entity instanceof JourneymanEntity)) {
+            super.push(entity);
         }
+    }
+
+    public void stepAside(Vec3 from) {
+        getOutOf(BlockPos.containing(from));
+    }
+
+    public boolean getOutOf(BlockPos cell) {
+        if (!cell.equals(asideCell) || tickCount - asideLast > ASIDE_GAP_TICKS) {
+            asideCell = cell.immutable();
+            asideSince = tickCount;
+            asidePathTick = tickCount - ASIDE_PATH_TICKS;
+        }
+        asideLast = tickCount;
+        if (tickCount - asideSince >= ASIDE_ESCAPE_TICKS) {
+            asideSince = tickCount;
+            asidePathTick = tickCount;
+            return stuck.escapeFrom(cell);
+        }
+        if (tickCount - asidePathTick >= ASIDE_PATH_TICKS) {
+            asidePathTick = tickCount;
+            Vec3 away = DefaultRandomPos.getPosAway(this, 4, 2, Vec3.atCenterOf(cell));
+            if (away == null || !getNavigation().moveTo(away.x, away.y, away.z, 1.0)) {
+                noWayAside();
+            }
+        }
+        return true;
+    }
+
+    protected void noWayAside() {
+    }
+
+    public boolean isPassageRefused(BlockPos pos) {
+        PassageRight right = passageRights.get(pos);
+        return right != null && !right.allowed() && right.until() > level().getGameTime();
+    }
+
+    public boolean mayUsePassage(BlockPos pos) {
+        long now = level().getGameTime();
+        PassageRight right = passageRights.get(pos);
+        if (right != null && right.until() > now) {
+            return right.allowed();
+        }
+        passageRights.values().removeIf(old -> old.until() <= now);
+        boolean allowed = owner == null || !(level() instanceof ServerLevel serverLevel)
+                || OwnerRights.mayOpen(OwnerRights.actor(serverLevel, owner, getOwnerName()), pos);
+        PassageRight result = new PassageRight(allowed, now + (allowed ? PASSAGE_ALLOWED_TICKS : PASSAGE_REFUSED_TICKS));
+        for (BlockPos part : OpenPassageGoal.parts(level(), pos)) {
+            passageRights.put(part.immutable(), result);
+        }
+        return allowed;
+    }
+
+    public void closeLater(BlockPos passage) {
+        openedPassages.put(passage.immutable(), tickCount + PASSAGE_CLOSE_TICKS);
+        closePassages(false);
+    }
+
+    private void closePassages(boolean leaving) {
+        Iterator<Map.Entry<BlockPos, Integer>> it = openedPassages.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<BlockPos, Integer> entry = it.next();
+            BlockPos pos = entry.getKey();
+            if (!level().isLoaded(pos) || !OpenPassageGoal.isOpenPassage(level(), pos)) {
+                it.remove();
+            } else if (OpenPassageGoal.doorwayFree(this, pos, leaving)) {
+                OpenPassageGoal.setOpen(this, pos, false);
+                it.remove();
+            } else if (leaving || tickCount > entry.getValue()) {
+                it.remove();
+            }
+        }
+    }
+
+    private void leavePassages() {
+        if (level().isClientSide) {
+            return;
+        }
+        if (passageGoal != null) {
+            passageGoal.abandon();
+        }
+        closePassages(true);
     }
 
     public boolean isInJobArea(BlockPos pos) {

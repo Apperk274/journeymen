@@ -50,7 +50,7 @@ public final class ReachSearch {
                 Math.min(area.minX(), start.getX()) - MARGIN, Math.min(area.minY(), start.getY()) - DROP_MARGIN,
                 Math.min(area.minZ(), start.getZ()) - MARGIN, Math.max(area.maxX(), start.getX()) + MARGIN,
                 Math.max(area.maxY(), start.getY()) + 2, Math.max(area.maxZ(), start.getZ()) + MARGIN);
-        int[] goals = coverage(targets, box);
+        Coverage goals = coverage(targets);
         PathNavigationRegion region = new PathNavigationRegion(builder.level(),
                 new BlockPos(box.minX() - 2, box.minY() - 2, box.minZ() - 2), new BlockPos(box.maxX() + 2, box.maxY() + 2, box.maxZ() + 2));
         BuilderNodeEvaluator evaluator = new BuilderNodeEvaluator();
@@ -82,7 +82,7 @@ public final class ReachSearch {
                 boolean free = !avoided(avoid, node.asBlockPos());
                 if (goal < 0) {
                     if (free) {
-                        goal = goalAt(goals, box, node.x, node.z);
+                        goal = goals.at(node.x, node.z);
                         goalCost = node.g;
                     }
                 } else if (node.g > goalCost + CLOSER_STEPS) {
@@ -126,26 +126,48 @@ public final class ReachSearch {
         }
     }
 
-    private static int[] coverage(List<BlockPos> targets, BoundingBox box) {
-        int sizeX = box.getXSpan();
-        int sizeZ = box.getZSpan();
+    private record Coverage(int[] goals, int minX, int minZ, int sizeX, int sizeZ) {
+
+        int at(int x, int z) {
+            int localX = x - minX;
+            int localZ = z - minZ;
+            if (localX < 0 || localZ < 0 || localX >= sizeX || localZ >= sizeZ) {
+                return -1;
+            }
+            return goals[localX * sizeZ + localZ];
+        }
+    }
+
+    private static Coverage coverage(List<BlockPos> targets) {
+        int radius = (int) Math.floor(Reach.HORIZONTAL);
+        int minX = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (BlockPos target : targets) {
+            minX = Math.min(minX, target.getX());
+            minZ = Math.min(minZ, target.getZ());
+            maxX = Math.max(maxX, target.getX());
+            maxZ = Math.max(maxZ, target.getZ());
+        }
+        minX -= radius;
+        minZ -= radius;
+        int sizeX = maxX + radius - minX + 1;
+        int sizeZ = maxZ + radius - minZ + 1;
         int[] goals = new int[sizeX * sizeZ];
         double[] distances = new double[goals.length];
         Arrays.fill(goals, -1);
         Arrays.fill(distances, Double.MAX_VALUE);
-        int radius = (int) Math.floor(Reach.HORIZONTAL);
         double limit = (Reach.HORIZONTAL - STAND_SLACK) * (Reach.HORIZONTAL - STAND_SLACK);
         for (int i = 0; i < targets.size(); i++) {
             BlockPos target = targets.get(i);
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     double distance = dx * dx + dz * dz;
-                    int x = target.getX() + dx - box.minX();
-                    int z = target.getZ() + dz - box.minZ();
-                    if (distance > limit || x < 0 || z < 0 || x >= sizeX || z >= sizeZ) {
+                    if (distance > limit) {
                         continue;
                     }
-                    int index = x * sizeZ + z;
+                    int index = (target.getX() + dx - minX) * sizeZ + target.getZ() + dz - minZ;
                     if (distance < distances[index]) {
                         distances[index] = distance;
                         goals[index] = i;
@@ -153,16 +175,6 @@ public final class ReachSearch {
                 }
             }
         }
-        return goals;
-    }
-
-    private static int goalAt(int[] goals, BoundingBox box, int x, int z) {
-        int localX = x - box.minX();
-        int localZ = z - box.minZ();
-        int sizeZ = box.getZSpan();
-        if (localX < 0 || localZ < 0 || localX >= box.getXSpan() || localZ >= sizeZ) {
-            return -1;
-        }
-        return goals[localX * sizeZ + localZ];
+        return new Coverage(goals, minX, minZ, sizeX, sizeZ);
     }
 }

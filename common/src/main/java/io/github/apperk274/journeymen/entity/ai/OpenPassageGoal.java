@@ -4,6 +4,7 @@ import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.DoorBlock;
@@ -16,6 +17,8 @@ import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 public class OpenPassageGoal extends Goal {
 
     private static final double REACH_SQR = 2.25;
@@ -24,6 +27,7 @@ public class OpenPassageGoal extends Goal {
     private final JourneymanEntity builder;
     @Nullable
     private BlockPos passage;
+    private boolean opened;
     private double startX;
     private double startZ;
     private boolean passed;
@@ -60,14 +64,23 @@ public class OpenPassageGoal extends Goal {
     @Override
     public void start() {
         passed = false;
+        opened = false;
         ticks = 0;
         startX = passage.getX() + 0.5 - builder.getX();
         startZ = passage.getZ() + 0.5 - builder.getZ();
-        setOpen(true);
+        if (!builder.mayUsePassage(passage)) {
+            passage = null;
+            builder.getNavigation().stop();
+            return;
+        }
+        opened = setOpen(builder, passage, true);
     }
 
     @Override
     public void tick() {
+        if (passage == null) {
+            return;
+        }
         ticks++;
         double dx = passage.getX() + 0.5 - builder.getX();
         double dz = passage.getZ() + 0.5 - builder.getZ();
@@ -78,10 +91,15 @@ public class OpenPassageGoal extends Goal {
 
     @Override
     public void stop() {
-        if (passage != null && !builder.getBoundingBox().intersects(new AABB(passage).expandTowards(0.0, 1.0, 0.0))) {
-            setOpen(false);
+        abandon();
+    }
+
+    public void abandon() {
+        if (passage != null && opened) {
+            builder.closeLater(passage);
         }
         passage = null;
+        opened = false;
     }
 
     private boolean farEnough() {
@@ -91,25 +109,49 @@ public class OpenPassageGoal extends Goal {
     @Nullable
     private BlockPos closedPassage(BlockPos pos) {
         BlockState state = builder.level().getBlockState(pos);
+        BlockPos found = null;
         if (state.getBlock() instanceof DoorBlock door && door.type().canOpenByHand() && !state.getValue(DoorBlock.OPEN)) {
-            return state.getValue(DoorBlock.HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
+            found = state.getValue(DoorBlock.HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos;
+        } else if (state.getBlock() instanceof FenceGateBlock && !state.getValue(FenceGateBlock.OPEN)) {
+            found = pos;
         }
-        if (state.getBlock() instanceof FenceGateBlock && !state.getValue(FenceGateBlock.OPEN)) {
-            return pos;
-        }
-        return null;
+        return found == null || builder.isPassageRefused(found) ? null : found;
     }
 
-    private void setOpen(boolean open) {
-        Level level = builder.level();
-        BlockState state = level.getBlockState(passage);
-        if (state.getBlock() instanceof DoorBlock door) {
-            door.setOpen(builder, level, state, passage, open);
-        } else if (state.getBlock() instanceof FenceGateBlock && state.getValue(FenceGateBlock.OPEN) != open) {
-            level.setBlock(passage, state.setValue(FenceGateBlock.OPEN, open), 10);
-            level.playSound(null, passage, open ? SoundEvents.FENCE_GATE_OPEN : SoundEvents.FENCE_GATE_CLOSE, SoundSource.BLOCKS, 1.0F,
-                    level.getRandom().nextFloat() * 0.1F + 0.9F);
-            level.gameEvent(builder, open ? GameEvent.BLOCK_OPEN : GameEvent.BLOCK_CLOSE, passage);
+    public static List<BlockPos> parts(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof DoorBlock) {
+            return List.of(pos, state.getValue(DoorBlock.HALF) == DoubleBlockHalf.UPPER ? pos.below() : pos.above());
         }
+        return List.of(pos);
+    }
+
+    public static boolean isOpenPassage(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.getBlock() instanceof DoorBlock && state.getValue(DoorBlock.OPEN)
+                || state.getBlock() instanceof FenceGateBlock && state.getValue(FenceGateBlock.OPEN);
+    }
+
+    public static boolean doorwayFree(JourneymanEntity builder, BlockPos pos, boolean leaving) {
+        AABB doorway = new AABB(pos).expandTowards(0.0, 1.0, 0.0);
+        return builder.level().getEntities((Entity) null, doorway,
+                entity -> entity.isAlive() && !entity.isSpectator() && entity.blocksBuilding && !(leaving && entity == builder)).isEmpty();
+    }
+
+    public static boolean setOpen(JourneymanEntity builder, BlockPos pos, boolean open) {
+        Level level = builder.level();
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof DoorBlock door && state.getValue(DoorBlock.OPEN) != open) {
+            door.setOpen(builder, level, state, pos, open);
+            return true;
+        }
+        if (state.getBlock() instanceof FenceGateBlock && state.getValue(FenceGateBlock.OPEN) != open) {
+            level.setBlock(pos, state.setValue(FenceGateBlock.OPEN, open), 10);
+            level.playSound(null, pos, open ? SoundEvents.FENCE_GATE_OPEN : SoundEvents.FENCE_GATE_CLOSE, SoundSource.BLOCKS, 1.0F,
+                    level.getRandom().nextFloat() * 0.1F + 0.9F);
+            level.gameEvent(builder, open ? GameEvent.BLOCK_OPEN : GameEvent.BLOCK_CLOSE, pos);
+            return true;
+        }
+        return false;
     }
 }

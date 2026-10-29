@@ -10,7 +10,10 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -22,6 +25,7 @@ public final class Reach {
     private static final int REPATH_INTERVAL = 10;
     private static final int STRANDED_RECHECK_TICKS = 100;
     private static final int MAX_STRANDED_RECHECK_TICKS = 600;
+    private static final int SEARCH_CANDIDATES = 256;
 
     private final BoundingBox area;
     private double bestDistance = Double.MAX_VALUE;
@@ -36,6 +40,7 @@ public final class Reach {
     private BlockPos strandedAt;
     private int strandedTick;
     private int strandedWait = STRANDED_RECHECK_TICKS;
+    private Predicate<BlockPos> avoid = AVOID_NOTHING;
 
     public Reach(BoundingBox area) {
         this.area = area;
@@ -48,6 +53,7 @@ public final class Reach {
 
     @Nullable
     public <T> T choose(BuilderEntity builder, List<T> candidates, Function<T, BlockPos> position, Predicate<BlockPos> avoid) {
+        this.avoid = avoid;
         T nearest = null;
         double nearestDistance = Double.MAX_VALUE;
         for (T candidate : candidates) {
@@ -65,13 +71,14 @@ public final class Reach {
             workFromHere = true;
             return nearest;
         }
-        List<BlockPos> positions = new ArrayList<>(candidates.size());
-        candidates.forEach(candidate -> positions.add(position.apply(candidate)));
+        List<T> nearby = nearest(builder, candidates, position);
+        List<BlockPos> positions = new ArrayList<>(nearby.size());
+        nearby.forEach(candidate -> positions.add(position.apply(candidate)));
         ReachSearch.Result result = ReachSearch.find(builder, positions, area, avoid);
         switch (result.outcome()) {
             case FOUND -> {
                 stand = result.stand();
-                return candidates.get(result.index());
+                return nearby.get(result.index());
             }
             case NONE -> {
                 strand(builder);
@@ -84,11 +91,33 @@ public final class Reach {
         }
     }
 
+    private static <T> List<T> nearest(BuilderEntity builder, List<T> candidates, Function<T, BlockPos> position) {
+        if (candidates.size() <= SEARCH_CANDIDATES) {
+            return candidates;
+        }
+        PriorityQueue<Map.Entry<Double, T>> kept = new PriorityQueue<>(SEARCH_CANDIDATES + 1,
+                Comparator.comparingDouble((Map.Entry<Double, T> entry) -> entry.getKey()).reversed());
+        for (T candidate : candidates) {
+            double distance = horizontalDistanceSqr(builder, position.apply(candidate));
+            if (kept.size() < SEARCH_CANDIDATES) {
+                kept.add(Map.entry(distance, candidate));
+            } else if (distance < kept.peek().getKey()) {
+                kept.poll();
+                kept.add(Map.entry(distance, candidate));
+            }
+        }
+        List<Map.Entry<Double, T>> sorted = new ArrayList<>(kept);
+        sorted.sort(Comparator.comparingDouble(Map.Entry::getKey));
+        List<T> result = new ArrayList<>(sorted.size());
+        sorted.forEach(entry -> result.add(entry.getValue()));
+        return result;
+    }
+
     public boolean approach(BuilderEntity builder, BlockPos pos) {
         if (workFromHere) {
             return true;
         }
-        if (horizontalDistanceSqr(builder, pos) <= HORIZONTAL * HORIZONTAL) {
+        if (horizontalDistanceSqr(builder, pos) <= HORIZONTAL * HORIZONTAL && !(stand != null && ReachSearch.avoided(avoid, builder.blockPosition()))) {
             if (walking) {
                 walking = false;
                 strandedAt = null;
@@ -123,7 +152,7 @@ public final class Reach {
             if (stand != null && builder.blockPosition().equals(stand)) {
                 builder.getMoveControl().setWantedPosition(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5, 1.0);
             } else if (stand != null) {
-                builder.getNavigation().moveTo(builder.getNavigation().createPath(stand, 0), 1.0);
+                builder.walkToStand(stand);
             } else {
                 builder.walkTowards(new Vec3(pos.getX() + 0.5, Math.min(pos.getY(), builder.getY()), pos.getZ() + 0.5));
             }
@@ -163,6 +192,7 @@ public final class Reach {
         workFromHere = false;
         walking = false;
         stand = null;
+        avoid = AVOID_NOTHING;
     }
 
     public static double horizontalDistanceSqr(Entity entity, BlockPos pos) {

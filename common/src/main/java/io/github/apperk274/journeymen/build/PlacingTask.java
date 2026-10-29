@@ -54,7 +54,8 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -223,10 +224,14 @@ public final class PlacingTask {
             work.skipped.add(pos);
             return finish(false);
         }
-        if (!onBase && !placeState.getCollisionShape(level, pos).isEmpty() && !level.isUnobstructed(placeState, pos, CollisionContext.empty())) {
-            AABB box = placeState.getCollisionShape(level, pos).bounds().move(pos);
+        VoxelShape shape = onBase ? Shapes.empty() : obstructionShape(placeState, pos);
+        if (!shape.isEmpty() && !level.isUnobstructed(null, shape.move(pos.getX(), pos.getY(), pos.getZ()))) {
+            AABB box = shape.bounds().move(pos);
             if (box.intersects(builder.getBoundingBox())) {
-                builder.stepAwayFrom(pos);
+                if (!builder.stepAwayFrom(pos)) {
+                    deferred.put(entry, builder.tickCount + DEFER_TICKS);
+                    return putBack();
+                }
                 return Status.WORKING;
             }
             if (builder.askToStepAside(box) && builder.inCrewMode()) {
@@ -649,8 +654,11 @@ public final class PlacingTask {
                 continue;
             }
             if (inside.contains(builder)) {
-                builder.stepAwayFrom(cell);
                 reach.reset();
+                if (!builder.stepAwayFrom(cell)) {
+                    deferred.put(entry, builder.tickCount + DEFER_TICKS);
+                    return putBack();
+                }
                 return Status.WORKING;
             }
             if (builder.askToStepAside(box) && builder.inCrewMode() || hasOtherFluidWork(entry)) {
@@ -854,13 +862,17 @@ public final class PlacingTask {
         batchGroup = null;
         for (TreeMap<Integer, List<Entry>> group : List.of(work.supports, work.ramp)) {
             if (!group.isEmpty()) {
+                List<Entry> ready = notDeferred(group.firstEntry().getValue());
+                if (ready.isEmpty()) {
+                    return null;
+                }
                 currentGroup = group;
-                return reach.choose(builder, carriedFirst(group.firstEntry().getValue()), Entry::pos);
+                return reach.choose(builder, carriedFirst(ready), Entry::pos);
             }
         }
         if (!work.dependents.isEmpty()) {
             for (List<Entry> layer : work.dependents.values()) {
-                List<Entry> ready = layer.stream().filter(this::canGoInNow).toList();
+                List<Entry> ready = layer.stream().filter(entry -> !deferred.containsKey(entry) && canGoInNow(entry)).toList();
                 if (!ready.isEmpty()) {
                     currentGroup = work.dependents;
                     return reach.choose(builder, carriedFirst(ready), Entry::pos);
@@ -876,6 +888,18 @@ public final class PlacingTask {
             return reach.choose(builder, carriedFirst(fluids), Entry::pos, fluidAvoid());
         }
         return null;
+    }
+
+    private List<Entry> notDeferred(List<Entry> entries) {
+        if (deferred.isEmpty()) {
+            return entries;
+        }
+        return entries.stream().filter(entry -> !deferred.containsKey(entry)).toList();
+    }
+
+    private VoxelShape obstructionShape(BlockState state, BlockPos pos) {
+        VoxelShape shape = state.getCollisionShape(level, pos);
+        return shape.isEmpty() && EntityTraps.reactsToEntitiesInside(state.getBlock()) ? Shapes.block() : shape;
     }
 
     private List<Entry> carriedFirst(List<Entry> entries) {

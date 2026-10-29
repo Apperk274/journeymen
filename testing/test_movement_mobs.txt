@@ -1,0 +1,120 @@
+forceload add 5696 4864 5823 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+kill @e[type=minecraft:boat,x=5696,y=80,z=4864,dx=127,dy=40,dz=63]
+kill @e[type=minecraft:minecart,x=5696,y=80,z=4864,dx=127,dy=40,dz=63]
+kill @e[type=minecraft:armor_stand,x=5696,y=80,z=4864,dx=127,dy=40,dz=63]
+ticks 40
+fill 5696 99 4864 5823 99 4927 minecraft:stone
+fill 5696 100 4864 5823 107 4895 minecraft:air
+fill 5696 100 4896 5823 107 4927 minecraft:air
+kill @e[type=item,x=5696,y=80,z=4864,dx=127,dy=40,dz=63]
+# a journeyman touching a boat or a moving minecart isn't seated in it; one put in a boat with /ride gets out once it has somewhere to go, and a teleport takes it out first
+journeymen debug as Steve 2 5700 100 4870 journeymen foreman summon RideBoss
+journeymen debug as Steve 2 5704.5 100 4870.5 journeymen builder summon RideBoss Rower
+summon minecraft:boat 5704.5 100 4870.5
+ticks 20
+waitfor 5 nosprint execute if data entity @e[type=minecraft:boat,x=5704.5,y=100,z=4870.5,distance=..3,limit=1] Passengers[0] =~ failed
+ride @e[type=journeymen:builder,name=Rower,limit=1] mount @e[type=minecraft:boat,x=5704.5,y=100,z=4870.5,distance=..3,limit=1]
+ticks 20
+waitfor 5 nosprint execute if data entity @e[type=minecraft:boat,x=5704.5,y=100,z=4870.5,distance=..3,limit=1] Passengers[0] =~ passed
+journeymen debug as Steve 0 5714 100 4870 journeymen builder come Rower
+waitfor 10 execute if entity @e[type=journeymen:builder,name=Rower,x=5714.5,y=100,z=4870.5,distance=..2] =~ passed
+summon minecraft:boat 5714.5 100 4874.5
+ride @e[type=journeymen:builder,name=Rower,limit=1] mount @e[type=minecraft:boat,x=5714.5,y=100,z=4874.5,distance=..2,limit=1]
+waitfor 5 nosprint execute if data entity @e[type=minecraft:boat,x=5714.5,y=100,z=4874.5,distance=..3,limit=1] Passengers[0] =~ passed
+mark
+journeymen debug as Steve 0 5724 100 4870 journeymen builder unstick Rower
+waitlog \[Steve\.Rower\] Unstuck by command at
+ticks 20
+waitfor 5 nosprint execute if data entity @e[type=minecraft:boat,x=5714.5,y=100,z=4874.5,distance=..5,limit=1] Passengers[0] =~ failed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Rower,x=5724.5,y=100,z=4870.5,distance=..5] =~ passed
+fill 5720 100 4880 5745 100 4880 minecraft:rail[shape=east_west]
+journeymen debug as Steve 2 5726.5 100 4880.5 journeymen builder summon RideBoss Railer
+summon minecraft:minecart 5724.5 100.1 4880.5 {Motion:[0.15d,0.0d,0.0d]}
+ticks 80
+waitfor 5 nosprint execute if data entity @e[type=minecraft:minecart,x=5719,y=99,z=4879,dx=28,dy=3,dz=2,limit=1] Passengers[0] =~ failed
+# journeymen don't push each other: two builders summoned almost on the same spot stay there, and four on top of a 1x1 pillar all stay up
+journeymen debug as Steve 2 5746 100 4874 journeymen foreman summon PushBoss
+journeymen debug as Steve 2 5740.45 100 4886.5 journeymen builder summon PushBoss Pusha
+journeymen debug as Steve 2 5740.55 100 4886.5 journeymen builder summon PushBoss Pushb
+fill 5750 100 4870 5750 104 4870 minecraft:stone
+journeymen debug as Steve 2 5750.35 105 4870.5 journeymen builder summon PushBoss Pushc
+journeymen debug as Steve 2 5750.45 105 4870.5 journeymen builder summon PushBoss Pushd
+journeymen debug as Steve 2 5750.55 105 4870.5 journeymen builder summon PushBoss Pushe
+journeymen debug as Steve 2 5750.65 105 4870.5 journeymen builder summon PushBoss Pushf
+ticks 100
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Pusha,x=5740.45,y=100,z=4886.5,distance=..0.05] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Pushb,x=5740.55,y=100,z=4886.5,distance=..0.05] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,x=5749,y=105,z=4869,dx=2,dy=1,dz=2] =~ count: 4\b
+# doors: a journeyman whose owner may not use a door (a claim) leaves it shut and doesn't pass; one killed in a doorway it opened closes it; one passing a door with an armor stand in the doorway leaves it open until the doorway is free
+journeymen debug config stuck_teleport_seconds 0
+waitlog \[debug config\] stuck_teleport_seconds = 0
+journeymen debug protect clear
+fill 5760 100 4870 5766 103 4876 minecraft:stone hollow
+setblock 5766 101 4873 minecraft:oak_door[facing=east,half=lower]
+setblock 5766 102 4873 minecraft:oak_door[facing=east,half=upper]
+journeymen debug protect 5764 99 4871 5768 104 4875 Other
+journeymen debug as Steve 2 5756 100 4880 journeymen foreman summon DoorBoss
+journeymen debug as Steve 2 5762.5 101 4873.5 journeymen builder summon DoorBoss Doorman
+mark
+journeymen debug as Steve 0 5768 100 4873 journeymen builder come Doorman
+waitlog \[protect\] use by Steve at 5766, 101, 4873: denied
+ticks 300
+waitfor 5 nosprint execute if block 5766 101 4873 minecraft:oak_door[open=false] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Doorman,x=5761,y=101,z=4871,dx=4,dy=1,dz=4] =~ passed
+journeymen debug protect clear
+fill 5770 100 4870 5776 103 4876 minecraft:stone hollow
+setblock 5776 101 4873 minecraft:oak_door[facing=east,half=lower]
+setblock 5776 102 4873 minecraft:oak_door[facing=east,half=upper]
+journeymen debug as Steve 2 5772.5 101 4873.5 journeymen builder summon DoorBoss Mortal
+journeymen debug as Steve 0 5784 100 4873 journeymen builder come Mortal
+waitfor 10 nosprint execute if block 5776 101 4873 minecraft:oak_door[open=true] =~ passed
+kill @e[type=journeymen:builder,name=Mortal]
+ticks 5
+waitfor 5 nosprint execute if block 5776 101 4873 minecraft:oak_door[open=false] =~ passed
+fill 5786 100 4870 5792 103 4876 minecraft:stone hollow
+setblock 5792 101 4873 minecraft:oak_door[facing=east,half=lower]
+setblock 5792 102 4873 minecraft:oak_door[facing=east,half=upper]
+summon minecraft:armor_stand 5792.5 101 4873.5 {NoGravity:1b}
+journeymen debug as Steve 2 5788.5 101 4873.5 journeymen builder summon DoorBoss Porter
+journeymen debug as Steve 0 5802 100 4873 journeymen builder come Porter
+waitfor 10 execute if entity @e[type=journeymen:builder,name=Porter,x=5802.5,y=100,z=4873.5,distance=..2] =~ passed
+waitfor 5 nosprint execute if block 5792 101 4873 minecraft:oak_door[open=true] =~ passed
+kill @e[type=minecraft:armor_stand,x=5786,y=99,z=4870,dx=8,dy=5,dz=6]
+waitfor 5 execute if block 5792 101 4873 minecraft:oak_door[open=false] =~ passed
+journeymen config reload
+# a builder's armor drops on death like its inventory, also with doMobLoot off, and only once
+journeymen debug as Steve 2 5806 100 4866 journeymen foreman summon ArmBoss
+journeymen debug as Steve 2 5810.5 100 4870.5 journeymen builder summon ArmBoss Armory
+item replace entity @e[type=journeymen:builder,name=Armory] armor.chest with minecraft:iron_chestplate
+gamerule doMobLoot false
+kill @e[type=journeymen:builder,name=Armory]
+ticks 5
+gamerule doMobLoot true
+waitfor 5 nosprint execute if entity @e[type=item,x=5805,y=95,z=4865,dx=10,dy=10,dz=10,nbt={Item:{id:"minecraft:iron_chestplate"}}] =~ passed
+journeymen debug as Steve 2 5810.5 100 4880.5 journeymen builder summon ArmBoss Armoury
+item replace entity @e[type=journeymen:builder,name=Armoury] armor.head with minecraft:iron_helmet
+kill @e[type=journeymen:builder,name=Armoury]
+ticks 5
+waitfor 5 nosprint execute if entity @e[type=item,x=5805,y=95,z=4875,dx=10,dy=10,dz=10,nbt={Item:{id:"minecraft:iron_helmet"}}] =~ count: 1\b
+# powder snow and a cobweb aren't placed into the builder standing where they go: it steps out first
+journeymen debug as Steve 2 5740 100 4900 journeymen foreman summon SnowBoss
+journeymen debug as Steve 2 5744.5 100 4900.5 journeymen builder summon SnowBoss Snowy
+summon minecraft:item 5744.5 100 4900.5 {Item:{id:"minecraft:powder_snow_bucket",count:1},PickupDelay:0s}
+journeymen debug as Steve 2 5760 100 4900 journeymen foreman summon WebBoss
+journeymen debug as Steve 2 5764.5 100 4900.5 journeymen builder summon WebBoss Webby
+summon minecraft:item 5764.5 100 4900.5 {Item:{id:"minecraft:cobweb",count:1},PickupDelay:0s}
+waitlog \[pickup\] Steve\.Snowy picks up 1 Powder Snow Bucket
+waitlog \[pickup\] Steve\.Webby picks up 1 Cobweb
+mark
+journeymen debug as Steve 0 5740 100 4900 journeymen foreman build SnowBoss test_mv_snow.schem 5744 100 4900 none corner
+journeymen debug as Steve 0 5760 100 4900 journeymen foreman build WebBoss test_mv_web.schem 5764 100 4900 none corner
+waitlog 20 \[Steve\.SnowBoss\] I finished building test_mv_snow\.schem !!
+waitlog 20 \[Steve\.WebBoss\] I finished building test_mv_web\.schem !!
+waitfor 5 nosprint execute if block 5744 100 4900 minecraft:powder_snow =~ passed
+waitfor 5 nosprint execute if block 5764 100 4900 minecraft:cobweb =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Snowy] =~ passed
+waitfor 5 nosprint execute at @e[type=journeymen:builder,name=Snowy] if block ~ ~ ~ minecraft:powder_snow !~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Webby] =~ passed
+waitfor 5 nosprint execute at @e[type=journeymen:builder,name=Webby] if block ~ ~ ~ minecraft:cobweb !~ passed

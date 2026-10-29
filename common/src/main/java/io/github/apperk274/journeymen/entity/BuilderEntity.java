@@ -48,12 +48,13 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.EnchantmentEffectComponents;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -154,9 +155,8 @@ public class BuilderEntity extends JourneymanEntity {
 
     public BuilderEntity(EntityType<? extends BuilderEntity> type, Level level) {
         super(type, level);
-        setDropChance(EquipmentSlot.MAINHAND, 0.0F);
-        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
-            setDropChance(slot, 2.0F);
+        for (EquipmentSlot slot : EquipmentSlot.values()) {
+            setDropChance(slot, 0.0F);
         }
     }
 
@@ -505,10 +505,12 @@ public class BuilderEntity extends JourneymanEntity {
     @Override
     public void stepAside(Vec3 from) {
         stepAsideUntil = tickCount + STEP_ASIDE_TICKS;
-        Vec3 away = DefaultRandomPos.getPosAway(this, 4, 2, from);
-        if (away == null || !getNavigation().moveTo(away.x, away.y, away.z, 1.0)) {
-            leaveSite();
-        }
+        super.stepAside(from);
+    }
+
+    @Override
+    protected void noWayAside() {
+        leaveSite();
     }
 
     private void leaveSite() {
@@ -901,11 +903,13 @@ public class BuilderEntity extends JourneymanEntity {
         return placing;
     }
 
-    public void stepAwayFrom(BlockPos pos) {
-        Vec3 away = DefaultRandomPos.getPosAway(this, 4, 2, Vec3.atCenterOf(pos));
-        if (away != null) {
-            getNavigation().moveTo(away.x, away.y, away.z, 1.0);
+    public boolean stepAwayFrom(BlockPos pos) {
+        if (getOutOf(pos)) {
+            return true;
         }
+        report(getJourneymanName() + " can't get out of " + pos.toShortString() + ", where it needs to place a block, so it does other blocks first. "
+                + "Leave it a way out, or get it out with /journeymen builder unstick " + getJourneymanName() + ".");
+        return false;
     }
 
     public boolean hasItems(List<ItemStack> required) {
@@ -2446,6 +2450,13 @@ public class BuilderEntity extends JourneymanEntity {
     @Override
     protected void dropEquipment() {
         super.dropEquipment();
+        for (EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+            ItemStack stack = getItemBySlot(slot);
+            if (!stack.isEmpty() && !EnchantmentHelper.has(stack, EnchantmentEffectComponents.PREVENT_EQUIPMENT_DROP)) {
+                spawnAtLocation(stack);
+            }
+            setItemSlot(slot, ItemStack.EMPTY);
+        }
         Containers.dropContents(level(), this, inventory);
         overflow.forEach(this::spawnAtLocation);
         overflow.clear();

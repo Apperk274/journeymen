@@ -3,8 +3,10 @@ package io.github.apperk274.journeymen.build;
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.config.JourneymenConfig;
 import io.github.apperk274.journeymen.entity.BuilderEntity;
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,17 +14,17 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,6 +36,9 @@ public final class ClearingTask {
     private static final int MIN_BATCH = 4;
     private static final int MAX_BATCH = 64;
     private static final int TOOL_ASK_TICKS = 1200;
+    private static final int DEFER_TICKS = 20;
+    private static final int CANDIDATES = 256;
+    private static final double STANDING_SLACK = 0.05;
 
     public enum Status {
         WORKING,
@@ -51,6 +56,9 @@ public final class ClearingTask {
     private final ClearingWork work;
     private final List<BlockPos> batch = new ArrayList<>();
     private final Map<BlockState, Long> nextToolAsk = new HashMap<>();
+    private final Map<BlockPos, Integer> deferred = new HashMap<>();
+    private final Map<BlockPos, Boolean> unsafeFloors = new HashMap<>();
+    private long unsafeFloorsTick = -1;
     private int cleared;
 
     @Nullable
@@ -121,6 +129,9 @@ public final class ClearingTask {
             return Status.WORKING;
         }
         builder.getNavigation().stop();
+        if (progress == 0.0F && dropsSomeone(target)) {
+            return Status.WORKING;
+        }
 
         Container inventory = builder.getInventory();
         if (progress == 0.0F && needsIceTool(state)) {
@@ -243,49 +254,43 @@ public final class ClearingTask {
 
     @Nullable
     private BlockPos pickNext() {
+        deferred.values().removeIf(until -> until <= builder.tickCount);
         if (builder.inCrewMode()) {
             return crewPick();
         }
         job.getCrewWork().keepOnly(builder.activeCrew());
         batch.clear();
-        while (!work.remaining.isEmpty()) {
-            List<BlockPos> layer = work.remaining.firstEntry().getValue();
-            if (layer.isEmpty()) {
-                work.remaining.pollFirstEntry();
-                continue;
-            }
-            return reach.choose(builder, layer, pos -> pos);
+        if (work.remaining.isEmpty()) {
+            return null;
         }
-        return null;
+        List<BlockPos> candidates = work.remaining.firstEntry().getValue().nearest(builder.blockPosition(), CANDIDATES,
+                pos -> !deferred.containsKey(pos));
+        return candidates.isEmpty() ? null : reach.choose(builder, candidates, pos -> pos, unsafeFloorAvoid());
     }
 
     @Nullable
     private BlockPos crewPick() {
         batch.removeIf(pos -> !work.contains(pos));
+        List<BlockPos> ready = deferred.isEmpty() ? batch : batch.stream().filter(pos -> !deferred.containsKey(pos)).toList();
+        if (!ready.isEmpty()) {
+            return reach.choose(builder, ready, pos -> pos, unsafeFloorAvoid());
+        }
         if (!batch.isEmpty()) {
-            return reach.choose(builder, batch, pos -> pos);
+            return null;
         }
         CrewWork crew = job.getCrewWork();
         crew.keepOnly(builder.activeCrew());
         crew.release(builder.getUUID());
-        Map<Long, Integer> top = new HashMap<>();
-        for (List<BlockPos> layer : work.remaining.values()) {
-            for (BlockPos pos : layer) {
-                top.putIfAbsent(ChunkPos.asLong(pos.getX(), pos.getZ()), pos.getY());
-            }
-        }
         Map<BlockState, Boolean> breakable = new HashMap<>();
-        Set<Long> blocked = new HashSet<>();
-        for (List<BlockPos> layer : work.remaining.values()) {
-            List<BlockPos> candidates = new ArrayList<>();
-            for (BlockPos pos : layer) {
-                long column = ChunkPos.asLong(pos.getX(), pos.getZ());
-                if (crew.claimedByOther(pos, builder.getUUID()) || top.get(column) != pos.getY() || blocked.contains(column)) {
-                    continue;
+        for (ClearingWork.Layer layer : work.remaining.values()) {
+            List<BlockPos> candidates = layer.nearest(builder.blockPosition(), CANDIDATES, pos -> {
+                if (crew.claimedByOther(pos, builder.getUUID()) || deferred.containsKey(pos) || !work.isColumnTop(pos)) {
+                    return false;
                 }
                 if (canBreak(pos, breakable)) {
-                    candidates.add(pos);
-                } else if (neededTool == null) {
+                    return true;
+                }
+                if (neededTool == null) {
                     BlockState state = level.getBlockState(pos);
                     if (needsIceTool(state)) {
                         needIceToolFor(state, pos);
@@ -293,10 +298,11 @@ public final class ClearingTask {
                         needToolFor(state, pos);
                     }
                 }
-            }
+                return false;
+            });
             if (!candidates.isEmpty()) {
                 neededTool = null;
-                BlockPos first = reach.choose(builder, candidates, pos -> pos);
+                BlockPos first = reach.choose(builder, candidates, pos -> pos, unsafeFloorAvoid());
                 if (first == null) {
                     return null;
                 }
@@ -319,6 +325,70 @@ public final class ClearingTask {
             }
         }
         return null;
+    }
+
+    private Predicate<BlockPos> unsafeFloorAvoid() {
+        return feet -> unsafeFloor(feet.below());
+    }
+
+    private boolean unsafeFloor(BlockPos pos) {
+        if (unsafeFloorsTick != level.getGameTime()) {
+            unsafeFloorsTick = level.getGameTime();
+            unsafeFloors.clear();
+        }
+        Boolean known = unsafeFloors.get(pos);
+        if (known == null) {
+            known = work.contains(pos) && dropBelow(pos, builder.getMaxFallDistance()) > builder.getMaxFallDistance();
+            unsafeFloors.put(pos.immutable(), known);
+        }
+        return known;
+    }
+
+    private int dropBelow(BlockPos pos, int limit) {
+        BlockPos.MutableBlockPos below = pos.mutable();
+        int drop = 0;
+        while (drop <= limit && below.getY() > level.getMinBuildHeight()) {
+            below.move(0, -1, 0);
+            drop++;
+            BlockState state = level.getBlockState(below);
+            if (!state.getCollisionShape(level, below).isEmpty() || !state.getFluidState().isEmpty()) {
+                break;
+            }
+        }
+        return drop;
+    }
+
+    private boolean dropsSomeone(BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        VoxelShape shape = state.getCollisionShape(level, pos);
+        if (shape.isEmpty()) {
+            return false;
+        }
+        double top = pos.getY() + shape.max(Direction.Axis.Y);
+        AABB feet = new AABB(pos.getX(), top - STANDING_SLACK, pos.getZ(), pos.getX() + 1, top + STANDING_SLACK, pos.getZ() + 1);
+        List<JourneymanEntity> standing = level.getEntitiesOfClass(JourneymanEntity.class, feet,
+                entity -> entity.isAlive() && Math.abs(entity.getBoundingBox().minY - top) <= STANDING_SLACK);
+        boolean dropped = false;
+        for (JourneymanEntity entity : standing) {
+            if (dropBelow(pos, entity.getMaxFallDistance()) <= entity.getMaxFallDistance()) {
+                continue;
+            }
+            dropped = true;
+            if (entity == builder) {
+                builder.getOutOf(pos.above());
+            } else {
+                entity.stepAside(Vec3.atCenterOf(pos.above()));
+            }
+        }
+        if (dropped) {
+            deferred.put(pos.immutable(), builder.tickCount + DEFER_TICKS);
+            job.getCrewWork().unclaim(pos, builder.getUUID());
+            batch.remove(pos);
+            resetProgress();
+            target = null;
+            reach.reset();
+        }
+        return dropped;
     }
 
     private boolean canBreak(BlockPos pos, Map<BlockState, Boolean> cache) {

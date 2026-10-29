@@ -13,12 +13,12 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityEvent;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 public final class StuckRecovery {
 
@@ -52,7 +53,8 @@ public final class StuckRecovery {
         CHEST,
         SITE,
         OWNER,
-        SPOT
+        SPOT,
+        ASIDE
     }
 
     public record Goal(Kind kind, Object key, BlockPos target, double distance, String description) {
@@ -161,6 +163,18 @@ public final class StuckRecovery {
         return last;
     }
 
+    boolean escapeFrom(BlockPos cell) {
+        if (limitTicks() <= 0 || builder.level().getGameTime() < nextAttempt || !(builder.level() instanceof ServerLevel)) {
+            return false;
+        }
+        return escape(new Goal(Kind.ASIDE, cell, cell, 0.0, "out of the way at " + cell.toShortString()), false) == null;
+    }
+
+    @Nullable
+    public BlockPos findSafeSpot(Goal goal) {
+        return builder.level() instanceof ServerLevel level ? findSpot(level, goal, true) : null;
+    }
+
     @Nullable
     String escape(Goal goal, boolean manual) {
         ServerLevel level = (ServerLevel) builder.level();
@@ -183,9 +197,14 @@ public final class StuckRecovery {
         goalTarget = null;
         nextAttempt = now + COOLDOWN_TICKS;
         last = new Escape(now, from, to, goal.description());
-        Constants.LOG.info("[{}.{}] {} at {} on the way to {}; teleported to {}.", builder.getOwnerName(), builder.getJourneymanName(),
-                manual ? "Unstuck by command" : "Stuck for " + JourneymenConfig.STUCK_TELEPORT_SECONDS.get() + " s",
-                from.toShortString(), goal.description(), to.toShortString());
+        if (goal.kind() == Kind.ASIDE) {
+            Constants.LOG.info("[{}.{}] Couldn't walk {} from {}; teleported to {}.", builder.getOwnerName(), builder.getJourneymanName(),
+                    goal.description(), from.toShortString(), to.toShortString());
+        } else {
+            Constants.LOG.info("[{}.{}] {} at {} on the way to {}; teleported to {}.", builder.getOwnerName(), builder.getJourneymanName(),
+                    manual ? "Unstuck by command" : "Stuck for " + JourneymenConfig.STUCK_TELEPORT_SECONDS.get() + " s",
+                    from.toShortString(), goal.description(), to.toShortString());
+        }
         recent.addLast(now);
         while (!recent.isEmpty() && now - recent.peekFirst() > REPEAT_WINDOW_TICKS) {
             recent.pollFirst();
@@ -203,6 +222,7 @@ public final class StuckRecovery {
         level.gameEvent(GameEvent.TELEPORT, builder.position(), GameEvent.Context.of(builder));
         level.playSound(null, builder.getX(), builder.getY(), builder.getZ(), SoundEvents.CHORUS_FRUIT_TELEPORT, SoundSource.NEUTRAL, 1.0F, 1.0F);
         builder.getNavigation().stop();
+        builder.stopRiding();
         builder.teleportTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5);
         builder.resetFallDistance();
         level.broadcastEntityEvent(builder, EntityEvent.TELEPORT);
@@ -217,25 +237,46 @@ public final class StuckRecovery {
         }
         BuildJob job = builder.getJob();
         BoundingBox area = job == null ? null : job.getArea();
-        if (goal.kind() == Kind.SITE) {
-            target = new BlockPos(target.getX(), level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, target.getX(), target.getZ()), target.getZ());
-        }
-        int below = goal.kind() == Kind.CHEST || goal.kind() == Kind.SITE ? 3 : 1;
-        int above = goal.kind() == Kind.CHEST || goal.kind() == Kind.SITE ? 2 : 1;
+        boolean site = goal.kind() == Kind.SITE && area != null;
         BlockPos center = target;
+        BlockPos here = builder.blockPosition();
+        boolean wide = goal.kind() == Kind.CHEST || goal.kind() == Kind.SITE || goal.kind() == Kind.ASIDE;
+        int below = wide ? 3 : 1;
+        int above = wide ? 2 : 1;
+        Set<Integer> levels = new TreeSet<>();
+        for (int dy = -below; dy <= above; dy++) {
+            levels.add(center.getY() + dy);
+        }
+        if (site) {
+            for (int dy = -below; dy <= above; dy++) {
+                levels.add(here.getY() + dy);
+            }
+            for (int y = area.minY(); y <= area.maxY() + 1; y++) {
+                levels.add(y);
+            }
+        }
         List<BlockPos> candidates = new ArrayList<>();
         for (int dx = -RADIUS; dx <= RADIUS; dx++) {
             for (int dz = -RADIUS; dz <= RADIUS; dz++) {
                 if (goal.kind() == Kind.OWNER && Math.abs(dx) < 2 && Math.abs(dz) < 2) {
                     continue;
                 }
-                for (int dy = -below; dy <= above; dy++) {
-                    candidates.add(center.offset(dx, dy, dz));
+                for (int y : levels) {
+                    if (y >= level.getMinBuildHeight() && y < level.getMaxBuildHeight()) {
+                        candidates.add(new BlockPos(center.getX() + dx, y, center.getZ() + dz));
+                    }
                 }
             }
         }
-        candidates.sort(Comparator.comparingDouble((BlockPos pos) -> pos.distSqr(center)).thenComparingInt(pos -> Math.abs(pos.getY() - center.getY())));
-        double current = builder.blockPosition().distSqr(center);
+        if (site) {
+            candidates.sort(Comparator.comparingInt((BlockPos pos) -> pos.getY() >= area.minY() && pos.getY() <= area.maxY() + 1 ? 0 : 1)
+                    .thenComparingInt(pos -> Math.abs(pos.getY() - area.minY()))
+                    .thenComparingDouble(pos -> Mth.square(pos.getX() - center.getX()) + Mth.square(pos.getZ() - center.getZ())));
+        } else {
+            candidates.sort(Comparator.comparingDouble((BlockPos pos) -> pos.distSqr(center)).thenComparingInt(pos -> Math.abs(pos.getY() - center.getY())));
+        }
+        boolean anyDistance = manual || goal.kind() == Kind.ASIDE;
+        double current = site ? PreCheck.horizontalDistance(here, area) : here.distSqr(center);
         BuildPlan plan = job == null ? null : job.getPlan();
         Map<BlockPos, BlockState> planned = plan == null ? Map.of() : plan.targetsByPosition();
         Set<BlockPos> toClear = plan == null ? Set.of() : new HashSet<>(plan.getToClear());
@@ -247,7 +288,8 @@ public final class StuckRecovery {
         }
         BlockPos inside = null;
         for (BlockPos pos : candidates) {
-            if ((manual ? pos.equals(builder.blockPosition()) : pos.distSqr(center) >= current - 1.0) || !fits(level, goal, target, pos)
+            double distance = site ? PreCheck.horizontalDistance(pos, area) : pos.distSqr(center);
+            if ((anyDistance ? pos.equals(here) : distance >= current - 1.0) || !fits(level, goal, target, pos)
                     || otherAreas.stream().anyMatch(other -> other.isInside(pos) || other.isInside(pos.above()) || other.isInside(pos.below()))) {
                 continue;
             }
@@ -267,6 +309,10 @@ public final class StuckRecovery {
         if (!level.isLoaded(pos) || !level.isPositionEntityTicking(pos)) {
             return false;
         }
+        BlockPos below = pos.below();
+        if (level.getBlockState(below).getCollisionShape(level, below).isEmpty() || level.getBlockState(pos).isCollisionShapeFullBlock(level, pos)) {
+            return false;
+        }
         if (WalkNodeEvaluator.getPathTypeStatic(builder, pos) != PathType.WALKABLE
                 || level.getBlockState(pos.below()).getBlock() instanceof LeavesBlock) {
             return false;
@@ -281,10 +327,18 @@ public final class StuckRecovery {
             case CHEST -> eye.distanceTo(Vec3.atCenterOf(target)) <= ChestVisit.REACH - 0.25 && sees(level, eye, Vec3.atCenterOf(target), target);
             case SITE -> {
                 BuildJob job = builder.getJob();
-                double distance = job == null ? 0.0 : PreCheck.horizontalDistance(pos, job.getArea());
-                yield distance >= 1.0 && distance <= Reach.HORIZONTAL - 0.5 && sees(level, eye, Vec3.atCenterOf(target), null);
+                if (job == null) {
+                    yield false;
+                }
+                BoundingBox area = job.getArea();
+                double distance = PreCheck.horizontalDistance(pos, area);
+                BlockPos near = new BlockPos(Mth.clamp(pos.getX(), area.minX(), area.maxX()), Mth.clamp(pos.getY(), area.minY(), area.maxY()),
+                        Mth.clamp(pos.getZ(), area.minZ(), area.maxZ()));
+                yield distance >= 1.0 && distance <= Reach.HORIZONTAL - 0.5 && sees(level, eye, Vec3.atCenterOf(near), near);
             }
             case OWNER, SPOT -> sees(level, eye, Vec3.atCenterOf(target.above()), null);
+            case ASIDE -> !box.intersects(new AABB(target))
+                    && Mth.square(pos.getX() - target.getX()) + Mth.square(pos.getZ() - target.getZ()) <= Mth.square(Reach.HORIZONTAL - 0.5);
         };
     }
 

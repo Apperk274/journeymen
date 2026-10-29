@@ -32,6 +32,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -90,6 +91,7 @@ public class DebugCommands {
                                 .then(Commands.argument("value", StringArgumentType.greedyString())
                                         .executes(DebugCommands::config))))
                 .then(Commands.literal("chunks").executes(DebugCommands::chunks))
+                .then(Commands.literal("paths").executes(DebugCommands::paths))
                 .then(Commands.literal("copyschematic")
                         .then(Commands.argument("from", StringArgumentType.string())
                                 .then(Commands.argument("to", StringArgumentType.string())
@@ -224,6 +226,24 @@ public class DebugCommands {
         }
         for (String line : lines) {
             Constants.LOG.info("[debug chunks] {}", line);
+            source.sendSuccess(() -> Component.literal(line), false);
+        }
+        return lines.size();
+    }
+
+    private static int paths(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        List<String> lines = new ArrayList<>();
+        for (ServerLevel level : source.getServer().getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof JourneymanEntity journeyman) {
+                    lines.add(journeyman.qualifiedName() + " " + journeyman.takePathSearches() + " path searches");
+                }
+            }
+        }
+        lines.sort(null);
+        for (String line : lines) {
+            Constants.LOG.info("[debug paths] {}", line);
             source.sendSuccess(() -> Component.literal(line), false);
         }
         return lines.size();

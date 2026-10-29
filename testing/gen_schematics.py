@@ -366,6 +366,12 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_gr_grow.schem"), (12, 7, 3), gr_grow())
     write_sponge_v3(os.path.join(out, "test_gr_tree.schem"), (26, 7, 3), gr_tree())
     write_sponge_v3(os.path.join(out, "test_gr_farm.schem"), (30, 3, 3), gr_farm())
+    write_sponge_v3(os.path.join(out, "test_mv_dig.schem"), (4, 2, 4), {})
+    write_sponge_v3(os.path.join(out, "test_mv_pit.schem"), (9, 4, 9), {(x, 0, z): state("stone") for x in range(9) for z in range(9)})
+    write_sponge_v3(os.path.join(out, "test_mv_slab.schem"), (5, 1, 5), {})
+    write_sponge_v3(os.path.join(out, "test_mv_snow.schem"), (1, 1, 1), {(0, 0, 0): state("powder_snow")})
+    write_sponge_v3(os.path.join(out, "test_mv_web.schem"), (1, 1, 1), {(0, 0, 0): state("cobweb")})
+    write_sponge_v3(os.path.join(out, "test_big_dig.schem"), (200, 10, 200), {})
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
         write_sponge_v3(os.path.join(out, "test_tfc_made.schem"), (7, 2, 3),

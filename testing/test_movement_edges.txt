@@ -1,0 +1,125 @@
+forceload add 5504 4864 5631 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 5504 70 4864 5631 99 4871 minecraft:stone
+fill 5504 70 4872 5631 99 4879 minecraft:stone
+fill 5504 70 4880 5631 99 4887 minecraft:stone
+fill 5504 70 4888 5631 99 4895 minecraft:stone
+fill 5504 99 4896 5631 99 4927 minecraft:stone
+fill 5504 100 4864 5631 107 4895 minecraft:air
+fill 5504 100 4896 5631 110 4917 minecraft:air
+fill 5504 100 4918 5631 110 4927 minecraft:air
+kill @e[type=item]
+# a builder stuck in a pit on its way to an underground site gets out at the site's level, not onto the surface above it
+fill 5508 80 4872 5533 84 4887 minecraft:air
+fill 5528 80 4878 5531 81 4881 minecraft:dirt
+fill 5506 96 4880 5506 99 4880 minecraft:air
+journeymen debug as Steve 2 5512 80 4880 journeymen foreman summon MoleBoss
+journeymen debug as Steve 2 5506.5 96 4880.5 journeymen builder summon MoleBoss Mole
+mark
+journeymen debug as Steve 0 5512 80 4880 journeymen foreman build MoleBoss test_mv_dig.schem 5528 80 4878 none corner
+waitlog nosprint MoleBoss's crew is on the way: Mole\. !!
+waitlog 20 \[Steve\.Mole\] Stuck for \d+ s at .* on the way to the site of test_mv_dig\.schem; teleported to -?\d+, 8[0-3], -?\d+\. !! teleported to -?\d+, (9\d|1\d\d), |Exception
+waitlog 20 \[Steve\.MoleBoss\] I finished building test_mv_dig\.schem !!
+# a builder walled into the 1x1 shaft where its own block goes gets out instead of trying to step away forever
+fill 5549 100 4880 5549 101 4880 minecraft:stone
+fill 5551 100 4880 5551 101 4880 minecraft:stone
+fill 5550 100 4879 5550 101 4879 minecraft:stone
+fill 5550 100 4881 5550 101 4881 minecraft:stone
+journeymen debug as Steve 2 5543 100 4880 journeymen foreman summon ShaftBoss
+journeymen debug as Steve 2 5550.5 100 4880.5 journeymen builder summon ShaftBoss Shafty
+summon minecraft:item 5550.5 100 4880.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:0s}
+waitlog \[pickup\] Steve\.Shafty picks up 1 Stone
+mark
+journeymen debug as Steve 0 5543 100 4880 journeymen foreman build ShaftBoss test_st_one.schem 5550 100 4880 none corner
+waitlog nosprint ShaftBoss's crew is on the way: Shafty\. !!
+waitlog 20 \[Steve\.ShaftBoss\] I finished building test_st_one\.schem !!
+waitfor 5 nosprint execute if block 5550 100 4880 minecraft:stone =~ passed
+# a crewmate walled in where another builder's block goes gets out when it is asked to step aside
+fill 5559 100 4880 5559 101 4880 minecraft:stone
+fill 5561 100 4880 5561 101 4880 minecraft:stone
+fill 5560 100 4879 5560 101 4879 minecraft:stone
+fill 5560 100 4881 5560 101 4881 minecraft:stone
+journeymen debug as Steve 2 5555 100 4874 journeymen foreman summon PairBoss
+journeymen debug as Steve 2 5557.5 100 4880.5 journeymen builder summon PairBoss Pair
+journeymen debug as Steve 2 5560.5 100 4880.5 journeymen builder summon PairBoss Penned
+summon minecraft:item 5557.5 100 4880.5 {Item:{id:"minecraft:stone",count:1},PickupDelay:0s}
+waitlog \[pickup\] Steve\.Pair picks up 1 Stone
+mark
+journeymen debug as Steve 0 5555 100 4874 journeymen foreman build PairBoss test_st_one.schem 5560 100 4880 none corner
+waitlog nosprint PairBoss's crew is on the way !!
+waitlog 20 \[Steve\.PairBoss\] I finished building test_st_one\.schem !!
+waitfor 5 nosprint execute if block 5560 100 4880 minecraft:stone =~ passed
+# a foreman standing in the dug-out pit of his site walks out up the ramp instead of standing where his crew places
+fill 5578 96 4876 5586 99 4884 minecraft:air
+fill 5587 97 4880 5587 99 4880 minecraft:air
+fill 5588 98 4880 5588 99 4880 minecraft:air
+setblock 5589 99 4880 minecraft:air
+setblock 5592 100 4877 minecraft:chest
+journeymen debug as Steve 2 5579.5 96 4880.5 journeymen foreman summon Pitman
+journeymen debug as Steve 2 5592.5 100 4880.5 journeymen builder summon Pitman Pitty
+journeymen debug as Steve 0 5592 100 4880 journeymen foreman chest Pitman add 5592 100 4877 supply
+journeymen debug as Steve 2 5592 100 4880 journeymen foreman supply Pitman test_mv_pit.schem 5578 96 4876 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 5592 100 4880 journeymen foreman build Pitman test_mv_pit.schem 5578 96 4876 none corner
+waitlog nosprint Pitman's crew is on the way: Pitty\. !!
+waitfor 10 execute if entity @e[type=journeymen:foreman,name=Pitman,x=5578,y=90,z=4876,dx=8,dy=12,dz=8] =~ failed
+waitlog 30 \[Steve\.Pitman\] I finished building test_mv_pit\.schem !! is standing at|is in the way at|\] I'm missing |Exception
+# a foreman standing at the edge of his site where it meets a cliff walks round to another side at once, before his builder (fetching from a chest 40 blocks away) gets there
+fill 5570 74 4900 5600 99 4925 minecraft:stone
+fill 5601 74 4900 5631 99 4925 minecraft:stone
+fill 5570 75 4900 5579 99 4925 minecraft:air
+setblock 5628 100 4912 minecraft:chest
+journeymen debug as Steve 2 5580.5 100 4912.5 journeymen foreman summon Edgar
+journeymen debug as Steve 2 5628.5 100 4914.5 journeymen builder summon Edgar Edgy
+journeymen debug as Steve 0 5628 100 4914 journeymen foreman chest Edgar add 5628 100 4912 supply
+journeymen debug as Steve 2 5628 100 4914 journeymen foreman supply Edgar test_mv_pit.schem 5580 100 4908 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 5628 100 4914 journeymen foreman build Edgar test_mv_pit.schem 5580 100 4908 none corner
+waitlog nosprint Edgar's crew is on the way: Edgy\. !!
+ticks 100
+waitfor 5 nosprint execute if entity @e[type=journeymen:foreman,name=Edgar,x=5580,y=95,z=4908,dx=8,dy=10,dz=8] =~ failed
+waitlog 30 \[Steve\.Edgar\] I finished building test_mv_pit\.schem !! is standing at|is in the way at|\] I'm missing |Exception
+# clearing over a deep shaft never breaks the block a journeyman stands on: a builder alone steps off first, and in a crew the one breaking asks its crewmate to
+fill 5606 72 4870 5610 98 4874 minecraft:air
+fill 5606 99 4870 5610 99 4874 minecraft:dirt
+fill 5620 72 4884 5624 98 4888 minecraft:air
+fill 5620 99 4884 5624 99 4888 minecraft:dirt
+journeymen debug as Steve 2 5603 100 4872 journeymen foreman summon CaveBoss
+journeymen debug as Steve 2 5608.5 100 4872.5 journeymen builder summon CaveBoss Caver
+journeymen debug as Steve 2 5617 100 4886 journeymen foreman summon CrewCave
+journeymen debug as Steve 2 5621.5 100 4885.5 journeymen builder summon CrewCave Cava
+journeymen debug as Steve 2 5623.5 100 4887.5 journeymen builder summon CrewCave Cavb
+mark
+journeymen debug as Steve 0 5603 100 4872 journeymen foreman build CaveBoss test_mv_slab.schem 5606 99 4870 none corner
+journeymen debug as Steve 0 5617 100 4886 journeymen foreman build CrewCave test_mv_slab.schem 5620 99 4884 none corner
+waitlog 20 x2 I finished building test_mv_slab\.schem !! fell from|hit the ground|died|Exception
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Caver] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Cava] =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Cavb] =~ passed
+# with getting unstuck off, a journeyman that can't reach where it is going searches for a path at most every 10 to 20 ticks, less often the longer it fails
+journeymen debug config stuck_teleport_seconds 0
+waitlog \[debug config\] stuck_teleport_seconds = 0
+fill 5510 100 4905 5510 107 4905 minecraft:stone
+setblock 5510 108 4905 minecraft:chest
+journeymen debug as Steve 2 5520 100 4912 journeymen foreman summon PathBoss
+journeymen debug as Steve 2 5522 100 4912 journeymen builder summon PathBoss Pathy
+journeymen debug as Steve 0 5520 100 4912 journeymen foreman chest PathBoss add 5510 108 4905 supply
+journeymen debug as Steve 2 5520 100 4912 journeymen foreman supply PathBoss test_row.schem 5505 100 4925 none corner
+waitlog \] Supplied \d+ items
+mark
+journeymen debug as Steve 0 5520 100 4912 journeymen foreman build PathBoss test_row.schem 5505 100 4925 none corner
+waitlog nosprint PathBoss's crew is on the way: Pathy\. !!
+fill 5540 100 4905 5544 103 4909 minecraft:glass hollow
+tp @e[type=journeymen:foreman,name=PathBoss] 5542.5 101 4907.5
+ticks 100
+journeymen debug paths
+mark
+ticks 200
+journeymen debug paths
+waitlog \[debug paths\] Steve\.Pathy ([0-9]|1[0-5]) path searches
+waitlog \[debug paths\] Steve\.PathBoss ([0-9]|1[0-5]) path searches
+journeymen config reload

@@ -1,5 +1,6 @@
 package io.github.apperk274.journeymen.entity.ai;
 
+import io.github.apperk274.journeymen.entity.JourneymanEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.BlockGetter;
@@ -26,6 +27,9 @@ public class BuilderNodeEvaluator extends WalkNodeEvaluator {
     public PathType getPathType(PathfindingContext context, int x, int y, int z) {
         BlockPos pos = new BlockPos(x, y, z);
         BlockState state = context.getBlockState(pos);
+        if (mob instanceof JourneymanEntity journeyman && journeyman.isPassageRefused(pos)) {
+            return PathType.BLOCKED;
+        }
         if (state.getBlock() instanceof FenceGateBlock && !state.getValue(FenceGateBlock.OPEN)) {
             return PathType.DOOR_WOOD_CLOSED;
         }

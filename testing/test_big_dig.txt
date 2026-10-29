@@ -1,0 +1,73 @@
+forceload add 6008 4864 6215 5063
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 6016 99 4864 6215 99 4963 minecraft:stone
+fill 6016 99 4964 6215 99 5063 minecraft:stone
+fill 6016 100 4864 6215 109 4879 minecraft:dirt
+fill 6016 100 4880 6215 109 4895 minecraft:dirt
+fill 6016 100 4896 6215 109 4911 minecraft:dirt
+fill 6016 100 4912 6215 109 4927 minecraft:dirt
+fill 6016 100 4928 6215 109 4943 minecraft:dirt
+fill 6016 100 4944 6215 109 4959 minecraft:dirt
+fill 6016 100 4960 6215 109 4975 minecraft:dirt
+fill 6016 100 4976 6215 109 4991 minecraft:dirt
+fill 6016 100 4992 6215 109 5007 minecraft:dirt
+fill 6016 100 5008 6215 109 5023 minecraft:dirt
+fill 6016 100 5024 6215 109 5039 minecraft:dirt
+fill 6016 100 5040 6215 109 5055 minecraft:dirt
+fill 6016 100 5056 6215 109 5063 minecraft:dirt
+fill 6016 110 4864 6215 119 4879 minecraft:air
+fill 6016 110 4880 6215 119 4895 minecraft:air
+fill 6016 110 4896 6215 119 4911 minecraft:air
+fill 6016 110 4912 6215 119 4927 minecraft:air
+fill 6016 110 4928 6215 119 4943 minecraft:air
+fill 6016 110 4944 6215 119 4959 minecraft:air
+fill 6016 110 4960 6215 119 4975 minecraft:air
+fill 6016 110 4976 6215 119 4991 minecraft:air
+fill 6016 110 4992 6215 119 5007 minecraft:air
+fill 6016 110 5008 6215 119 5023 minecraft:air
+fill 6016 110 5024 6215 119 5039 minecraft:air
+fill 6016 110 5040 6215 119 5055 minecraft:air
+fill 6016 110 5056 6215 119 5063 minecraft:air
+fill 6008 99 4950 6015 109 4970 minecraft:stone
+fill 6008 110 4950 6015 119 4970 minecraft:air
+kill @e[type=item]
+# a crew of eight digging out 200x10x200 of dirt at 20 times the normal speed, so picking the next blocks dominates: the wall time of the 1000-tick waits and tick query's average are the result
+journeymen debug config speed_multiplier 20
+waitlog \[debug config\] speed_multiplier = 20
+journeymen debug as Steve 2 6012 110 4960 journeymen foreman summon DigBoss
+journeymen debug as Steve 2 6018 110 4960 journeymen builder summon DigBoss Dig0
+journeymen debug as Steve 2 6019 110 4960 journeymen builder summon DigBoss Dig1
+journeymen debug as Steve 2 6020 110 4960 journeymen builder summon DigBoss Dig2
+journeymen debug as Steve 2 6021 110 4960 journeymen builder summon DigBoss Dig3
+journeymen debug as Steve 2 6022 110 4960 journeymen builder summon DigBoss Dig4
+journeymen debug as Steve 2 6023 110 4960 journeymen builder summon DigBoss Dig5
+journeymen debug as Steve 2 6024 110 4960 journeymen builder summon DigBoss Dig6
+journeymen debug as Steve 2 6025 110 4960 journeymen builder summon DigBoss Dig7
+mark
+journeymen debug as Steve 0 6012 110 4960 journeymen foreman build DigBoss test_big_dig.schem 6016 100 4864 none corner
+waitlog 120 nosprint DigBoss's crew is on the way !!
+waitlog 60 x8 \[crew\] Steve\.Dig\d claims \d+ blocks to clear
+ticks 1000 300
+tick query
+ticks 1000 300
+tick query
+journeymen foreman status Steve.DigBoss
+journeymen debug as Steve 0 6012 110 4960 journeymen foreman cancel DigBoss
+kill @e[type=journeymen:builder]
+# one builder alone on the same site
+journeymen debug as Steve 2 6020 110 4962 journeymen builder summon DigBoss Solo
+mark
+journeymen debug as Steve 0 6012 110 4960 journeymen foreman build DigBoss test_big_dig.schem 6016 100 4864 none corner
+waitlog 120 nosprint DigBoss's crew is on the way !!
+waitfor 60 journeymen builder status Steve.Solo =~ Task: clearing
+ticks 1000 300
+tick query
+ticks 1000 300
+tick query
+journeymen foreman status Steve.DigBoss
+journeymen debug as Steve 0 6012 110 4960 journeymen foreman cancel DigBoss
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+journeymen config reload
