@@ -22,6 +22,7 @@ public final class ChestVisit {
     private static final int OPEN_TICKS = 10;
     private static final int GIVE_UP_TICKS = 400;
     private static final double PROGRESS_STEP = 0.5;
+    private static final int DUMP_CHECK_TICKS = 20;
 
     public enum Kind {
         DUMP,
@@ -57,6 +58,8 @@ public final class ChestVisit {
     private double best = Double.MAX_VALUE;
     private int stalledTicks;
     private int repathTimer;
+    private int dumpCheckTimer;
+    private boolean tookNothing;
     @Nullable
     private String failure;
     @Nullable
@@ -121,6 +124,14 @@ public final class ChestVisit {
         return open;
     }
 
+    public boolean isDumpFetch() {
+        return kind == Kind.FETCH && fromDump;
+    }
+
+    public boolean tookNothing() {
+        return tookNothing;
+    }
+
     public Status tick(BuilderEntity builder) {
         ServerLevel level = (ServerLevel) builder.level();
         if (!builder.hasChest(chest, fromDump ? AssignedChest.Role.DUMP : AssignedChest.Role.SUPPLY)) {
@@ -152,6 +163,9 @@ public final class ChestVisit {
         }
         if (!started) {
             started = true;
+            if (isDumpFetch() && !dumpWorthVisiting(builder, store)) {
+                return Status.DONE;
+            }
             if (kind == Kind.FETCH && !containsWanted(store) || kind == Kind.RESTOCK && !builder.restockWorthVisiting(store, wanted)
                     || kind == Kind.STORE && !builder.storeWorthVisiting(store, amounts)) {
                 return Status.DONE;
@@ -170,6 +184,13 @@ public final class ChestVisit {
                             + role() + " chests.";
                     problem = Problem.UNREACHABLE;
                     return Status.FAILED;
+                }
+                if (isDumpFetch() && ++dumpCheckTimer >= DUMP_CHECK_TICKS) {
+                    dumpCheckTimer = 0;
+                    if (!dumpWorthVisiting(builder, store)) {
+                        builder.getNavigation().stop();
+                        return Status.DONE;
+                    }
                 }
                 if (--repathTimer <= 0 || builder.getNavigation().isDone()) {
                     repathTimer = 10;
@@ -193,7 +214,7 @@ public final class ChestVisit {
         } else if (kind == Kind.STORE) {
             builder.storeInto(store, chest, amounts);
         } else if (amounts != null) {
-            builder.fetchAmounts(store, chest, amounts, fromDump);
+            tookNothing = builder.fetchAmounts(store, chest, amounts, fromDump) == 0;
         } else {
             builder.fetchFrom(store, chest, wanted, oneEach, fromDump);
         }
@@ -208,6 +229,15 @@ public final class ChestVisit {
 
     private String role() {
         return fromDump ? "dump" : "supply";
+    }
+
+    private boolean dumpWorthVisiting(BuilderEntity builder, ItemStore store) {
+        if (amounts != null && builder.dumpFetchWorthVisiting(store, amounts)) {
+            return true;
+        }
+        tookNothing = true;
+        builder.skipDumpFetch(chest);
+        return false;
     }
 
     private boolean containsWanted(ItemStore store) {

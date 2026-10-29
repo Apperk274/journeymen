@@ -112,3 +112,35 @@ waitlog 30 \[Steve\.NoneBoss\] I finished building test_row\.schem !! Exception|
 mark
 journeymen debug as Steve 0 3656 100 3662 journeymen foreman check NoneBoss test_row.schem 3660 100 3660 none corner
 waitlog 10 0 to clear, 0 to place, 0 to adjust
+# the stock stops lacking the 10 planks while the builder walks to the far dump chests: it plans only the first, which holds all 10, and turns back without opening it (it used to plan both and take 0 items from each)
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 3648 100 3648 3743 104 3711 minecraft:air
+setblock 3660 100 3655 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:60}]}
+setblock 3700 100 3705 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:3}]}
+setblock 3704 100 3705 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:3}]}
+journeymen debug as Steve 2 3656 100 3662 journeymen foreman summon WalkBoss
+journeymen debug as Steve 2 3662 100 3657 journeymen builder summon WalkBoss Walt
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest WalkBoss add 3660 100 3655 supply
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest WalkBoss add 3700 100 3705 dump
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman chest WalkBoss add 3704 100 3705 dump
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman build WalkBoss test_row.schem 3660 100 3660 none corner
+waitlog nosprint WalkBoss's crew is on the way !!
+data modify block 3660 100 3655 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:50}]
+data modify block 3700 100 3705 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:10}]
+data modify block 3704 100 3705 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:10}]
+waitlog nosprint \[fetch\] Steve\.Walt takes 50 items from the supply chest at 3660, 100, 3655: Oak Planks 50 !!
+ticks 220
+# real time from here: a sprinting wait can stop too late to put the planks in before the builder reaches the dump chest
+waitlog 40 nosprint Walt goes to the chest at 3700, 100, 3705 to fetch items !! Walt goes to the chest at 3704, 100, 3705 to fetch items|can't start this job|\] I'm missing |Exception
+item replace block 3660 100 3655 container.0 with minecraft:oak_planks 10
+waitlog 30 \[Steve\.WalkBoss\] I finished building test_row\.schem !! takes 0 items from the dump chest|\] I'm missing |I couldn't build|Exception|\[unload\] Steve\.\w+ dumps
+waitlog nosprint \[fetch\] Steve\.Walt skips the dump chest at 3700, 100, 3705
+waitfor 5 nosprint execute if block 3700 100 3705 minecraft:chest{Items:[{id:"minecraft:oak_planks",count:10}]} =~ passed
+waitfor 5 nosprint execute if block 3704 100 3705 minecraft:chest{Items:[{id:"minecraft:oak_planks",count:10}]} =~ passed
+mark
+journeymen debug as Steve 0 3656 100 3662 journeymen foreman check WalkBoss test_row.schem 3660 100 3660 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust

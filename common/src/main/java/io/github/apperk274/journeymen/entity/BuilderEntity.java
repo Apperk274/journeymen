@@ -89,6 +89,7 @@ public class BuilderEntity extends JourneymanEntity {
     private static final int CREW_WAIT_TICKS = 20;
     private static final int HAND_BACK_TICKS = 100;
     private static final int SUPPLY_TOOLS_TICKS = 100;
+    private static final int DUMP_FETCH_RETRY_TICKS = 100;
     private static final int STEP_ASIDE_TICKS = 40;
     private static final int LEAVE_SITE_TICKS = 60;
     private static final int LOAD_GRACE_TICKS = 100;
@@ -140,6 +141,7 @@ public class BuilderEntity extends JourneymanEntity {
     private boolean clearedSomething;
     private boolean toolsFetched;
     private int storeBlockedUntil;
+    private int dumpFetchBlockedUntil;
     private final List<ItemStack> overflow = new ArrayList<>();
     private final Deque<Capture> captures = new ArrayDeque<>();
     @Nullable
@@ -446,27 +448,63 @@ public class BuilderEntity extends JourneymanEntity {
 
     private boolean queueFetches(ItemCounter take) {
         ItemCounter supply = supplyFetchable();
+        ItemCounter fallback = dumpFallback();
         ItemCounter fromSupply = new ItemCounter();
         ItemCounter fromDump = new ItemCounter();
         for (Map.Entry<ItemStack, Long> entry : take.entries()) {
             long inSupply = Math.min(entry.getValue(), supply.count(entry.getKey()));
             fromSupply.add(entry.getKey(), inSupply);
-            fromDump.add(entry.getKey(), entry.getValue() - inSupply);
+            fromDump.add(entry.getKey(), Math.min(entry.getValue() - inSupply, fallback.count(entry.getKey())));
         }
         boolean queued = false;
         for (AssignedChest chest : reachableChests()) {
             boolean dump = chest.role() == AssignedChest.Role.DUMP;
-            ItemCounter amounts = dump ? fromDump : fromSupply;
-            if (amounts.isEmpty() || !level().isLoaded(chest.pos())) {
+            if ((dump ? fromDump : fromSupply).isEmpty() || !level().isLoaded(chest.pos())) {
+                continue;
+            }
+            if (dump && tickCount < dumpFetchBlockedUntil) {
+                queued = true;
                 continue;
             }
             ItemStore store = ItemStores.at(level(), chest.pos());
-            if (store != null && containsMatching(store, stack -> amounts.count(stack) > 0)) {
-                queueVisit(dump ? ChestVisit.fetchFromDump(chest.pos(), amounts) : ChestVisit.fetchAmounts(chest.pos(), amounts));
+            if (store == null) {
+                continue;
+            }
+            if (dump) {
+                ItemCounter share = takeShare(store, fromDump);
+                if (!share.isEmpty()) {
+                    queueVisit(ChestVisit.fetchFromDump(chest.pos(), share));
+                    queued = true;
+                }
+            } else if (containsMatching(store, stack -> fromSupply.count(stack) > 0)) {
+                queueVisit(ChestVisit.fetchAmounts(chest.pos(), fromSupply));
                 queued = true;
             }
         }
         return queued;
+    }
+
+    private static ItemCounter takeShare(ItemStore store, ItemCounter wanted) {
+        ItemCounter share = new ItemCounter();
+        for (int slot = 0; slot < store.size() && !wanted.isEmpty(); slot++) {
+            ItemStack stack = store.get(slot);
+            if (stack.isEmpty() || isTool(stack)) {
+                continue;
+            }
+            long count = wanted.remove(stack, stack.getCount());
+            share.add(stack, count);
+        }
+        return share;
+    }
+
+    public boolean dumpFetchWorthVisiting(ItemStore store, ItemCounter amounts) {
+        ItemCounter fallback = dumpFallback();
+        return containsMatching(store, stack -> !isTool(stack) && amounts.count(stack) > 0 && fallback.count(stack) > 0);
+    }
+
+    public void skipDumpFetch(BlockPos chest) {
+        Constants.trace("[fetch] {}.{} skips the dump chest at {}: it holds nothing the stock still lacks", getOwnerName(),
+                getJourneymanName(), chest.toShortString());
     }
 
     public ItemCounter heldByOtherMembers() {
@@ -923,7 +961,7 @@ public class BuilderEntity extends JourneymanEntity {
     }
 
     private void queueVisit(ChestVisit visit) {
-        Constants.LOG.debug("{} goes to the chest at {} to {}", getJourneymanName(), visit.getChest().toShortString(),
+        Constants.trace("{} goes to the chest at {} to {}", getJourneymanName(), visit.getChest().toShortString(),
                 visit.getKind() == ChestVisit.Kind.DUMP ? "dump items" : "fetch items");
         visits.add(visit);
     }
@@ -1075,7 +1113,7 @@ public class BuilderEntity extends JourneymanEntity {
         return -1;
     }
 
-    public void fetchAmounts(ItemStore store, BlockPos chest, ItemCounter amounts, boolean fromDump) {
+    public long fetchAmounts(ItemStore store, BlockPos chest, ItemCounter amounts, boolean fromDump) {
         ItemCounter fetched = new ItemCounter();
         ItemCounter limit = fromDump ? dumpFallback()
                 : job == null || job.getCrewWork().reservedByOthers(getUUID()).isEmpty() ? null : supplyFetchable();
@@ -1114,6 +1152,7 @@ public class BuilderEntity extends JourneymanEntity {
         inventory.setChanged();
         logFetch(fromDump, chest, fetched);
         noteRefetch(fetched);
+        return total(fetched);
     }
 
     private void noteRefetch(ItemCounter fetched) {
@@ -1462,6 +1501,10 @@ public class BuilderEntity extends JourneymanEntity {
         ChestVisit visit = visits.peek();
         if (visit != null) {
             ChestVisit.Status status = visit.tick(this);
+            if (status != ChestVisit.Status.WORKING && visit.isDumpFetch() && visit.tookNothing()) {
+                dumpFetchBlockedUntil = tickCount + DUMP_FETCH_RETRY_TICKS;
+                visits.removeIf(next -> next != visit && next.isDumpFetch());
+            }
             if (status != ChestVisit.Status.WORKING && visit.getKind() == ChestVisit.Kind.FETCH
                     && visits.stream().skip(1).noneMatch(next -> next.getKind() == ChestVisit.Kind.FETCH)) {
                 returned.clear();
