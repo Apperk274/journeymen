@@ -137,6 +137,70 @@ def write_sec_bloat(path):
     }})
 
 
+def edge_void():
+    return {(0, 0, 0): state("stone"), (1, 0, 0): state("structure_void"), (2, 0, 0): state("stone")}
+
+
+def write_edge_made_big(path, n=256):
+    palette = {"minecraft:stone": 0}
+    data = bytearray(n * n * n)
+    for x in range(9):
+        block = state("farmland", moisture=x) if x < 8 else state("dirt_path")
+        for y in (0, n - 1):
+            data[x + y * n * n] = palette.setdefault(block, len(palette))
+    write(path, {"Schematic": {
+        "Version": 3, "DataVersion": DATA_VERSION, "Width": Short(n), "Height": Short(n), "Length": Short(n),
+        "Blocks": {"Palette": palette, "Data": ByteArray(bytes(data)), "BlockEntities": []},
+    }})
+
+
+def write_edge_v1(path):
+    palette, data = sponge_data((2, 2, 1), {(0, 0, 0): "minecraft:stone", (1, 0, 0): "minecraft:stone",
+                                            (0, 1, 0): "minecraft:sign[rotation=0,waterlogged=false]"})
+    sign = {"Pos": IntArray([0, 1, 0]), "Id": "minecraft:sign", "Text1": '{"text":"V1"}', "Text2": '{"text":""}',
+            "Text3": '{"text":""}', "Text4": '{"text":""}'}
+    write(path, {
+        "Version": 1, "Width": Short(2), "Height": Short(2), "Length": Short(1), "Offset": IntArray([1000, 64, 1000]),
+        "Metadata": {"WEOffsetX": -1, "WEOffsetY": 0, "WEOffsetZ": -2},
+        "PaletteMax": len(palette), "Palette": palette, "BlockData": data, "TileEntities": [sign],
+    }, "Schematic")
+
+
+LECTERN_BOOK = {"id": "minecraft:lectern", "Book": {"id": "minecraft:writable_book", "count": 1}, "Page": 0}
+
+
+def write_edge_v2_tile(path):
+    palette, data = sponge_data((1, 1, 1), {(0, 0, 0): state("lectern", facing="north", has_book=True, powered=False)})
+    lectern = dict({k: v for k, v in LECTERN_BOOK.items() if k != "id"}, Pos=IntArray([0, 0, 0]), Id="minecraft:lectern")
+    write(path, {
+        "Version": 2, "DataVersion": DATA_VERSION, "Width": Short(1), "Height": Short(1), "Length": Short(1),
+        "PaletteMax": len(palette), "Palette": palette, "BlockData": data, "TileEntities": [lectern],
+    }, "Schematic")
+
+
+def write_edge_overlap(path):
+    full = state("lectern", facing="north", has_book=True, powered=False)
+    empty = state("lectern", facing="north", has_book=False, powered=False)
+    regions = {
+        "a": litematic_region((0, 0, 0), (2, 1, 1), {(0, 0, 0): full, (1, 0, 0): state("stone")}, {(0, 0, 0): LECTERN_BOOK}),
+        "b": litematic_region((0, 0, 0), (2, 1, 1), {(0, 0, 0): empty, (1, 0, 0): "journeymen_test:nothing"}),
+    }
+    write_litematic(path, "overlap", regions, (2, 1, 1))
+
+
+def write_edge_dupes(path):
+    palette = [parse_state(state("lectern", facing="north", has_book=True, powered=False)),
+               parse_state(state("lectern", facing="north", has_book=False, powered=False)),
+               parse_state(state("stone")), {"Name": "journeymen_test:nothing"}]
+    blocks = [{"pos": [0, 0, 0], "state": 0, "nbt": LECTERN_BOOK}, {"pos": [0, 0, 0], "state": 1},
+              {"pos": [1, 0, 0], "state": 2}, {"pos": [1, 0, 0], "state": 3}]
+    write(path, {"DataVersion": DATA_VERSION, "size": [2, 1, 1], "palette": palette, "blocks": blocks, "entities": []})
+
+
+def edge_live(width, kind="oak_planks"):
+    return {(x, 0, z): state(kind) for x in range(width) for z in range(8)}
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -155,6 +219,19 @@ def write_all(out):
     write_structure(os.path.join(out, "test_sec_empty.nbt"), (0, 0, 0), {})
     write_sec_huge(os.path.join(out, "test_sec_huge.schem"))
     write_sec_bloat(os.path.join(out, "test_sec_bloat.schem"))
+    write_sponge_v3(os.path.join(out, "test_edge_void.schem"), (3, 1, 1), edge_void())
+    write_litematic(os.path.join(out, "test_edge_void.litematic"), "void", {"void": litematic_region((0, 0, 0), (3, 1, 1), edge_void())}, (3, 1, 1))
+    write_mcedit(os.path.join(out, "test_edge_void.schematic"), (3, 1, 1), {(0, 0, 0): (1, 0), (1, 0, 0): (217, 0), (2, 0, 0): (1, 0)})
+    write_structure(os.path.join(out, "test_edge_void.nbt"), (3, 1, 1), edge_void())
+    write_edge_made_big(os.path.join(out, "test_edge_made_big.schem"))
+    write_edge_v1(os.path.join(out, "test_edge_v1.schem"))
+    write_edge_v2_tile(os.path.join(out, "test_edge_v2_tile.schem"))
+    write_edge_overlap(os.path.join(out, "test_edge_overlap.litematic"))
+    write_edge_dupes(os.path.join(out, "test_edge_dupes.nbt"))
+    write_sponge_v3(os.path.join(out, "test_edge_tall.schem"), (1, 3000, 1), {(0, 0, 0): state("stone")}, offset=(40000000, -5000, -40000000))
+    write_sponge_v3(os.path.join(out, "test_edge_live_a.schem"), (8, 1, 8), edge_live(8))
+    write_sponge_v3(os.path.join(out, "test_edge_live_b.schem"), (9, 1, 8), edge_live(9))
+    write_sponge_v3(os.path.join(out, "test_edge_same_b.schem"), (8, 1, 8), edge_live(8, "spruce_planks"))
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
         write_sponge_v3(os.path.join(out, "test_tfc_made.schem"), (7, 2, 3),

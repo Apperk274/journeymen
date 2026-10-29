@@ -163,8 +163,8 @@ public final class ScreenPayloads {
         public static final Type<SchematicInfo> TYPE = payloadType("schematic_info");
         public static final StreamCodec<RegistryFriendlyByteBuf, SchematicInfo> CODEC = StreamCodec.of((buf, value) -> {
             buf.writeUtf(value.file);
-            buf.writeBlockPos(value.size);
-            buf.writeBlockPos(value.offset);
+            writeVector(buf, value.size);
+            writeVector(buf, value.offset);
             COMPONENTS.encode(buf, value.materials);
             buf.writeVarInt(value.palette.size());
             value.palette.forEach(state -> BLOCK_STATE.encode(buf, state));
@@ -172,8 +172,8 @@ public final class ScreenPayloads {
             buf.writeBoolean(value.complete);
         }, buf -> {
             String file = buf.readUtf();
-            BlockPos size = buf.readBlockPos();
-            BlockPos offset = buf.readBlockPos();
+            BlockPos size = readVector(buf);
+            BlockPos offset = readVector(buf);
             List<Component> materials = COMPONENTS.decode(buf);
             int paletteSize = buf.readVarInt();
             List<BlockState> palette = new ArrayList<>();
@@ -187,6 +187,16 @@ public final class ScreenPayloads {
         public Type<? extends CustomPacketPayload> type() {
             return TYPE;
         }
+    }
+
+    private static void writeVector(RegistryFriendlyByteBuf buf, BlockPos vector) {
+        buf.writeVarInt(vector.getX());
+        buf.writeVarInt(vector.getY());
+        buf.writeVarInt(vector.getZ());
+    }
+
+    private static BlockPos readVector(RegistryFriendlyByteBuf buf) {
+        return new BlockPos(buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
     }
 
     public record SchematicBlocks(String file, int part, byte[] data) implements CustomPacketPayload {

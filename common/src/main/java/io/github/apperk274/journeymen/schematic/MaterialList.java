@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 public final class MaterialList {
@@ -45,33 +46,43 @@ public final class MaterialList {
         List<BlockState> palette = schematic.getPalette();
         Function<BlockPos, BlockState> neighbours = BuildPlan.neighbours(null, schematic, new PlacementTransform(BlockPos.ZERO, Vec3i.ZERO, Rotation.NONE));
         Map<BlockState, Integer> unmade = new HashMap<>();
+        boolean[] made = new boolean[counts.length];
+        boolean anyMade = false;
         for (int i = 0; i < counts.length; i++) {
             BlockState state = palette.get(i);
-            if (counts[i] <= 0 || state.isAir()) {
-                continue;
+            if (counts[i] > 0 && !state.isAir()) {
+                blockCount += counts[i];
+                made[i] = BlockDrops.made(state.getBlock()) != null;
+                anyMade |= made[i];
             }
-            blockCount += counts[i];
-            int made = counts[i];
-            if (BlockDrops.made(state.getBlock()) != null) {
-                Vec3i size = schematic.getSize();
-                for (int y = 0; y < size.getY(); y++) {
-                    for (int z = 0; z < size.getZ(); z++) {
-                        for (int x = 0; x < size.getX(); x++) {
-                            BlockPos pos = new BlockPos(x, y, z);
-                            if (schematic.paletteIndex(x, y, z) != i || schematic.getBlockEntityPositions().contains(pos)) {
-                                continue;
-                            }
-                            BlockState from = BlockDrops.unmadeFrom(state, pos, neighbours);
-                            if (from != null) {
-                                unmade.merge(from, 1, Integer::sum);
-                                made--;
-                            }
+        }
+        if (anyMade) {
+            Vec3i size = schematic.getSize();
+            Set<BlockPos> blockEntityPositions = schematic.getBlockEntityPositions();
+            for (int y = 0; y < size.getY(); y++) {
+                for (int z = 0; z < size.getZ(); z++) {
+                    for (int x = 0; x < size.getX(); x++) {
+                        int index = schematic.paletteIndex(x, y, z);
+                        if (index == Schematic.NO_BLOCK || !made[index]) {
+                            continue;
+                        }
+                        BlockPos pos = new BlockPos(x, y, z);
+                        if (blockEntityPositions.contains(pos)) {
+                            continue;
+                        }
+                        BlockState from = BlockDrops.unmadeFrom(palette.get(index), pos, neighbours);
+                        if (from != null) {
+                            unmade.merge(from, 1, Integer::sum);
+                            counts[index]--;
                         }
                     }
                 }
             }
-            if (made > 0) {
-                add(BlockRequirements.of(state, null, registries), state, made, items, toolUses, unobtainable);
+        }
+        for (int i = 0; i < counts.length; i++) {
+            BlockState state = palette.get(i);
+            if (counts[i] > 0 && !state.isAir()) {
+                add(BlockRequirements.of(state, null, registries), state, counts[i], items, toolUses, unobtainable);
             }
         }
         unmade.forEach((state, count) -> add(BlockRequirements.of(state, null, registries), state, count, items, toolUses, unobtainable));

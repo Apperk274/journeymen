@@ -3,6 +3,7 @@ package io.github.apperk274.journeymen.build;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.IntArrayTag;
@@ -68,6 +69,11 @@ public final class BuildJob {
     private final List<BlockPos> unclearable = new ArrayList<>();
     private final Set<BlockPos> skippedPositions = new LinkedHashSet<>();
     private final CrewWork crewWork = new CrewWork();
+    @Nullable
+    private Vec3i schematicSize;
+    @Nullable
+    private Vec3i pasteOffset;
+    private String fileHash = "";
 
     public BuildJob(UUID id, UUID foreman, ResourceKey<Level> dimension, String file, BlockPos origin, Rotation rotation, BuildOptions options,
                     BoundingBox area) {
@@ -152,6 +158,37 @@ public final class BuildJob {
         this.plan = plan;
         this.loading = false;
         this.needsIndex = null;
+        this.schematicSize = schematic.getSize();
+        this.pasteOffset = schematic.getPasteOffset();
+        this.fileHash = schematic.getFileHash();
+    }
+
+    @Nullable
+    public String shapeChange(Schematic loaded) {
+        Vec3i size = loaded.getSize();
+        Vec3i offset = loaded.getPasteOffset();
+        boolean sizeChanged = schematicSize != null && !schematicSize.equals(size);
+        boolean offsetChanged = pasteOffset != null && !options.corner() && !pasteOffset.equals(offset);
+        boolean areaChanged = !PlacementTransform.of(loaded, origin, rotation, options.corner()).area(size).equals(area);
+        if (!sizeChanged && !offsetChanged && !areaChanged) {
+            return null;
+        }
+        String now = describeSize(size) + " with paste offset " + describe(offset);
+        return schematicSize == null || pasteOffset == null
+                ? "it now covers a different area (" + now + ")"
+                : "it is now " + now + " instead of " + describeSize(schematicSize) + " with paste offset " + describe(pasteOffset);
+    }
+
+    public boolean contentChanged(Schematic loaded) {
+        return !fileHash.isEmpty() && !fileHash.equals(loaded.getFileHash());
+    }
+
+    private static String describeSize(Vec3i size) {
+        return size.getX() + "×" + size.getY() + "×" + size.getZ();
+    }
+
+    private static String describe(Vec3i vector) {
+        return vector.getX() + " " + vector.getY() + " " + vector.getZ();
     }
 
     public void setPlan(BuildPlan plan) {
@@ -225,6 +262,13 @@ public final class BuildJob {
             skipped.addAll(crewWork.getPlacing().getSkipped());
         }
         tag.put("Skipped", positionList(skipped));
+        if (schematicSize != null && pasteOffset != null) {
+            tag.putIntArray("SchematicSize", new int[]{schematicSize.getX(), schematicSize.getY(), schematicSize.getZ()});
+            tag.putIntArray("PasteOffset", new int[]{pasteOffset.getX(), pasteOffset.getY(), pasteOffset.getZ()});
+        }
+        if (!fileHash.isEmpty()) {
+            tag.putString("FileHash", fileHash);
+        }
         return tag;
     }
 
@@ -282,6 +326,13 @@ public final class BuildJob {
         }
         job.unclearable.addAll(loadPositions(tag, "Unclearable"));
         job.skippedPositions.addAll(loadPositions(tag, "Skipped"));
+        int[] size = tag.getIntArray("SchematicSize");
+        int[] offset = tag.getIntArray("PasteOffset");
+        if (size.length == 3 && offset.length == 3) {
+            job.schematicSize = new Vec3i(size[0], size[1], size[2]);
+            job.pasteOffset = new Vec3i(offset[0], offset[1], offset[2]);
+        }
+        job.fileHash = tag.getString("FileHash");
         return job;
     }
 }

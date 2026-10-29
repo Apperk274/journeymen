@@ -57,7 +57,7 @@ public final class NeedsIndex {
                     BlockPos pos = transform.toWorld(x, y, z);
                     BlockState from = BlockDrops.unmadeFrom(target, pos, neighbours);
                     BlockState placed = from != null ? from : target;
-                    CompoundTag blockEntity = schematic.getBlockEntity(new BlockPos(x, y, z));
+                    CompoundTag blockEntity = schematic.getBlockEntity(x, y, z);
                     List<ItemStack> items = blockEntity == null
                             ? plain.computeIfAbsent(placed, state -> BlockRequirements.of(state, null, registries).items())
                             : BlockRequirements.of(placed, blockEntity, registries).items();

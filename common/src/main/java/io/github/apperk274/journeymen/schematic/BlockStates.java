@@ -9,6 +9,7 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.datafix.DataFixers;
 import net.minecraft.util.datafix.fixes.References;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
@@ -89,6 +90,7 @@ final class BlockStates {
             unknownBlocks.add(name);
             return null;
         }
-        return NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(), stateTag);
+        BlockState state = NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(), stateTag);
+        return state.is(Blocks.STRUCTURE_VOID) ? null : state;
     }
 }

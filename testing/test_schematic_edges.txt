@@ -1,0 +1,99 @@
+forceload add 4672 4672 4735 4735
+forceload add 4736 4672 4799 4735
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 4672 99 4672 4735 99 4735 minecraft:smooth_stone
+fill 4672 100 4672 4735 106 4735 minecraft:air
+fill 4736 99 4672 4799 99 4735 minecraft:smooth_stone
+fill 4736 100 4672 4799 106 4735 minecraft:air
+kill @e[type=item]
+setblock 4682 100 4690 minecraft:chest
+setblock 4692 100 4690 minecraft:chest
+journeymen debug as Steve 2 4680 100 4690 journeymen foreman summon VoidBoss
+journeymen debug as Steve 2 4683 100 4690 journeymen builder summon VoidBoss Vic
+journeymen debug as Steve 0 4683 100 4690 journeymen foreman chest VoidBoss add 4682 100 4690 supply
+journeymen debug as Steve 2 4690 100 4690 journeymen foreman summon OneBoss
+journeymen debug as Steve 2 4693 100 4690 journeymen builder summon OneBoss Ona
+journeymen debug as Steve 0 4693 100 4690 journeymen foreman chest OneBoss add 4692 100 4690 supply
+# structure void is left alone in every format: not in the material list, not supplied, and the dirt where it is stays
+mark
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_void.schem
+waitlog test_edge_void\.schem: 3.+1.+1, 2 blocks !! Structure Void|Exception
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_void.litematic
+waitlog test_edge_void\.litematic: 3.+1.+1, 2 blocks !! Structure Void|Exception
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_void.schematic
+waitlog test_edge_void\.schematic: 3.+1.+1, 2 blocks !! Structure Void|Exception
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_void.nbt
+waitlog test_edge_void\.nbt: 3.+1.+1, 2 blocks !! Structure Void|Exception
+setblock 4681 100 4694 minecraft:dirt
+journeymen debug as Steve 2 4683 100 4690 journeymen foreman supply VoidBoss test_edge_void.schem 4680 100 4694 none corner
+waitlog \] Supplied 2 items !! Supplied \d+ items|Exception
+journeymen debug as Steve 0 4683 100 4690 journeymen foreman build VoidBoss test_edge_void.schem 4680 100 4694 none corner skip-missing
+waitlog \[Steve\.VoidBoss\] I finished building test_edge_void\.schem !!
+waitfor 5 nosprint execute if block 4681 100 4694 minecraft:dirt =~ passed
+waitfor 5 nosprint execute if block 4682 100 4694 minecraft:stone =~ passed
+# the made-block pass of the material list goes over the volume once: 256x256x256 of stone with 9 made kinds takes well under 4 s
+mark
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_made_big.schem
+waitlog 4 test_edge_made_big\.schem: 256.+256.+256, 16777216 blocks !! Exception
+waitlog \s18 Dirt
+waitlog \s8 uses of a hoe
+waitlog \s1 uses of a shovel
+# an unreadable subfolder doesn't break the listing
+mark
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic list
+waitlog \d+ schematic\(s\) in !! Could not read|unexpected error|Exception
+waitlog \s+test_edge_void\.nbt
+# Sponge v1 (no DataVersion: 1.13.2, a 1.13 sign upgraded; WEOffset as in v2; TileEntities) and v2 with TileEntities
+mark
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_v1.schem
+waitlog test_edge_v1\.schem: 2.+2.+1, 3 blocks !! Could not load|Skipped blocks|Exception
+waitlog \s1 Oak Sign
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_v2_tile.schem
+waitlog test_edge_v2_tile\.schem: 1.+1.+1, 1 blocks !! Could not load|Exception
+waitlog \s1 Book and Quill
+journeymen debug as Steve 2 4693 100 4690 journeymen foreman supply OneBoss test_edge_v1.schem 4700 100 4700 none
+waitlog \] Supplied 3 items !! Supplied \d+ items|Exception
+mark
+journeymen debug as Steve 0 4693 100 4690 journeymen foreman build OneBoss test_edge_v1.schem 4700 100 4700 none
+waitlog area 4699 100 4698 to 4700 101 4698 !! Exception
+waitlog \[Steve\.OneBoss\] I finished building test_edge_v1\.schem !!
+waitfor 5 nosprint execute if block 4699 101 4698 minecraft:oak_sign[rotation=0] =~ passed
+waitfor 5 nosprint data get block 4699 101 4698 front_text.messages[0] =~ V1
+# later litematic regions and later .nbt entries for the same position: their block entity (none) wins, an unknown block doesn't overwrite stone
+mark
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_overlap.litematic
+waitlog test_edge_overlap\.litematic: 2.+1.+1, 2 blocks !! Book and Quill|Exception
+waitlog \s1 Stone\b !! Book and Quill|Exception
+waitlog \s1 Lectern\b !! Book and Quill|Exception
+waitlog journeymen_test:nothing !! Book and Quill|Exception
+mark
+journeymen debug as Steve 2 4680 100 4680 journeymen schematic materials test_edge_dupes.nbt
+waitlog test_edge_dupes\.nbt: 2.+1.+1, 2 blocks !! Book and Quill|Exception
+waitlog \s1 Stone\b !! Book and Quill|Exception
+waitlog \s1 Lectern\b !! Book and Quill|Exception
+waitlog journeymen_test:nothing !! Book and Quill|Exception
+# the schematic_info payload keeps sizes and offsets beyond BlockPos packing (dev round trip through its codec)
+mark
+journeymen debug as Steve 2 4683 100 4690 journeymen debug action @e[type=journeymen:foreman,name=VoidBoss,limit=1] schematic_info ~ ~ ~ test_edge_tall.schem
+waitlog \[schematic_info\] Steve test_edge_tall\.schem: size 1 3000 1, offset 40000000 -5000 -40000000 !! \[schematic_info\]|Exception
+# a schematic file changing while the server is down: two jobs left unloaded here, checked by test_schematic_edges_restart after a restart
+journeymen debug copyschematic test_edge_live_a.schem test_edge_live.schem
+journeymen debug copyschematic test_edge_live_a.schem test_edge_same.schem
+setblock 4746 100 4685 minecraft:chest
+setblock 4772 100 4685 minecraft:chest
+journeymen debug as Steve 2 4744 100 4685 journeymen foreman summon Shift
+journeymen debug as Steve 2 4747 100 4686 journeymen builder summon Shift Sid
+journeymen debug as Steve 0 4747 100 4686 journeymen foreman chest Shift add 4746 100 4685 supply
+journeymen debug as Steve 2 4770 100 4685 journeymen foreman summon Same
+journeymen debug as Steve 2 4773 100 4686 journeymen builder summon Same Sal
+journeymen debug as Steve 0 4773 100 4686 journeymen foreman chest Same add 4772 100 4685 supply
+journeymen debug as Steve 2 4747 100 4686 journeymen foreman supply Shift test_edge_live.schem 4744 100 4690 none corner
+journeymen debug as Steve 2 4773 100 4686 journeymen foreman supply Same test_edge_same.schem 4770 100 4690 none corner
+waitlog x2 \] Supplied 64 items
+mark
+journeymen debug as Steve 0 4747 100 4686 journeymen foreman build Shift test_edge_live.schem 4744 100 4690 none corner
+journeymen debug as Steve 0 4773 100 4686 journeymen foreman build Same test_edge_same.schem 4770 100 4690 none corner
+waitlog nosprint x2 (Shift|Same)'s crew is on the way !!
+forceload remove 4672 4672 4799 4735

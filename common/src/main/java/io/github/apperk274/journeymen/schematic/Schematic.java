@@ -7,6 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -21,7 +22,9 @@ public final class Schematic {
     private final List<BlockState> palette;
     private final int[] blocks;
     private final Map<BlockPos, CompoundTag> blockEntities;
+    private final BitSet blockEntityCells = new BitSet();
     private final Set<String> unknownBlocks;
+    private String fileHash = "";
 
     Schematic(Vec3i size, Vec3i pasteOffset, List<BlockState> palette, int[] blocks, Map<BlockPos, CompoundTag> blockEntities, Set<String> unknownBlocks) {
         this.size = size;
@@ -29,11 +32,20 @@ public final class Schematic {
         this.palette = List.copyOf(palette);
         this.blocks = blocks;
         this.blockEntities = Map.copyOf(blockEntities);
+        blockEntities.keySet().forEach(pos -> blockEntityCells.set(index(size, pos.getX(), pos.getY(), pos.getZ())));
         this.unknownBlocks = Set.copyOf(unknownBlocks);
     }
 
     public Vec3i getSize() {
         return size;
+    }
+
+    public String getFileHash() {
+        return fileHash;
+    }
+
+    void setFileHash(String fileHash) {
+        this.fileHash = fileHash;
     }
 
     public Vec3i getPasteOffset() {
@@ -44,6 +56,11 @@ public final class Schematic {
     public CompoundTag getBlockEntity(BlockPos pos) {
         CompoundTag tag = blockEntities.get(pos);
         return tag == null ? null : tag.copy();
+    }
+
+    @Nullable
+    public CompoundTag getBlockEntity(int x, int y, int z) {
+        return blockEntityCells.get(index(size, x, y, z)) ? getBlockEntity(new BlockPos(x, y, z)) : null;
     }
 
     public List<BlockState> getPalette() {

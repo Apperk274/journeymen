@@ -17,6 +17,8 @@ import java.util.Set;
 
 final class SpongeSchematicReader {
 
+    private static final int VERSION_1_DATA_VERSION = 1631;
+
     private SpongeSchematicReader() {
     }
 
@@ -28,10 +30,10 @@ final class SpongeSchematicReader {
         ListTag blockEntityList;
         Vec3i pasteOffset;
         switch (version) {
-            case 2 -> {
+            case 1, 2 -> {
                 paletteTag = tag.getCompound("Palette");
                 data = tag.getByteArray("BlockData");
-                blockEntityList = tag.getList("BlockEntities", Tag.TAG_COMPOUND);
+                blockEntityList = tag.getList(tag.contains("BlockEntities", Tag.TAG_LIST) ? "BlockEntities" : "TileEntities", Tag.TAG_COMPOUND);
                 CompoundTag metadata = tag.getCompound("Metadata");
                 pasteOffset = new Vec3i(metadata.getInt("WEOffsetX"), metadata.getInt("WEOffsetY"), metadata.getInt("WEOffsetZ"));
             }
@@ -43,12 +45,16 @@ final class SpongeSchematicReader {
                 int[] offset = tag.getIntArray("Offset");
                 pasteOffset = offset.length == 3 ? new Vec3i(offset[0], offset[1], offset[2]) : Vec3i.ZERO;
             }
-            default -> throw new SchematicException("Unsupported Sponge schematic version " + version + " (expected 2 or 3)");
+            default -> throw new SchematicException("Unsupported Sponge schematic version " + version + " (expected 1, 2 or 3)");
         }
-        if (!tag.contains("DataVersion", Tag.TAG_ANY_NUMERIC)) {
+        int dataVersion;
+        if (tag.contains("DataVersion", Tag.TAG_ANY_NUMERIC)) {
+            dataVersion = tag.getInt("DataVersion");
+        } else if (version == 1) {
+            dataVersion = VERSION_1_DATA_VERSION;
+        } else {
             throw new SchematicException("Schematic has no DataVersion");
         }
-        int dataVersion = tag.getInt("DataVersion");
         int width = tag.getShort("Width") & 0xFFFF;
         int height = tag.getShort("Height") & 0xFFFF;
         int length = tag.getShort("Length") & 0xFFFF;

@@ -73,9 +73,14 @@ final class StructureNbtReader {
             if (state < 0 || state >= remap.length) {
                 throw new SchematicException("Block " + i + " refers to palette id " + state + ", which is not in the palette");
             }
+            if (remap[state] == Schematic.NO_BLOCK) {
+                continue;
+            }
             blocks[Schematic.index(size, x, y, z)] = remap[state];
             if (block.contains("nbt", Tag.TAG_COMPOUND)) {
                 blockEntities.put(new BlockPos(x, y, z), block.getCompound("nbt").copy());
+            } else if (!blockEntities.isEmpty()) {
+                blockEntities.remove(new BlockPos(x, y, z));
             }
         }
 

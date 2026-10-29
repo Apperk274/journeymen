@@ -354,7 +354,18 @@ public class ForemanEntity extends JourneymanEntity {
                         stopLoading(loadingJob, cause.getMessage());
                         return;
                     }
+                    String shapeChange = loadingJob.shapeChange(schematic);
+                    if (shapeChange != null) {
+                        notifyOwner("I stopped working on " + loadingJob.getFile() + " because the file changed: " + shapeChange
+                                + ". I've let the site go; give me the job again to build the new version.");
+                        endJob(loadingJob);
+                        return;
+                    }
+                    boolean changed = loadingJob.contentChanged(schematic);
                     loadingJob.setLoaded(schematic, null);
+                    if (changed) {
+                        notifyOwner(loadingJob.getFile() + " changed since I took the job, so my crew builds the new version from what is there now.");
+                    }
                 }, server);
     }
 

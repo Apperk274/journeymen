@@ -18,11 +18,24 @@ Remove-Item $log, "$log.err" -ErrorAction SilentlyContinue
 $files = @($CommandsFile | ForEach-Object { if (Test-Path $_) { (Resolve-Path $_).Path } else { Join-Path $PSScriptRoot $_ } })
 $missing = @($files | Where-Object { -not (Test-Path $_) })
 if ($missing.Count -gt 0) { throw "missing commands file(s): $($missing -join ', ')" }
+function Remove-Unreadable([string]$path) {
+    if (Test-Path -LiteralPath $path) {
+        icacls $path /reset /q | Out-Null
+        Remove-Item -LiteralPath $path -Recurse -Force
+    }
+}
+$unreadable = Join-Path $runDir "schematics\test_edge_unreadable"
+Remove-Unreadable $unreadable
 $props = Join-Path $runDir "server.properties"
 $original = [System.IO.File]::ReadAllText($props)
 $started = Get-Date
 $proc = $null
 try {
+    if ($files | Where-Object { (Split-Path $_ -Leaf) -eq "test_schematic_edges.txt" }) {
+        New-Item -ItemType Directory -Force $unreadable | Out-Null
+        Copy-Item (Join-Path $runDir "schematics\test_edge_void.schem") (Join-Path $unreadable "hidden.schem")
+        icacls $unreadable /deny "*S-1-1-0:(RD)" /q | Out-Null
+    }
     $patched = $original -replace '(?m)^enable-rcon=.*$', 'enable-rcon=true' -replace '(?m)^rcon\.password=.*$', 'rcon.password=journeymen-dev' -replace '(?m)^rcon\.port=.*$', 'rcon.port=25575'
     [System.IO.File]::WriteAllText($props, $patched)
     $proc = Start-Process -FilePath "mise" -ArgumentList "exec", "--", "./gradlew.bat", $task, "--console=plain" `
@@ -53,5 +66,6 @@ try {
         ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     [System.IO.File]::WriteAllText($props, $original)
+    Remove-Unreadable $unreadable
 }
 "total $([int]((Get-Date) - $started).TotalSeconds) s, server log: $log"

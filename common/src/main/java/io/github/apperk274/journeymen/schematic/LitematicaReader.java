@@ -114,10 +114,13 @@ final class LitematicaReader {
                         if (value >= remap.length) {
                             throw new SchematicException("Region " + region.name() + " refers to palette id " + value + ", which is not in the palette");
                         }
-                        blocks[Schematic.index(size, offsetX + x, offsetY + y, offsetZ + z)] = remap[value];
+                        if (remap[value] != Schematic.NO_BLOCK) {
+                            blocks[Schematic.index(size, offsetX + x, offsetY + y, offsetZ + z)] = remap[value];
+                        }
                     }
                 }
             }
+            blockEntities.keySet().removeIf(pos -> writes(remap, data, bits, region.size(), pos.getX() - offsetX, pos.getY() - offsetY, pos.getZ() - offsetZ));
 
             ListTag blockEntityList = regionTag.getList("TileEntities", Tag.TAG_COMPOUND);
             for (int i = 0; i < blockEntityList.size(); i++) {
@@ -126,7 +129,7 @@ final class LitematicaReader {
                 int x = entry.getInt("x");
                 int y = entry.getInt("y");
                 int z = entry.getInt("z");
-                if (!blockEntity.contains("id", Tag.TAG_STRING) || x < 0 || y < 0 || z < 0 || x >= sizeX || y >= sizeY || z >= sizeZ) {
+                if (!blockEntity.contains("id", Tag.TAG_STRING) || !writes(remap, data, bits, region.size(), x, y, z)) {
                     continue;
                 }
                 blockEntity.remove("x");
@@ -137,6 +140,13 @@ final class LitematicaReader {
         }
 
         return new Schematic(size, new Vec3i((int) minX, (int) minY, (int) minZ), palette, blocks, blockEntities, unknownBlocks);
+    }
+
+    private static boolean writes(int[] remap, long[] data, int bits, Vec3i size, int x, int y, int z) {
+        if (x < 0 || y < 0 || z < 0 || x >= size.getX() || y >= size.getY() || z >= size.getZ()) {
+            return false;
+        }
+        return remap[BlockStates.unpack(data, bits, ((long) y * size.getZ() + z) * size.getX() + x)] != Schematic.NO_BLOCK;
     }
 
     private static BlockPos readPos(CompoundTag tag) {

@@ -7,7 +7,6 @@ import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
@@ -217,8 +216,7 @@ public final class PreviewBenchmark {
     }
 
     private static void requestInfo() {
-        ClientState.info = null;
-        Services.NETWORK.sendToServer(new ScreenPayloads.Action(foremanId, "schematic_info", schematic(), BlockPos.ZERO));
+        ClientState.requestInfo(foremanId, schematic());
         waitStart = System.nanoTime();
         next(Step.INFO);
     }

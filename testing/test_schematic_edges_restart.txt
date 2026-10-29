@@ -1,0 +1,21 @@
+# after test_schematic_edges and a server restart: Shift's file got a different size (job stopped, area freed), Same's only different blocks (job carries on)
+journeymen debug copyschematic test_edge_live_b.schem test_edge_live.schem
+journeymen debug copyschematic test_edge_same_b.schem test_edge_same.schem
+mark
+forceload add 4736 4672 4799 4735
+waitlog \[Steve\.Shift\] I stopped working on test_edge_live\.schem because the file changed !! Exception
+waitfor 5 nosprint journeymen foreman status Steve.Shift =~ Job: none
+waitlog \[Steve\.Same\] test_edge_same\.schem changed !! \[Steve\.Same\] I stopped working|Exception
+journeymen debug as Steve 2 4773 100 4686 journeymen foreman supply Same missing-only
+waitlog \] Supplied \d+ missing items for test_edge_same\.schem
+waitlog 20 \[Steve\.Same\] I finished building test_edge_same\.schem !! \[Steve\.Same\] I stopped working|Exception
+journeymen debug as Steve 2 4747 100 4686 journeymen foreman supply Shift test_edge_live.schem 4744 100 4690 none corner
+waitlog \] Supplied 72 items for test_edge_live\.schem
+journeymen debug as Steve 0 4747 100 4686 journeymen foreman build Shift test_edge_live.schem 4744 100 4690 none corner
+waitlog 20 \[Steve\.Shift\] I finished building test_edge_live\.schem !!
+mark
+journeymen debug as Steve 0 4747 100 4686 journeymen foreman check Shift test_edge_live.schem 4744 100 4690 none corner
+journeymen debug as Steve 0 4773 100 4686 journeymen foreman check Same test_edge_same.schem 4770 100 4690 none corner
+waitlog x2 0 to clear, 0 to place
+waitfor 5 nosprint execute if block 4752 100 4697 minecraft:oak_planks =~ passed
+waitfor 5 nosprint execute if block 4777 100 4697 minecraft:spruce_planks =~ passed

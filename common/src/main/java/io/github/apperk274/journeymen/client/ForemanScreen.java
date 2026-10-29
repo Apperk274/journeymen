@@ -227,6 +227,7 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
     @Override
     protected void containerTick() {
         super.containerTick();
+        ClientState.tickInfo();
         ScreenPayloads.ForemanState state = state();
         if (tab == ForemanMenu.JOB_TAB && state != null && state.working() != builtWithJob) {
             rebuildWidgets();
@@ -346,8 +347,7 @@ public class ForemanScreen extends AbstractContainerScreen<ForemanMenu> {
                 selected = files.get(index);
                 materialBar.setOffset(0);
                 if (ClientState.info == null || !ClientState.info.file().equals(selected)) {
-                    ClientState.info = null;
-                    send("schematic_info", selected, BlockPos.ZERO);
+                    ClientState.requestInfo(menu.getForemanId(), selected);
                 }
             }
             return true;

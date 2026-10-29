@@ -77,7 +77,7 @@ public final class BuildPlan {
                     BlockPos pos = transform.toWorld(x, y, z);
                     BlockState target = transform.transform(schematicState);
                     BlockState actual = level.getBlockState(pos);
-                    plan.classify(level, pos, target, actual, schematic.getBlockEntity(new BlockPos(x, y, z)),
+                    plan.classify(level, pos, target, actual, schematic.getBlockEntity(x, y, z),
                             BlockDrops.unmadeFrom(target, pos, neighbours));
                 }
             }

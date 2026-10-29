@@ -21,9 +21,11 @@ import io.github.apperk274.journeymen.platform.Services;
 import io.github.apperk274.journeymen.schematic.MaterialList;
 import io.github.apperk274.journeymen.schematic.Schematic;
 import io.github.apperk274.journeymen.schematic.SchematicFiles;
+import io.netty.buffer.Unpooled;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -289,7 +291,11 @@ public final class ForemanScreenService {
                         ScreenActions.tell(reply, "Could not load " + file + ": " + cause.getMessage(), false);
                         return;
                     }
-                    Services.NETWORK.sendToPlayer(player, info(file, loaded, player));
+                    ScreenPayloads.SchematicInfo info = info(file, loaded, player);
+                    if (Services.PLATFORM.isDevelopmentEnvironment()) {
+                        logRoundTrip(player, info);
+                    }
+                    Services.NETWORK.sendToPlayer(player, info);
                     List<byte[]> parts = loaded.preview().parts();
                     for (int i = 0; i < parts.size(); i++) {
                         Services.NETWORK.sendToPlayer(player, new ScreenPayloads.SchematicBlocks(file, i, parts.get(i)));
@@ -298,6 +304,19 @@ public final class ForemanScreenService {
     }
 
     private record LoadedSchematic(Schematic schematic, PreviewBlocks.Encoded preview) {
+    }
+
+    private static void logRoundTrip(ServerPlayer player, ScreenPayloads.SchematicInfo info) {
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), player.registryAccess());
+        try {
+            ScreenPayloads.SchematicInfo.CODEC.encode(buf, info);
+            ScreenPayloads.SchematicInfo decoded = ScreenPayloads.SchematicInfo.CODEC.decode(buf);
+            Constants.LOG.info("[schematic_info] {} {}: size {} {} {}, offset {} {} {}", player.getGameProfile().getName(), decoded.file(),
+                    decoded.size().getX(), decoded.size().getY(), decoded.size().getZ(),
+                    decoded.offset().getX(), decoded.offset().getY(), decoded.offset().getZ());
+        } finally {
+            buf.release();
+        }
     }
 
     private static ScreenPayloads.SchematicInfo info(String file, LoadedSchematic loaded, ServerPlayer player) {

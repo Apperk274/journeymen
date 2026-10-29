@@ -20,6 +20,7 @@ import io.github.apperk274.journeymen.menu.LinkModeService;
 import io.github.apperk274.journeymen.menu.ScreenActions;
 import io.github.apperk274.journeymen.network.ScreenPayloads;
 import io.github.apperk274.journeymen.platform.Services;
+import io.github.apperk274.journeymen.schematic.SchematicFiles;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -39,6 +40,7 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,7 +89,11 @@ public class DebugCommands {
                         .then(Commands.argument("key", StringArgumentType.word())
                                 .then(Commands.argument("value", StringArgumentType.greedyString())
                                         .executes(DebugCommands::config))))
-                .then(Commands.literal("chunks").executes(DebugCommands::chunks));
+                .then(Commands.literal("chunks").executes(DebugCommands::chunks))
+                .then(Commands.literal("copyschematic")
+                        .then(Commands.argument("from", StringArgumentType.string())
+                                .then(Commands.argument("to", StringArgumentType.string())
+                                        .executes(DebugCommands::copySchematic))));
     }
 
     private static int action(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
@@ -185,6 +191,22 @@ public class DebugCommands {
         Constants.LOG.info("[debug config] {}", result);
         context.getSource().sendSuccess(() -> Component.literal(result), false);
         return problem == null ? 1 : 0;
+    }
+
+    private static int copySchematic(CommandContext<CommandSourceStack> context) {
+        String from = StringArgumentType.getString(context, "from");
+        String to = StringArgumentType.getString(context, "to");
+        String result;
+        try {
+            SchematicFiles.copy(from, to);
+            result = "copied " + from + " to " + to;
+        } catch (IOException e) {
+            result = "could not copy " + from + " to " + to + ": " + e.getMessage();
+        }
+        Constants.LOG.info("[debug copyschematic] {}", result);
+        String reply = result;
+        context.getSource().sendSuccess(() -> Component.literal(reply), false);
+        return 1;
     }
 
     private static int chunks(CommandContext<CommandSourceStack> context) {
