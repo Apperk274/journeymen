@@ -1,0 +1,159 @@
+forceload add 7808 4864 7935 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 7808 99 4864 7935 99 4927 minecraft:smooth_stone
+fill 7808 100 4864 7871 104 4927 minecraft:air
+kill @e[type=item]
+# a builder alone: once its job has started, 3 of the 16 planks leave the supply chest and turn up as planks where the schematic wants air (like a block that slid off the build); the stock lacks 3 planks while those 3 blocks still wait to be cleared, so it clears them first and places what they drop instead of pausing for planks
+setblock 7818 100 4874 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:16}]}
+setblock 7824 100 4874 minecraft:chest[facing=north]
+journeymen debug as Steve 2 7816 100 4884 journeymen foreman summon SlideBoss
+journeymen debug as Steve 2 7820 100 4876 journeymen builder summon SlideBoss Slider
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest SlideBoss add 7818 100 4874 supply
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest SlideBoss add 7824 100 4874 dump
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman build SlideBoss test_reclear_oak_planks.schem 7820 100 4880 none corner
+waitlog nosprint SlideBoss's crew is on the way !!
+data modify block 7818 100 4874 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:13}]
+setblock 7821 100 4881 minecraft:oak_planks
+setblock 7826 100 4881 minecraft:oak_planks
+setblock 7833 100 4881 minecraft:oak_planks
+waitlog 30 \[Steve\.SlideBoss\] I finished building test_reclear_oak_planks\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception|\[unload\] Steve\.\w+ dumps \d+ items at [^:]*: .*Oak Planks
+waitlog nosprint \[reclear\] Steve\.Slider clears 3 blocks first: they drop 3 Oak Planks
+waitlog nosprint \[unload\] Steve\.Slider stores 3 items at 7818, 100, 4874: Oak Planks 3
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman check SlideBoss test_reclear_oak_planks.schem 7820 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# the same with skip-missing: nothing is skipped, the 3 planks come from the blocks it clears first
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 7808 100 4864 7871 104 4927 minecraft:air
+setblock 7818 100 4874 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:16}]}
+setblock 7824 100 4874 minecraft:chest[facing=north]
+journeymen debug as Steve 2 7816 100 4884 journeymen foreman summon SkipSlide
+journeymen debug as Steve 2 7820 100 4876 journeymen builder summon SkipSlide Skidder
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest SkipSlide add 7818 100 4874 supply
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest SkipSlide add 7824 100 4874 dump
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman build SkipSlide test_reclear_oak_planks.schem 7820 100 4880 none corner skip-missing
+waitlog nosprint SkipSlide's crew is on the way !!
+data modify block 7818 100 4874 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:13}]
+setblock 7821 100 4881 minecraft:oak_planks
+setblock 7826 100 4881 minecraft:oak_planks
+setblock 7833 100 4881 minecraft:oak_planks
+waitlog 30 \[Steve\.SkipSlide\] I finished building test_reclear_oak_planks\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception|\[unload\] Steve\.\w+ dumps \d+ items at [^:]*: .*Oak Planks
+waitlog nosprint \[reclear\] Steve\.Skidder clears 3 blocks first: they drop 3 Oak Planks
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman check SkipSlide test_reclear_oak_planks.schem 7820 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# a crew of three: 4 planks leave the supply chest and turn up where the schematic wants air; the crew clears them before it pauses
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 7808 100 4864 7871 104 4927 minecraft:air
+setblock 7818 100 4874 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:16}]}
+setblock 7824 100 4874 minecraft:chest[facing=north]
+journeymen debug as Steve 2 7816 100 4884 journeymen foreman summon CrewSlide
+journeymen debug as Steve 2 7820 100 4876 journeymen builder summon CrewSlide Sly
+journeymen debug as Steve 2 7821 100 4876 journeymen builder summon CrewSlide Slip
+journeymen debug as Steve 2 7822 100 4876 journeymen builder summon CrewSlide Slab
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest CrewSlide add 7818 100 4874 supply
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest CrewSlide add 7824 100 4874 dump
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman build CrewSlide test_reclear_oak_planks.schem 7820 100 4880 none corner
+waitlog nosprint CrewSlide's crew is on the way !!
+data modify block 7818 100 4874 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:12}]
+setblock 7820 100 4881 minecraft:oak_planks
+setblock 7824 100 4881 minecraft:oak_planks
+setblock 7829 100 4881 minecraft:oak_planks
+setblock 7835 100 4881 minecraft:oak_planks
+waitlog 30 \[Steve\.CrewSlide\] I finished building test_reclear_oak_planks\.schem !! can't start this job|\] I'm missing |\] I need |I couldn't build|Exception|which another builder claimed|\[unload\] Steve\.\w+ dumps \d+ items at [^:]*: .*Oak Planks
+waitlog nosprint \[reclear\] Steve\.(Sly|Slip|Slab) clears 4 blocks first: they drop 4 Oak Planks
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman check CrewSlide test_reclear_oak_planks.schem 7820 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# cobblestone where the schematic wants air needs a pickaxe, and the crew has none: it can't drop the 3 missing cobblestone, so the builder pauses as before, without clearing; once 3 cobblestone and a pickaxe are in the supply chest it finishes, clearing the cobblestone at the end
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 7808 100 4864 7871 104 4927 minecraft:air
+setblock 7818 100 4874 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:cobblestone",count:16}]}
+setblock 7824 100 4874 minecraft:chest[facing=north]
+journeymen debug as Steve 2 7816 100 4884 journeymen foreman summon CobbleBoss
+journeymen debug as Steve 2 7820 100 4876 journeymen builder summon CobbleBoss Cobbler
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest CobbleBoss add 7818 100 4874 supply
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest CobbleBoss add 7824 100 4874 dump
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman build CobbleBoss test_reclear_cobblestone.schem 7820 100 4880 none corner
+waitlog nosprint CobbleBoss's crew is on the way !!
+data modify block 7818 100 4874 Items set value [{Slot:0b,id:"minecraft:cobblestone",count:13}]
+setblock 7821 100 4881 minecraft:cobblestone
+setblock 7826 100 4881 minecraft:cobblestone
+setblock 7833 100 4881 minecraft:cobblestone
+waitlog 30 \[Steve\.CobbleBoss\] I'm missing 3 Cobblestone for test_reclear_cobblestone\.schem, and my dump chests don't have them either\. !! I finished building|Exception|\[reclear\]
+waitfor 5 nosprint execute if block 7826 100 4881 minecraft:cobblestone =~ passed
+data modify block 7818 100 4874 Items set value [{Slot:0b,id:"minecraft:cobblestone",count:3},{Slot:1b,id:"minecraft:wooden_pickaxe",count:1}]
+waitlog 30 \[Steve\.CobbleBoss\] I finished building test_reclear_cobblestone\.schem !! Exception|\[reclear\]
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman check CobbleBoss test_reclear_cobblestone.schem 7820 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# stone where the schematic wants air drops stone only with Silk Touch: with a plain pickaxe in the supply chest the builder pauses as before; once a Silk Touch pickaxe replaces it, the builder clears the stone first and places what it drops
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 7808 100 4864 7871 104 4927 minecraft:air
+setblock 7818 100 4874 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:stone",count:16},{Slot:1b,id:"minecraft:wooden_pickaxe",count:1}]}
+setblock 7824 100 4874 minecraft:chest[facing=north]
+journeymen debug as Steve 2 7816 100 4884 journeymen foreman summon SilkBoss
+journeymen debug as Steve 2 7820 100 4876 journeymen builder summon SilkBoss Silky
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest SilkBoss add 7818 100 4874 supply
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest SilkBoss add 7824 100 4874 dump
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman build SilkBoss test_reclear_stone.schem 7820 100 4880 none corner
+waitlog nosprint SilkBoss's crew is on the way !!
+data modify block 7818 100 4874 Items set value [{Slot:0b,id:"minecraft:stone",count:13},{Slot:1b,id:"minecraft:wooden_pickaxe",count:1}]
+setblock 7821 100 4881 minecraft:stone
+setblock 7826 100 4881 minecraft:stone
+setblock 7833 100 4881 minecraft:stone
+waitlog 30 \[Steve\.SilkBoss\] I'm missing 3 Stone for test_reclear_stone\.schem, and my dump chests don't have them either\. !! I finished building|Exception|\[reclear\]
+waitfor 5 nosprint execute if block 7826 100 4881 minecraft:stone =~ passed
+mark
+data modify block 7818 100 4874 Items set value [{Slot:0b,id:"minecraft:wooden_pickaxe",count:1,components:{"minecraft:enchantments":{levels:{"minecraft:silk_touch":1}}}}]
+waitlog 30 \[Steve\.SilkBoss\] I finished building test_reclear_stone\.schem !! Exception|\] I need |I couldn't build|\[unload\] Steve\.\w+ dumps \d+ items at [^:]*: .*Stone
+waitlog nosprint \[reclear\] Steve\.Silky clears 3 blocks first: they drop 3 Stone
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman check SilkBoss test_reclear_stone.schem 7820 100 4880 none corner
+waitlog 10 0 to clear, 0 to place, 0 to adjust
+# with redo_limit 0 the blocks to clear are already past the redo limit, so they aren't cleared for their planks: the builder pauses as before, finishes once the planks are in the supply chest, and reports the 3 blocks it gave up on
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 20
+kill @e[type=item]
+fill 7808 100 4864 7871 104 4927 minecraft:air
+journeymen debug config redo_limit 0
+waitlog \[debug config\] redo_limit = 0
+setblock 7818 100 4874 minecraft:chest[facing=north]{Items:[{Slot:0b,id:"minecraft:oak_planks",count:16}]}
+setblock 7824 100 4874 minecraft:chest[facing=north]
+journeymen debug as Steve 2 7816 100 4884 journeymen foreman summon LimitBoss
+journeymen debug as Steve 2 7820 100 4876 journeymen builder summon LimitBoss Limey
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest LimitBoss add 7818 100 4874 supply
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman chest LimitBoss add 7824 100 4874 dump
+mark
+journeymen debug as Steve 0 7816 100 4884 journeymen foreman build LimitBoss test_reclear_oak_planks.schem 7820 100 4880 none corner
+waitlog nosprint LimitBoss's crew is on the way !!
+data modify block 7818 100 4874 Items set value [{Slot:0b,id:"minecraft:oak_planks",count:13}]
+setblock 7821 100 4881 minecraft:oak_planks
+setblock 7826 100 4881 minecraft:oak_planks
+setblock 7833 100 4881 minecraft:oak_planks
+waitlog 30 \[Steve\.LimitBoss\] I'm missing 3 Oak Planks for test_reclear_oak_planks\.schem, and my dump chests don't have them either\. !! I finished building|Exception|\[reclear\]
+item replace block 7818 100 4874 container.0 with minecraft:oak_planks 3
+waitlog 30 \[Steve\.LimitBoss\] I couldn't build 3 block\(s\) of test_reclear_oak_planks\.schem !! Exception|\[reclear\]
+waitlog nosprint \[Steve\.LimitBoss\] I finished building test_reclear_oak_planks\.schem
+waitfor 5 nosprint execute if block 7826 100 4881 minecraft:oak_planks =~ passed
+journeymen config reload

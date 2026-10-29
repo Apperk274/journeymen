@@ -1,0 +1,27 @@
+forceload add 448 0 511 63
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 448 199 0 511 199 40 minecraft:smooth_stone
+fill 448 200 0 511 206 40 minecraft:air
+kill @e[type=item]
+# an open barrel is a cup: its floor is low, but its sides are a block high, so nobody walks into it. A room split by a wall whose only short way through is a barrel in a 2-high gap (with the wall above it, so nobody climbs over it), and a longer way round through an open gap: with getting unstuck off, the builder walks round and places the stone from the far side instead of getting stuck at the barrel and placing it from where it stands
+journeymen debug config stuck_teleport_seconds 0
+waitlog \[debug config\] stuck_teleport_seconds = 0
+fill 449 200 1 481 202 23 minecraft:smooth_stone
+fill 450 200 2 480 202 22 minecraft:air
+fill 465 200 2 465 202 22 minecraft:smooth_stone
+setblock 465 201 4 minecraft:air
+setblock 465 200 4 tfc:wood/barrel/pine[facing=up,sealed=false]
+fill 465 200 20 465 201 20 minecraft:air
+setblock 452 200 3 minecraft:chest[facing=south]{Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+journeymen debug as Steve 2 476 200 12 journeymen foreman summon BarrelBoss
+journeymen debug as Steve 2 455 200 4 journeymen builder summon BarrelBoss Cooper
+journeymen debug as Steve 0 476 200 12 journeymen foreman chest BarrelBoss add 452 200 3 supply
+mark
+journeymen debug as Steve 0 476 200 12 journeymen foreman build BarrelBoss test_st_one.schem 476 200 4 none corner
+waitlog 20 \[Steve\.BarrelBoss\] I finished building test_st_one\.schem !! can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception|Stuck for
+waitfor 5 nosprint execute if block 476 200 4 minecraft:stone =~ passed
+waitfor 5 nosprint execute if block 465 200 4 tfc:wood/barrel/pine =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Cooper,x=466,y=199,z=2,dx=14,dy=4,dz=20] =~ passed
+journeymen config reload

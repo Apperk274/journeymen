@@ -152,7 +152,7 @@ public final class PlacingWork {
                 && FarmBlockAccessor.journeymen$isNearWater(SandboxLevel.among(level, states), pos);
     }
 
-    static boolean placedWithOtherPart(BlockState target) {
+    public static boolean placedWithOtherPart(BlockState target) {
         return target.getOptionalValue(BlockStateProperties.DOUBLE_BLOCK_HALF).orElse(null) == DoubleBlockHalf.UPPER
                 || target.getOptionalValue(BlockStateProperties.BED_PART).orElse(null) == BedPart.HEAD
                 || target.getBlock() instanceof PistonHeadBlock
@@ -240,5 +240,17 @@ public final class PlacingWork {
 
     public List<BlockPos> getSkipped() {
         return skipped;
+    }
+
+    public Set<BlockPos> pendingPositions() {
+        Set<BlockPos> pending = new HashSet<>();
+        for (TreeMap<Integer, List<Entry>> layers : groups()) {
+            for (List<Entry> layer : layers.values()) {
+                for (Entry entry : layer) {
+                    pending.add(entry.pos());
+                }
+            }
+        }
+        return pending;
     }
 }

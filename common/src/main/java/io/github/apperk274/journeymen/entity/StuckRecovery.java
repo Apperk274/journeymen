@@ -20,6 +20,8 @@ import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.pathfinder.Node;
+import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.level.pathfinder.PathType;
 import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
 import net.minecraft.world.phys.AABB;
@@ -34,6 +36,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -48,6 +51,7 @@ public final class StuckRecovery {
     private static final int RADIUS = 3;
     private static final int REPEAT_WINDOW_TICKS = 12000;
     private static final int REPEAT_NOTICE_COUNT = 3;
+    private static final int TRACE_NODES = 4;
 
     public enum Kind {
         CHEST,
@@ -175,6 +179,20 @@ public final class StuckRecovery {
         return builder.level() instanceof ServerLevel level ? findSpot(level, goal, true) : null;
     }
 
+    private void traceStuck(ServerLevel level, BlockPos from) {
+        Path path = builder.getNavigation().getPath();
+        List<String> nodes = new ArrayList<>();
+        if (path != null) {
+            for (int i = path.getNextNodeIndex(); i < Math.min(path.getNodeCount(), path.getNextNodeIndex() + TRACE_NODES); i++) {
+                Node node = path.getNode(i);
+                nodes.add(node.asBlockPos().toShortString() + " " + node.type + " in " + level.getBlockState(node.asBlockPos()));
+            }
+        }
+        Constants.trace("[reach] {}.{} stuck at {} ({}) in {} on {}; next path nodes: {}", builder.getOwnerName(), builder.getJourneymanName(),
+                from.toShortString(), String.format(Locale.ROOT, "%.2f, %.2f, %.2f", builder.getX(), builder.getY(), builder.getZ()),
+                level.getBlockState(from), level.getBlockState(from.below()), nodes.isEmpty() ? "none" : String.join("; ", nodes));
+    }
+
     @Nullable
     String escape(Goal goal, boolean manual) {
         ServerLevel level = (ServerLevel) builder.level();
@@ -190,6 +208,9 @@ public final class StuckRecovery {
                         builder.getJourneymanName(), from.toShortString(), goal.description());
             }
             return problem;
+        }
+        if (!manual && goal.kind() != Kind.ASIDE) {
+            traceStuck(level, from);
         }
         teleport(level, to);
         resetTimer();

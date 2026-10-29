@@ -1,0 +1,25 @@
+forceload add 8064 4864 8127 4927
+kill @e[type=journeymen:foreman]
+kill @e[type=journeymen:builder]
+ticks 40
+fill 8064 99 4864 8127 99 4927 minecraft:smooth_stone
+fill 8064 100 4864 8127 106 4927 minecraft:air
+kill @e[type=item]
+# a block whose sides rise above a step only on some sides is still walked through: the only way to the far half of a room is a 2-high gap with a ladder on one side of it; with getting unstuck off, the builder walks through it and places the stone from the far side (an open barrel, walled on all four sides, is covered by test_tfc_barrel)
+journeymen debug config stuck_teleport_seconds 0
+waitlog \[debug config\] stuck_teleport_seconds = 0
+fill 8065 100 4866 8097 102 4888 minecraft:smooth_stone
+fill 8066 100 4867 8096 102 4887 minecraft:air
+fill 8081 100 4867 8081 102 4887 minecraft:smooth_stone
+fill 8081 100 4869 8081 101 4869 minecraft:air
+setblock 8081 100 4869 minecraft:ladder[facing=south]
+setblock 8068 100 4868 minecraft:chest[facing=south]{Items:[{Slot:0b,id:"minecraft:stone",count:1}]}
+journeymen debug as Steve 2 8092 100 4877 journeymen foreman summon LadderBoss
+journeymen debug as Steve 2 8071 100 4869 journeymen builder summon LadderBoss Rung
+journeymen debug as Steve 0 8092 100 4877 journeymen foreman chest LadderBoss add 8068 100 4868 supply
+mark
+journeymen debug as Steve 0 8092 100 4877 journeymen foreman build LadderBoss test_st_one.schem 8092 100 4869 none corner
+waitlog 20 \[Steve\.LadderBoss\] I finished building test_st_one\.schem !! can't start this job|\] I'm missing |\] I need |isn't allowed to build|Exception|Stuck for
+waitfor 5 nosprint execute if block 8092 100 4869 minecraft:stone =~ passed
+waitfor 5 nosprint execute if entity @e[type=journeymen:builder,name=Rung,x=8082,y=99,z=4867,dx=14,dy=4,dz=20] =~ passed
+journeymen config reload

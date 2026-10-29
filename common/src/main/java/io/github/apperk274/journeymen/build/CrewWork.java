@@ -25,6 +25,15 @@ public final class CrewWork {
     private final Set<UUID> starving = new HashSet<>();
     private final Map<BlockPos, Long> unreachable = new HashMap<>();
     private int stockVersion;
+    private long noSourcesUntil;
+
+    public boolean checkSources(long now, long recheckTicks) {
+        if (now < noSourcesUntil) {
+            return false;
+        }
+        noSourcesUntil = now + recheckTicks;
+        return true;
+    }
 
     public void stockChanged() {
         stockVersion++;
@@ -43,6 +52,7 @@ public final class CrewWork {
         this.clearing = clearing;
         this.placing = null;
         this.clearingDone = false;
+        noSourcesUntil = 0;
         claims.clear();
         reservations.clear();
     }
@@ -77,6 +87,7 @@ public final class CrewWork {
         this.placing = placing;
         this.clearing = null;
         this.clearingDone = true;
+        noSourcesUntil = 0;
         claims.clear();
         reservations.clear();
     }

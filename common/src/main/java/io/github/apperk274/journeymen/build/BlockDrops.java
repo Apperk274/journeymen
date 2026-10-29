@@ -2,17 +2,21 @@ package io.github.apperk274.journeymen.build;
 
 import io.github.apperk274.journeymen.platform.Services;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -62,6 +66,41 @@ public final class BlockDrops {
             return null;
         }
         return made.from();
+    }
+
+    public static boolean dropsAnyOf(ServerLevel level, BlockPos pos, BlockState state, List<ItemStack> tools, ItemCounter wanted) {
+        if (wanted.isEmpty() || state.getDestroySpeed(level, pos) < 0.0F) {
+            return false;
+        }
+        boolean needsTool = ToolChoice.needsTool(state, level, pos);
+        List<ItemStack> candidates = new ArrayList<>();
+        if (!needsTool) {
+            candidates.add(ItemStack.EMPTY);
+        }
+        for (ItemStack tool : tools) {
+            if (tool.isEmpty() || needsTool && !tool.isCorrectToolForDrops(state)) {
+                continue;
+            }
+            if (candidates.stream().noneMatch(seen -> seen.getItem() == tool.getItem()
+                    && Objects.equals(seen.get(DataComponents.ENCHANTMENTS), tool.get(DataComponents.ENCHANTMENTS)))) {
+                candidates.add(tool);
+            }
+        }
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        for (ItemStack tool : candidates) {
+            List<ItemStack> drops;
+            try {
+                drops = Block.getDrops(state, level, pos, blockEntity, null, tool);
+            } catch (RuntimeException e) {
+                continue;
+            }
+            for (ItemStack drop : drops) {
+                if (wanted.count(drop) > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static Optional<Made> findMade(Block target) {

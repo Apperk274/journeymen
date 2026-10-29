@@ -2,6 +2,7 @@ package io.github.apperk274.journeymen.entity;
 
 import io.github.apperk274.journeymen.Constants;
 import io.github.apperk274.journeymen.build.AssignedChest;
+import io.github.apperk274.journeymen.build.BlockDrops;
 import io.github.apperk274.journeymen.build.BlockRequirements;
 import io.github.apperk274.journeymen.build.BuildJob;
 import io.github.apperk274.journeymen.build.BuildPlan;
@@ -1660,7 +1661,7 @@ public class BuilderEntity extends JourneymanEntity {
             }
             case NEEDS_TOOL -> startFetch(placing.getNeededTool(), placing.getNeededToolDescription());
             case NEEDS_ROOM -> makeRoom(new ItemCounter());
-            case MISSING -> pauseForMaterials();
+            case MISSING -> materialsShort(placing.getNeededItems(), placing::skipMissing);
             case IDLE -> waitForCrew(true);
             case WAITING -> {
                 int reportTicks = JourneymenConfig.WAIT_REPORT_SECONDS.get() * 20;
@@ -1733,10 +1734,8 @@ public class BuilderEntity extends JourneymanEntity {
                 if (inInventory.count(stack) + fetchable.count(stack) + held.count(stack) >= stack.getCount()) {
                     placing.releaseClaims();
                     waitForCrew(true);
-                } else if (job.getOptions().skipMissing()) {
-                    placing.skipCurrent();
                 } else {
-                    pauseForMaterials();
+                    materialsShort(immediate, placing::skipCurrent);
                 }
                 return;
             }
@@ -1840,11 +1839,7 @@ public class BuilderEntity extends JourneymanEntity {
         if (immediate != null) {
             for (ItemStack stack : immediate) {
                 if (inSupply.count(stack) < stack.getCount()) {
-                    if (job.getOptions().skipMissing()) {
-                        placing.skipCurrent();
-                    } else {
-                        pauseForMaterials();
-                    }
+                    materialsShort(immediate, placing::skipCurrent);
                     return;
                 }
             }
@@ -1886,16 +1881,14 @@ public class BuilderEntity extends JourneymanEntity {
             }
         }
         if (wanted.isEmpty()) {
-            if (immediate != null && job.getOptions().skipMissing()) {
-                placing.skipCurrent();
-            } else if (immediate != null) {
-                pauseForMaterials();
+            if (immediate != null) {
+                materialsShort(immediate, placing::skipCurrent);
             }
             return;
         }
         boolean queued = queueFetches(wanted);
         if (!queued && !job.getOptions().skipMissing()) {
-            pauseForMaterials();
+            materialsShort(immediate, null);
         }
     }
 
@@ -2017,19 +2010,112 @@ public class BuilderEntity extends JourneymanEntity {
         }
     }
 
-    private void pauseForMaterials() {
+    private void materialsShort(@Nullable List<ItemStack> items, @Nullable Runnable skip) {
+        if (clearSourcesFirst(items)) {
+            return;
+        }
+        if (skip != null && job.getOptions().skipMissing()) {
+            skip.run();
+        } else {
+            pauseForMaterials();
+        }
+    }
+
+    private boolean clearSourcesFirst(@Nullable List<ItemStack> items) {
+        if (job == null || job.getSchematic() == null || placing == null) {
+            return false;
+        }
+        CrewWork shared = job.getCrewWork();
+        PlacingWork current = placing.getWork();
+        if (shared.getPlacing() != current) {
+            return true;
+        }
+        ServerLevel level = jobLevel();
+        if (!shared.checkSources(level.getGameTime(), PAUSE_RETRY_TICKS) || !BuildPlan.isLoaded(level, job.getArea())) {
+            return false;
+        }
+        BuildPlan plan = BuildPlan.create(level, job.getSchematic(), job.transform(), job.getOptions());
+        int limit = JourneymenConfig.REDO_LIMIT.get();
+        List<BlockPos> clearable = plan.getToClear().stream()
+                .filter(pos -> job.getRedoCounts().getOrDefault(pos, 0) < limit && !job.getSkippedPositions().contains(pos)).toList();
+        if (clearable.isEmpty()) {
+            return false;
+        }
+        ItemCounter wanted = materialShortfall();
+        if (items != null) {
+            items.stream().filter(stack -> wanted.count(stack) == 0).forEach(stack -> wanted.add(stack, stack.getCount()));
+        }
+        List<ItemStack> tools = new ArrayList<>();
+        inventory.getItems().stream().filter(BuilderEntity::isTool).forEach(tools::add);
+        tools.addAll(toolsElsewhere());
+        tools.removeIf(stack -> ToolCheck.usableDurability(stack, job.getOptions().allowBreakingEnchanted()) < 1);
+        Map<BlockState, Boolean> drops = new HashMap<>();
+        boolean dropsWanted = false;
+        for (BlockPos pos : clearable) {
+            dropsWanted |= drops.computeIfAbsent(level.getBlockState(pos), state -> BlockDrops.dropsAnyOf(level, pos, state, tools, wanted));
+        }
+        if (!dropsWanted) {
+            return false;
+        }
+        job.getSkippedPositions().addAll(current.getSkipped());
+        job.setPlan(plan);
+        Set<BlockPos> pending = current.pendingPositions();
+        Set<BlockPos> inTheWay = new HashSet<>(plan.getToClear());
+        Set<BlockPos> toClear = new LinkedHashSet<>();
+        for (BlockPos pos : plan.getToClear()) {
+            if (countRedo(pos)) {
+                toClear.add(pos);
+            }
+        }
+        List<BuildPlan.Placement> undone = new ArrayList<>(plan.getToPlace());
+        undone.addAll(plan.getToFix());
+        undone.addAll(plan.getToWaterlog());
+        undone.addAll(plan.getToDrain());
+        for (BuildPlan.Placement placement : undone) {
+            BlockPos pos = placement.pos();
+            if (!pending.contains(pos) && !inTheWay.contains(pos) && !job.getSkippedPositions().contains(pos)
+                    && !PlacingWork.placedWithOtherPart(placement.target())) {
+                countRedo(pos);
+            }
+        }
+        Constants.trace("[reclear] {}.{} clears {} blocks first: they drop {} the stock lacks", getOwnerName(), getJourneymanName(),
+                toClear.size(), describeCounts(wanted));
+        placing.stop();
+        placing = null;
+        shared.setClearing(new ClearingWork(level, List.copyOf(toClear), List.of(), plan.targetsByPosition(), toolUses(plan)));
+        clearing = new ClearingTask(this, job, shared.getClearing());
+        if (work.getPhase() == BuildJob.Phase.PLACING) {
+            work.setPhase(BuildJob.Phase.CLEARING);
+        }
+        return true;
+    }
+
+    private ItemCounter materialShortfall() {
         ItemCounter available = new ItemCounter();
         List<Component> ignored = new ArrayList<>();
         ForemanEntity foreman = foreman();
         (foreman != null ? Crew.stock(level(), reachableChests(), Crew.loaded(getServer(), job), ignored) : collectStock(ignored))
                 .forEach(stack -> available.add(stack, stack.getCount()));
         dumpStock().entries().forEach(entry -> available.add(entry.getKey(), entry.getValue()));
+        ItemCounter shortfall = new ItemCounter();
+        for (Map.Entry<ItemStack, Long> entry : placing.remainingNeeds().entries()) {
+            shortfall.add(entry.getKey(), entry.getValue() - available.count(entry.getKey()));
+        }
+        return shortfall;
+    }
+
+    private static String describeCounts(ItemCounter items) {
+        List<String> kinds = new ArrayList<>();
+        for (Map.Entry<ItemStack, Long> entry : items.sorted()) {
+            kinds.add(entry.getValue() + " " + ItemMatch.name(entry.getKey()).getString());
+        }
+        return String.join(", ", kinds);
+    }
+
+    private void pauseForMaterials() {
         List<String> missing = new ArrayList<>();
-        for (Map.Entry<ItemStack, Long> entry : placing.remainingNeeds().sorted()) {
-            long shortfall = entry.getValue() - available.count(entry.getKey());
-            if (shortfall > 0) {
-                missing.add(shortfall + " " + ItemMatch.name(entry.getKey()).getString());
-            }
+        for (Map.Entry<ItemStack, Long> entry : materialShortfall().sorted()) {
+            missing.add(entry.getValue() + " " + ItemMatch.name(entry.getKey()).getString());
         }
         if (missing.isEmpty()) {
             missing.add("some materials");

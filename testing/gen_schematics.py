@@ -321,6 +321,10 @@ def inv_paths():
     return blocks
 
 
+def reclear(kind):
+    return {(x, 0, 0): state(kind) for x in range(16)}
+
+
 def write_all(out):
     write_sponge_v3(os.path.join(out, "test_solid.schem"), (26, 4, 26), checker(26, 4, 26))
     write_sponge_v3(os.path.join(out, "test_fill.schem"), (52, 1, 52), checker(52, 1, 52))
@@ -380,6 +384,8 @@ def write_all(out):
     write_sponge_v3(os.path.join(out, "test_big_dig.schem"), (200, 10, 200), {})
     write_sponge_v3(os.path.join(out, "test_inv_paths.schem"), (10, 4, 5), inv_paths())
     write_sponge_v3(os.path.join(out, "test_inv_pots.schem"), (4, 1, 1), {(x, 0, 0): state("potted_dandelion") for x in range(4)})
+    for kind in ("oak_planks", "cobblestone", "stone"):
+        write_sponge_v3(os.path.join(out, "test_reclear_" + kind + ".schem"), (16, 1, 2), reclear(kind))
     if "run-tfc" in out.replace("\\", "/"):
         write_sponge_v3(os.path.join(out, "test_tfc_shelf.schem"), (3, 3, 3), tfc_shelf())
         write_sponge_v3(os.path.join(out, "test_tfc_made.schem"), (7, 2, 3),

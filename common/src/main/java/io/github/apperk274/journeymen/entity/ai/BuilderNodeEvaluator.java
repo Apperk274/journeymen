@@ -37,6 +37,9 @@ public class BuilderNodeEvaluator extends WalkNodeEvaluator {
             return PathType.BLOCKED;
         }
         PathType type = super.getPathType(context, x, y, z);
+        if ((type == PathType.OPEN || type == PathType.WALKABLE) && walledIn(context.level(), pos, state)) {
+            return PathType.BLOCKED;
+        }
         if (type == PathType.OPEN) {
             BlockPos below = pos.below();
             if (partialHeight(context.level(), below, context.getBlockState(below)) > step()) {
@@ -83,6 +86,36 @@ public class BuilderNodeEvaluator extends WalkNodeEvaluator {
             }
         }
         return top;
+    }
+
+    private boolean walledIn(BlockGetter level, BlockPos pos, BlockState state) {
+        if (state.isAir() || !state.isPathfindable(PathComputationType.LAND)) {
+            return false;
+        }
+        VoxelShape shape = state.getCollisionShape(level, pos);
+        if (shape.isEmpty()) {
+            return false;
+        }
+        double half = (mob != null ? mob.getBbWidth() : DEFAULT_WIDTH) / 2.0;
+        double min = 0.5 - half;
+        double max = 0.5 + half;
+        double rim = partialHeight(level, pos, state) + step();
+        boolean west = false;
+        boolean east = false;
+        boolean north = false;
+        boolean south = false;
+        for (AABB box : shape.toAabbs()) {
+            if (box.maxY <= rim) {
+                continue;
+            }
+            boolean acrossX = box.maxZ > min && box.minZ < max;
+            boolean acrossZ = box.maxX > min && box.minX < max;
+            west |= acrossX && box.minX < min;
+            east |= acrossX && box.maxX > max;
+            north |= acrossZ && box.minZ < min;
+            south |= acrossZ && box.maxZ > max;
+        }
+        return west && east && north && south;
     }
 
     private float step() {

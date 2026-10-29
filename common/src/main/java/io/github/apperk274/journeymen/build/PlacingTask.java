@@ -116,6 +116,10 @@ public final class PlacingTask {
     @Nullable
     private List<ItemStack> neededItems;
     @Nullable
+    private Entry missingEntry;
+    @Nullable
+    private TreeMap<Integer, List<Entry>> missingGroup;
+    @Nullable
     private Predicate<ItemStack> neededTool;
     @Nullable
     private String neededToolDescription;
@@ -156,6 +160,8 @@ public final class PlacingTask {
         if (current == null) {
             reach.reset();
             idleStatus = null;
+            missingEntry = null;
+            missingGroup = null;
             current = pickNext();
             if (current == null) {
                 builder.showInHand(ItemStack.EMPTY);
@@ -799,6 +805,15 @@ public final class PlacingTask {
         }
     }
 
+    public void skipMissing() {
+        if (missingEntry != null && missingGroup != null) {
+            work.skipped.add(missingEntry.pos());
+            PlacingWork.remove(missingGroup, missingEntry);
+        }
+        missingEntry = null;
+        missingGroup = null;
+    }
+
     private Status putBack() {
         if (current != null && !batch.contains(current)) {
             job.getCrewWork().unclaim(current.pos(), builder.getUUID());
@@ -1029,14 +1044,10 @@ public final class PlacingTask {
         }
         if (suppliable.isEmpty()) {
             if (missing != null) {
-                if (job.getOptions().skipMissing()) {
-                    work.skipped.add(missing.pos());
-                    PlacingWork.remove(group, missing);
-                    idleStatus = Status.WORKING;
-                } else {
-                    neededItems = itemsFor(missing);
-                    idleStatus = Status.MISSING;
-                }
+                neededItems = itemsFor(missing);
+                missingEntry = missing;
+                missingGroup = group;
+                idleStatus = Status.MISSING;
             } else {
                 crew.setStarving(me, true);
             }

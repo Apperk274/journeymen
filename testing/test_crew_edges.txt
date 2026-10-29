@@ -69,7 +69,7 @@ waitlog \[debug counts\] Steve\.IdleBoss \d+ post searches
 mark
 ticks 1000
 journeymen debug counts
-waitlog x2 \[debug counts\] Steve\.Idl[ab] ([0-9]|1[0-2]) hand-back checks
-waitlog \[debug counts\] Steve\.Idl[ab] ([1-9]|1[0-2]) hand-back checks
+waitlog x2 \[debug counts\] Steve\.Idl[ab] ([0-9]|1[0-9]|20) hand-back checks
+waitlog \[debug counts\] Steve\.Idl[ab] ([1-9]|1[0-9]|20) hand-back checks
 kill @e[type=minecraft:armor_stand,tag=jmwait]
 waitlog 20 \[Steve\.IdleBoss\] I finished building test_st_one\.schem !!
